@@ -838,6 +838,12 @@ button[data-legacy-back="1"]{display:none !important;}
 .cardBack{
   transform: rotateY(180deg);
   justify-content: flex-start;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding-right: 2px;
+  scrollbar-width: thin;
 }
 
 

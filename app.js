@@ -33,6 +33,7 @@ const viewSetMenu = document.getElementById("viewSetMenu");
   const setWordsList = document.getElementById("setWordsList");
 // Study
   const card = document.getElementById("card");
+  const cardBackEl = card ? card.querySelector(".cardBack") : null;
   const wordEl = document.getElementById("word");
   const transEl = document.getElementById("trans");
   const exampleBox = document.getElementById("exampleBox");
@@ -1335,6 +1336,7 @@ function resetFlipInstant() {
 function renderStudyCard() {
     
   resetFlipInstant();
+  if (cardBackEl) cardBackEl.scrollTop = 0;
 setRoundIfNeeded();
     const q = currentQueue();
 
@@ -1479,6 +1481,7 @@ setRoundIfNeeded();
 
   card.addEventListener("touchstart", (e) => {
     if (!e.touches?.[0] || isAnimating) return;
+    if (card.classList.contains("flipped") && e.target && e.target.closest && e.target.closest(".cardBack")) return;
     dragging = true;
     startX = e.touches[0].clientX;
     startY = e.touches[0].clientY;
