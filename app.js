@@ -167,29 +167,8 @@ const viewSetMenu = document.getElementById("viewSetMenu");
 
   // ---------- Cache
   const CACHE_KEY = window.WORDS_CACHE_KEY || "fc_words_cache_v18";
-  const WORDS_DATA_VERSION = String(window.WORDS_DATA_VERSION || CACHE_KEY || "v1");
-  const WORDS_DATA_VERSION_KEY = "fc_words_data_version";
   function loadCache() { try { return JSON.parse(localStorage.getItem(CACHE_KEY) || "null"); } catch { return null; } }
   function saveCache(data) { try { localStorage.setItem(CACHE_KEY, JSON.stringify(data)); } catch {} }
-  function clearWordsCache() {
-    try {
-      for (let i = localStorage.length - 1; i >= 0; i--) {
-        const key = localStorage.key(i);
-        if (!key) continue;
-        if (key.startsWith("fc_words_cache_")) localStorage.removeItem(key);
-      }
-      localStorage.removeItem(CACHE_KEY);
-    } catch {}
-  }
-  function syncWordsCacheVersion() {
-    try {
-      const savedVersion = String(localStorage.getItem(WORDS_DATA_VERSION_KEY) || "");
-      if (savedVersion !== WORDS_DATA_VERSION) {
-        clearWordsCache();
-        localStorage.setItem(WORDS_DATA_VERSION_KEY, WORDS_DATA_VERSION);
-      }
-    } catch {}
-  }
 
   // ---------- Sheets URL -> CSV
   function normalizeToCsvUrl(url) {
@@ -203,7 +182,6 @@ const viewSetMenu = document.getElementById("viewSetMenu");
   }
 
   async function loadWords() {
-    syncWordsCacheVersion();
     const cached = loadCache();
     if (Array.isArray(cached) && cached.length) return cached.map(normalizeWordEntry).filter(Boolean);
 
