@@ -3,7 +3,7 @@ window.WORDS_SHEET_URL = "https://docs.google.com/spreadsheets/d/1X2tc9THUxj0bZO
 
 // Версия кеша: измени число чтобы принудительно обновить данные из таблицы.
 // Например: v13 → v14 — у всех пользователей данные загрузятся заново.
-window.WORDS_CACHE_KEY = "fc_words_cache_v25";
+window.WORDS_CACHE_KEY = "fc_words_cache_v26";
 
 // (Необязательно) Человеческие названия папок.
 window.FOLDER_TITLES = {
