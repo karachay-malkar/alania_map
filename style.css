@@ -838,6 +838,27 @@ button[data-legacy-back="1"]{display:none !important;}
 .cardBack{
   transform: rotateY(180deg);
   justify-content: flex-start;
+  overflow: hidden;
+}
+
+.backTitle{
+  flex: 0 0 auto;
+  text-align: center;
+  font-weight: var(--fw-semibold);
+  font-size: var(--fs-22px);
+  margin-top: 8px;
+  margin-bottom: 10px;
+}
+
+.cardScrollZone{
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding: 0 2px 4px;
+  scrollbar-width: thin;
 }
 
 

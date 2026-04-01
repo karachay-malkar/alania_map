@@ -34,8 +34,10 @@ const viewSetMenu = document.getElementById("viewSetMenu");
 // Study
   const card = document.getElementById("card");
   const wordEl = document.getElementById("word");
+  const backTitleEl = document.getElementById("backTitle");
   const transEl = document.getElementById("trans");
   const exampleBox = document.getElementById("exampleBox");
+  const cardScrollZone = document.getElementById("cardScrollZone");
   const btnYes = document.getElementById("btnYes");
   const btnNo = document.getElementById("btnNo");
   const btnUndo = document.getElementById("btnUndo");
@@ -165,8 +167,29 @@ const viewSetMenu = document.getElementById("viewSetMenu");
 
   // ---------- Cache
   const CACHE_KEY = window.WORDS_CACHE_KEY || "fc_words_cache_v18";
+  const WORDS_DATA_VERSION = String(window.WORDS_DATA_VERSION || CACHE_KEY || "v1");
+  const WORDS_DATA_VERSION_KEY = "fc_words_data_version";
   function loadCache() { try { return JSON.parse(localStorage.getItem(CACHE_KEY) || "null"); } catch { return null; } }
   function saveCache(data) { try { localStorage.setItem(CACHE_KEY, JSON.stringify(data)); } catch {} }
+  function clearWordsCache() {
+    try {
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const key = localStorage.key(i);
+        if (!key) continue;
+        if (key.startsWith("fc_words_cache_")) localStorage.removeItem(key);
+      }
+      localStorage.removeItem(CACHE_KEY);
+    } catch {}
+  }
+  function syncWordsCacheVersion() {
+    try {
+      const savedVersion = String(localStorage.getItem(WORDS_DATA_VERSION_KEY) || "");
+      if (savedVersion !== WORDS_DATA_VERSION) {
+        clearWordsCache();
+        localStorage.setItem(WORDS_DATA_VERSION_KEY, WORDS_DATA_VERSION);
+      }
+    } catch {}
+  }
 
   // ---------- Sheets URL -> CSV
   function normalizeToCsvUrl(url) {
@@ -180,6 +203,7 @@ const viewSetMenu = document.getElementById("viewSetMenu");
   }
 
   async function loadWords() {
+    syncWordsCacheVersion();
     const cached = loadCache();
     if (Array.isArray(cached) && cached.length) return cached.map(normalizeWordEntry).filter(Boolean);
 
@@ -1335,6 +1359,7 @@ function resetFlipInstant() {
 function renderStudyCard() {
     
   resetFlipInstant();
+  if (cardScrollZone) cardScrollZone.scrollTop = 0;
 setRoundIfNeeded();
     const q = currentQueue();
 
@@ -1377,6 +1402,7 @@ return;
     } else {
       wordEl.textContent = front;
     }
+    if (backTitleEl) backTitleEl.textContent = item.word || "";
     // Back rendering depends on mode
     if(currentStudyMode === "ru"){
       // RU → ALAN: pills count from Russian variants
@@ -1392,6 +1418,7 @@ return;
 
   // Tap: flip (front/back)
   card.addEventListener("click", (e) => {
+    if (e.target && e.target.closest && e.target.closest(".cardScrollZone")) return;
     if (e.target && e.target.closest && (e.target.closest("#btnUndo") || e.target.closest("#btnFavAction"))) return;
     card.classList.toggle("flipped");
   });
@@ -1479,6 +1506,7 @@ setRoundIfNeeded();
 
   card.addEventListener("touchstart", (e) => {
     if (!e.touches?.[0] || isAnimating) return;
+    if (e.target && e.target.closest && e.target.closest(".cardScrollZone")) return;
     dragging = true;
     startX = e.touches[0].clientX;
     startY = e.touches[0].clientY;
