@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Alan til</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="top">
+    <div class="titleWrap">
+    <div class="brand">
+  <img src="logo.png" class="brandIcon" alt="Алан Тил">
+</div>
+        <button id="btnBackArrow" class="backArrow" aria-label="Назад" title="Назад">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"></path>
+          </svg>
+        </button>
+    </div>
+    <div class="meta">
+      <span id="counter"></span>
+      <span id="mode"></span>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <!-- УРОВЕНЬ 1: СЛОВАРИ -->
+    <section id="viewDicts" class="view screen">
+      <div class="panel" data-unified-panel="1">
+        <div class="panelTitle">Алан тил</div>
+
+        <div class="row">
+          <button id="btnGlobalTest" class="btn primary">🧠 Проверь свой уровень!</button>
+        </div>
+
+        <div class="row">
+          <button id="btnMatchWords" class="btn primary">🔗 Сопоставь слова</button>
+        </div>
+
+        <div class="row">
+          <button id="btnOpenLearnMenu" class="btn primary">📚 Учить слова</button>
+        </div>
+      </div>
+    </section>
+
+    
+    <!-- НОВЫЙ ЭКРАН: УЧИТЬ СЛОВА -->
+    <section id="viewLearnMenu" class="view hidden screen">
+      <div class="panel" data-unified-panel="1">
+        <div class="panelTitle">Учить слова</div>
+        <div id="dictsList" class="stack"></div>
+        <div class="smallNote"></div>
+      </div>
+    </section>
+
+    <!-- УРОВЕНЬ 2: РАЗДЕЛЫ -->
+    <section id="viewSections" class="view hidden screen">
+      <div class="panel" data-unified-panel="1">
+        <div class="panel-header">
+          <div class="panelTitle" id="sectionsTitle">Разделы</div>
+          <button id="btnOpenDictContent" class="iconBtn" aria-label="Содержание словаря" title="Содержание словаря">
+            <img src="words_search.svg" alt="">
+          </button>
+        </div>
+        <div class="panel-body">
+          <div id="sectionsList" class="stack"></div>
+          <div class="row">
+            <button id="btnBackToDicts" class="btn ghost" data-legacy-back="1">← Словари</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- СОДЕРЖАНИЕ СЛОВАРЯ (СПРАВОЧНИК) -->
+    <section id="viewDictContent" class="view hidden screen">
+      <div class="panel" data-unified-panel="1">
+        <div class="panel-header">
+          <div class="panelTitle">Содержание словаря</div>
+          <input
+            id="dictSearchInput"
+            class="searchInput"
+            type="text"
+            placeholder="Поиск..."
+          />
+        </div>
+
+        <div class="panel-body">
+          <div id="dictContentList" class="stack"></div>
+        </div>
+      </div>
+    </section>
+
+<!-- МЕНЮ СЕТА -->
+    <section id="viewSetMenu" class="view hidden screen">
+      <div class="panel" data-unified-panel="1">
+        <div class="panelTitle" id="setMenuTitle">Сет</div>
+        <div class="hintText" id="setMenuInfo">—</div>
+
+        <div class="row">
+          <button id="btnModeKb" class="btn primary">АЛАН → РУС</button>
+          <button id="btnModeRu" class="btn primary">РУС → АЛАН</button>
+        </div>
+
+        <div class="row">
+          <button id="btnSetShowAll" class="btn">Показать все</button>
+          <button id="btnSetHideAll" class="btn">Скрыть все</button>
+        </div>
+
+        <div id="setWordsList" class="list"></div>
+</div>
+    </section>
+
+    <!-- МЕНЮ ГЛОБАЛЬНОГО ТЕСТА -->
+    <section id="viewGlobalTestMenu" class="view hidden screen">
+      <div class="panel" data-unified-panel="1">
+        <div class="panelTitle">Проверь свои знания!</div>
+        <div class="hintText" id="globalTestInfo">—</div>
+
+        
+        <div class="testScopeTitle">Словари и разделы</div>
+        <div id="testScopeBody" class="testScope">
+          <div id="testScopeList" class="testScopeList"></div>
+        </div>
+
+        <div class="testLimitRow">
+          <div class="testLimitTitle">Количество слов</div>
+          <div class="testLimitRadios">
+          <label class="radioOpt"><input type="radio" name="testLimit" value="20"> <span>20</span></label>
+          <label class="radioOpt"><input type="radio" name="testLimit" value="40" checked> <span>40</span></label>
+          <label class="radioOpt"><input type="radio" name="testLimit" value="80"> <span>80</span></label>
+          </div>
+        </div>
+<div class="row">
+          <button id="btnGlobalModeKb" class="btn primary">АЛАН → РУС</button>
+          <button id="btnGlobalModeRu" class="btn primary">РУС → АЛАН</button>
+        </div>
+
+      </div>
+    </section>
+
+
+    <!-- МЕНЮ ИГРЫ: СОПОСТАВЬ СЛОВА -->
+    <section id="viewMatchMenu" class="view hidden screen">
+      <div class="panel" data-unified-panel="1">
+        <div class="panelTitle">🔗 Сопоставь слова</div>
+        <div class="hintText" id="matchInfo">—</div>
+
+        <div class="testScopeTitle">Словари и разделы</div>
+        <div id="matchScopeBody" class="testScope">
+          <div id="matchScopeList" class="testScopeList"></div>
+        </div>
+
+        <div class="testLimitRow">
+          <div class="testLimitTitle">Количество слов</div>
+          <div class="testLimitRadios">
+            <label class="radioOpt"><input type="radio" name="matchLimit" value="20"> <span>20</span></label>
+            <label class="radioOpt"><input type="radio" name="matchLimit" value="40" checked> <span>40</span></label>
+            <label class="radioOpt"><input type="radio" name="matchLimit" value="80"> <span>80</span></label>
+          </div>
+        </div>
+
+        <div class="row">
+          <button id="btnMatchStart" class="btn primary">Начать игру</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ИГРА: СОПОСТАВЬ СЛОВА -->
+    <section id="viewMatchGame" class="view hidden screen">
+      <div class="panel" data-unified-panel="1">
+        <div class="panelTitle">🔗 Сопоставь слова</div>
+        <div class="hintText" id="matchProgress">—</div>
+        <div class="matchColumns">
+          <div id="matchColLeft" class="matchCol"></div>
+          <div id="matchColRight" class="matchCol"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- РЕЗУЛЬТАТ ИГРЫ -->
+    <section id="viewMatchResult" class="view hidden screen">
+      <div class="panel analyticsPanel" data-unified-panel="1">
+        <div class="analyticsHeader">
+          <div class="panelTitle">Результат игры</div>
+        </div>
+        <div id="matchResultList" class="list"></div>
+      </div>
+    </section>
+
+
+    <!-- ТЕСТ -->
+    <section id="viewTest" class="view hidden screen">
+      <div class="panel" id="testPanel" data-unified-panel="1">
+        <div class="analyticsHeader" id="testHeader">
+          <div class="panelTitle" id="testTitle">Тест</div>
+          <div class="hintText" id="testProgress">—</div>
+        </div>
+
+        <div class="testQuestion" id="testQuestion">—</div>
+        <div id="testOptions" class="stack" style="margin-top:12px;"></div>
+
+        <div class="row">
+          <button id="btnTestNext" class="btn primary hidden" disabled>Дальше</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- СЕССИЯ -->
+    <section id="viewStudy" class="view hidden study">
+      <div id="card" class="card big" aria-label="Карточка">
+        <div class="cardInner">
+          <!-- FRONT -->
+          <div class="cardFace cardFront">
+            <div class="word" id="word">слово</div>
+            <div class="hint">Нажми на карточку, чтобы увидеть перевод</div>
+          </div>
+
+          <!-- BACK -->
+          <div class="cardFace cardBack">
+            <div class="trans" id="trans">перевод</div>
+            <div id="exampleBox" class="example"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="buttons">
+        <button id="btnNo" class="btn secondary">❌ Не знаю</button>
+        <button id="btnYes" class="btn primary">✅ Знаю</button>
+      </div>
+
+      <div class="buttons subActions">
+        <button id="btnUndo" class="btn neutral" type="button" aria-label="Назад">
+          <span class="btnIcon">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M12 5V2L7 7l5 5V9c3.31 0 6 2.69 6 6a6 6 0 0 1-6 6H6v2h6a8 8 0 0 0 0-16z"></path>
+            </svg>
+          </span>
+          <span class="btnLabel">Назад</span>
+        </button>
+        <button id="btnFavAction" class="btn neutral favAction" type="button" aria-label="Отметить слово">
+          <span class="btnIcon">
+            <svg class="starSvg" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M12 17.27 18.18 21 16.54 13.97 22 9.24l-7.19-.62L12 2 9.19 8.62 2 9.24l5.46 4.73L5.82 21z"></path>
+            </svg>
+          </span>
+          <span class="btnLabel" id="favActionLabel">Отметить слово</span>
+        </button>
+      </div>
+
+      <div class="footer">
+        <button id="btnBackToSetMenu" class="btn ghost" data-legacy-back="1">К меню сета</button>
+      </div>
+    </section>
+  
+    <!-- АНАЛИТИКА СЕССИИ -->
+    <section id="viewSessionAnalytics" class="view hidden screen">
+      <div class="panel" data-unified-panel="1">
+        <div class="panelTitle">Аналитика сессии</div>
+        <div id="analyticsList" class="list"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <div id="exitSessionModal" class="exitModal hidden" role="dialog" aria-modal="true" aria-labelledby="exitSessionTitle">
+    <div class="exitModalBackdrop" data-exit-cancel="1"></div>
+    <div class="exitModalCard">
+      <div class="exitModalText" id="exitSessionTitle">Вы точно хотите выйти?<br>Прогресс сессии будет потерян.</div>
+      <div class="exitModalActions">
+        <button id="btnExitStay" class="btn exitStay" type="button">Остаться</button>
+        <button id="btnExitConfirm" class="btn primary exitConfirm" type="button">Не болса да болсун!</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="words.js"></script>
+
+  <script src="app.js"></script>
+</body>
+</html>
