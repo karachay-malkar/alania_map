@@ -29,8 +29,7 @@ window.WORDS_FALLBACK = [
 //
 // Expected headers (minimum):
 // id, dict, section, set, word, trans, dict_order
-// Optional: synonyms
+// Optional: synonyms, used_in_test
 //
 // Example row:
 // { id: 'B101', dict: 'Основной', section: 'Быт', set: 1, dict_order: 12, word: 'окъургъа', trans: 'читать', synonyms: 'читать' }
-

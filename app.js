@@ -204,7 +204,7 @@ const viewSetMenu = document.getElementById("viewSetMenu");
     return parseCsv(text);
   }
 
-  // Expected headers: id, dict, section, set, word, trans, example, synonyms
+  // Expected headers: id, dict, section, set, word, trans, example, synonyms, used_in_test
   // Backward compatible: folder -> section, dict defaults to "Словарь"
   function parseSynonyms(raw) {
     return String(raw || "")
@@ -212,6 +212,12 @@ const viewSetMenu = document.getElementById("viewSetMenu");
       .split(",")
       .map(s => s.trim())
       .filter(Boolean);
+  }
+
+  function parseUsedInTest(rawValue, hasColumn = true) {
+    if (!hasColumn) return true;
+    const normalized = String(rawValue ?? "").trim().toLowerCase();
+    return normalized === "1" || normalized === "true";
   }
 
   function normalizeWordEntry(row) {
@@ -233,6 +239,7 @@ const viewSetMenu = document.getElementById("viewSetMenu");
       example: String(row.example || "").trim(),
       dict_order: Number(row.dict_order || 0),
       synonyms: parseSynonyms(row.synonyms),
+      usedInTest: parseUsedInTest(row.used_in_test, row.used_in_test !== undefined),
     };
 
     if (!obj.id || !obj.set || !obj.word || !obj.trans) return null;
@@ -376,6 +383,7 @@ const viewSetMenu = document.getElementById("viewSetMenu");
     const exI = idx("example");
     const posI = idx("pos");
     const synI = idx("synonyms");
+    const usedInTestI = idx("used_in_test");
 
     const dictOrderI = idx("dict_order");
     if (idI === -1 || setI === -1 || wordI === -1 || transI === -1) return [];
@@ -400,6 +408,7 @@ const viewSetMenu = document.getElementById("viewSetMenu");
         example: exI !== -1 ? cols[exI] : "",
         dict_order: dictOrderI !== -1 ? cols[dictOrderI] : 0,
         synonyms: synI !== -1 ? cols[synI] : "",
+        used_in_test: usedInTestI !== -1 ? cols[usedInTestI] : undefined,
       });
       if (!obj) continue;
       out.push(obj);
@@ -1618,13 +1627,13 @@ setRoundIfNeeded();
 
   function getSelectedScopePool() {
     const sectionCbs = [...testScopeList.querySelectorAll(".scopeSection")];
-    if (!sectionCbs.length) return DATA;
+    if (!sectionCbs.length) return DATA.filter(w => w.usedInTest !== false);
 
     const checked = sectionCbs.filter(cb => cb.checked);
     if (checked.length === 0) return [];
 
     const keys = new Set(checked.map(cb => scopeKey(cb.dataset.dict, cb.dataset.section)));
-    return DATA.filter(w => keys.has(scopeKey(w.dict, w.section || "")));
+    return DATA.filter(w => w.usedInTest !== false && keys.has(scopeKey(w.dict, w.section || "")));
   }
 
 function openGlobalTestMenu() {
@@ -1746,13 +1755,19 @@ function updateGlobalTestInfo() {
 
   function getSelectedMatchScopePool() {
     const sectionCbs = [...matchScopeList.querySelectorAll(".matchScopeSection")];
-    if (!sectionCbs.length) return DATA;
+    if (!sectionCbs.length) return DATA.filter(w => w.usedInTest !== false);
 
     const checked = sectionCbs.filter(cb => cb.checked);
     if (checked.length === 0) return [];
 
     const keys = new Set(checked.map(cb => scopeKey(cb.dataset.dict, cb.dataset.section)));
-    return DATA.filter(w => keys.has(scopeKey(w.dict, w.section || "")));
+    return DATA.filter(w => w.usedInTest !== false && keys.has(scopeKey(w.dict, w.section || "")));
+  }
+
+  function showNoWordsForMode() {
+    const msg = "Нет слов для выбранного режима. Проверьте настройки словаря.";
+    if (tg?.showAlert) tg.showAlert(msg);
+    else window.alert(msg);
   }
 
   function updateMatchInfo() {
@@ -1780,6 +1795,10 @@ function updateGlobalTestInfo() {
 
   function startMatchGame(){
     const pool = getSelectedMatchScopePool();
+    if (!pool.length) {
+      showNoWordsForMode();
+      return;
+    }
     const limit = getSelectedMatchLimit();
 
     matchItems = pool.slice();
@@ -1998,6 +2017,10 @@ function updateGlobalTestInfo() {
 
   function startTest() {
     const pool = getSelectedScopePool();
+    if (!pool.length) {
+      showNoWordsForMode();
+      return;
+    }
     const testLimit = getSelectedTestLimit();
 
     // full scope pool for answer options
