@@ -65,7 +65,10 @@ jobs:
       - name: Install PMTiles CLI
         run: |
           go install github.com/protomaps/go-pmtiles@${PMTILES_VERSION}
-          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+          GO_BIN="$(go env GOPATH)/bin"
+          test -x "$GO_BIN/go-pmtiles"
+          ln -sf "$GO_BIN/go-pmtiles" "$GO_BIN/pmtiles"
+          echo "$GO_BIN" >> "$GITHUB_PATH"
 
       - name: Build Tippecanoe from source
         run: |
@@ -118,8 +121,8 @@ jobs:
           pmtiles convert build/alan-vector-7.0.22.mbtiles build/alan-vector-7.0.22.pmtiles
           pmtiles verify build/alan-vector-7.0.22.pmtiles
           pmtiles show build/alan-vector-7.0.22.pmtiles --metadata | tee build/pmtiles-show.txt
-          grep -q '"id":"waterway"' build/pmtiles-show.txt
-          grep -q '"id":"peak"' build/pmtiles-show.txt
+          jq -e '.vector_layers | map(.id) | index("waterway") != null' build/pmtiles-show.txt
+          jq -e '.vector_layers | map(.id) | index("peak") != null' build/pmtiles-show.txt
 
       - name: Integrate generated data
         run: |
