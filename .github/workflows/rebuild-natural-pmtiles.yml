@@ -68,7 +68,7 @@ jobs:
 
       - name: Install PMTiles CLI
         run: |
-          go install github.com/protomaps/go-pmtiles/cmd/pmtiles@${PMTILES_VERSION}
+          go install github.com/protomaps/go-pmtiles@${PMTILES_VERSION}
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
       - name: Build Tippecanoe from source
