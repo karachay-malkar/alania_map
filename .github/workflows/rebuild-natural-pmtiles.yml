@@ -120,6 +120,7 @@ jobs:
       - name: Classify and validate natural features
         run: |
           python tools/build_natural_layers.py classify
+          python tools/normalize_river_report.py --require-all
           python tools/optimize_natural_layers.py
 
       - name: Package replacement vector archive
