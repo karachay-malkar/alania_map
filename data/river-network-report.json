@@ -1,0 +1,409 @@
+{
+  "generated_at": "2026-07-28T21:48:03.546700+00:00",
+  "systems": [
+    {
+      "id": "kuban",
+      "tier": 1,
+      "names": [
+        "Кубань",
+        "Kuban"
+      ],
+      "matched_length_m": 250683.3,
+      "segment_count": 17,
+      "component_count": 19,
+      "present": true
+    },
+    {
+      "id": "teberda",
+      "tier": 1,
+      "names": [
+        "Теберда",
+        "Teberda"
+      ],
+      "matched_length_m": 100848.9,
+      "segment_count": 3,
+      "component_count": 2,
+      "present": true
+    },
+    {
+      "id": "bolshoy-zelenchuk",
+      "tier": 1,
+      "names": [
+        "Большой Зеленчук",
+        "Bolshoy Zelenchuk",
+        "Большой Зеленчук река"
+      ],
+      "matched_length_m": 142044.4,
+      "segment_count": 7,
+      "component_count": 1,
+      "present": true
+    },
+    {
+      "id": "maly-zelenchuk",
+      "tier": 1,
+      "names": [
+        "Малый Зеленчук",
+        "Maly Zelenchuk"
+      ],
+      "matched_length_m": 85464.0,
+      "segment_count": 2,
+      "component_count": 1,
+      "present": true
+    },
+    {
+      "id": "terek",
+      "tier": 1,
+      "names": [
+        "Терек",
+        "Terek"
+      ],
+      "matched_length_m": 3937.0,
+      "segment_count": 1,
+      "component_count": 1,
+      "present": true
+    },
+    {
+      "id": "malka",
+      "tier": 1,
+      "names": [
+        "Малка",
+        "Malka"
+      ],
+      "matched_length_m": 219551.5,
+      "segment_count": 13,
+      "component_count": 3,
+      "present": true
+    },
+    {
+      "id": "baksan",
+      "tier": 1,
+      "names": [
+        "Баксан",
+        "Baksan"
+      ],
+      "matched_length_m": 163324.5,
+      "segment_count": 15,
+      "component_count": 5,
+      "present": true
+    },
+    {
+      "id": "chegem",
+      "tier": 1,
+      "names": [
+        "Чегем",
+        "Chegem"
+      ],
+      "matched_length_m": 107950.7,
+      "segment_count": 5,
+      "component_count": 2,
+      "present": true
+    },
+    {
+      "id": "cherek-balkarsky",
+      "tier": 1,
+      "names": [
+        "Черек Балкарский",
+        "Черек-Балкарский",
+        "Cherek Balkarsky"
+      ],
+      "matched_length_m": 94041.0,
+      "segment_count": 2,
+      "component_count": 1,
+      "present": true
+    },
+    {
+      "id": "cherek-bezengiysky",
+      "tier": 1,
+      "names": [
+        "Черек Безенгийский",
+        "Черек-Безенгийский",
+        "Cherek Bezengiysky"
+      ],
+      "matched_length_m": 65901.1,
+      "segment_count": 4,
+      "component_count": 7,
+      "present": true
+    },
+    {
+      "id": "urukh",
+      "tier": 1,
+      "names": [
+        "Урух",
+        "Urukh"
+      ],
+      "matched_length_m": 41335.3,
+      "segment_count": 1,
+      "component_count": 1,
+      "present": true
+    },
+    {
+      "id": "ullukam",
+      "tier": 2,
+      "names": [
+        "Уллукам",
+        "Уллу-Кам",
+        "Ullukam"
+      ],
+      "matched_length_m": 0,
+      "segment_count": 0,
+      "component_count": 0,
+      "present": false
+    },
+    {
+      "id": "uchkulan",
+      "tier": 2,
+      "names": [
+        "Учкулан",
+        "Uchkulan"
+      ],
+      "matched_length_m": 56303.3,
+      "segment_count": 6,
+      "component_count": 12,
+      "present": true
+    },
+    {
+      "id": "makhar",
+      "tier": 2,
+      "names": [
+        "Махар",
+        "Makhar"
+      ],
+      "matched_length_m": 18254.7,
+      "segment_count": 2,
+      "component_count": 1,
+      "present": true
+    },
+    {
+      "id": "gondaray",
+      "tier": 2,
+      "names": [
+        "Гондарай",
+        "Gondaray"
+      ],
+      "matched_length_m": 18091.6,
+      "segment_count": 2,
+      "component_count": 1,
+      "present": true
+    },
+    {
+      "id": "jamagat",
+      "tier": 2,
+      "names": [
+        "Джамагат",
+        "Dzhamagat",
+        "Jamagat"
+      ],
+      "matched_length_m": 0,
+      "segment_count": 0,
+      "component_count": 0,
+      "present": false
+    },
+    {
+      "id": "aksaut",
+      "tier": 2,
+      "names": [
+        "Аксаут",
+        "Aksaut"
+      ],
+      "matched_length_m": 119216.5,
+      "segment_count": 9,
+      "component_count": 8,
+      "present": true
+    },
+    {
+      "id": "marukha",
+      "tier": 2,
+      "names": [
+        "Маруха",
+        "Marukha"
+      ],
+      "matched_length_m": 128047.6,
+      "segment_count": 12,
+      "component_count": 10,
+      "present": true
+    },
+    {
+      "id": "nalchik",
+      "tier": 2,
+      "names": [
+        "Нальчик",
+        "Nalchik"
+      ],
+      "matched_length_m": 53446.3,
+      "segment_count": 3,
+      "component_count": 1,
+      "present": true
+    },
+    {
+      "id": "urvan",
+      "tier": 2,
+      "names": [
+        "Урвань",
+        "Urvan"
+      ],
+      "matched_length_m": 5421.7,
+      "segment_count": 3,
+      "component_count": 1,
+      "present": true
+    },
+    {
+      "id": "psysh",
+      "tier": 2,
+      "names": [
+        "Псыш",
+        "Psysh"
+      ],
+      "matched_length_m": 48225.5,
+      "segment_count": 2,
+      "component_count": 2,
+      "present": true
+    },
+    {
+      "id": "arkhyz",
+      "tier": 2,
+      "names": [
+        "Архыз",
+        "Arkhyz"
+      ],
+      "matched_length_m": 31461.4,
+      "segment_count": 5,
+      "component_count": 1,
+      "present": true
+    },
+    {
+      "id": "baduk",
+      "tier": 3,
+      "names": [
+        "Бадук",
+        "Baduk"
+      ],
+      "matched_length_m": 4232.5,
+      "segment_count": 1,
+      "component_count": 1,
+      "present": true
+    },
+    {
+      "id": "alibek",
+      "tier": 3,
+      "names": [
+        "Алибек",
+        "Alibek"
+      ],
+      "matched_length_m": 9627.2,
+      "segment_count": 3,
+      "component_count": 1,
+      "present": true
+    },
+    {
+      "id": "dombay-ulgen",
+      "tier": 3,
+      "names": [
+        "Домбай-Ульген",
+        "Домбай-Ёльген",
+        "Dombay-Ulgen"
+      ],
+      "matched_length_m": 9233.8,
+      "segment_count": 1,
+      "component_count": 1,
+      "present": true
+    },
+    {
+      "id": "kizgych",
+      "tier": 3,
+      "names": [
+        "Кизгыч",
+        "Kizgych"
+      ],
+      "matched_length_m": 42062.7,
+      "segment_count": 3,
+      "component_count": 4,
+      "present": true
+    },
+    {
+      "id": "sofia",
+      "tier": 3,
+      "names": [
+        "София",
+        "Sofia"
+      ],
+      "matched_length_m": 15252.0,
+      "segment_count": 1,
+      "component_count": 1,
+      "present": true
+    },
+    {
+      "id": "bashil-auzu-su",
+      "tier": 3,
+      "names": [
+        "Башиль-Аузу-Су",
+        "Башильаузусу",
+        "Bashil-Auzu-Su"
+      ],
+      "matched_length_m": 18805.2,
+      "segment_count": 2,
+      "component_count": 1,
+      "present": true
+    },
+    {
+      "id": "gara-auzu-su",
+      "tier": 3,
+      "names": [
+        "Гара-Аузу-Су",
+        "Гарааузусу",
+        "Gara-Auzu-Su"
+      ],
+      "matched_length_m": 10173.3,
+      "segment_count": 1,
+      "component_count": 1,
+      "present": true
+    },
+    {
+      "id": "dykh-su",
+      "tier": 3,
+      "names": [
+        "Дых-Су",
+        "Дыхсу",
+        "Dykh-Su"
+      ],
+      "matched_length_m": 9469.9,
+      "segment_count": 3,
+      "component_count": 1,
+      "present": true
+    },
+    {
+      "id": "kara-su",
+      "tier": 3,
+      "names": [
+        "Кара-Су",
+        "Карасу",
+        "Kara-Su"
+      ],
+      "matched_length_m": 43975.7,
+      "segment_count": 6,
+      "component_count": 4,
+      "present": true
+    },
+    {
+      "id": "sukan-su",
+      "tier": 3,
+      "names": [
+        "Сукан-Су",
+        "Сукансу",
+        "Sukan-Su"
+      ],
+      "matched_length_m": 0,
+      "segment_count": 0,
+      "component_count": 0,
+      "present": false
+    }
+  ],
+  "summary": {
+    "required": 32,
+    "present": 29,
+    "missing": [
+      "ullukam",
+      "jamagat",
+      "sukan-su"
+    ]
+  }
+}

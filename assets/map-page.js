@@ -23,9 +23,9 @@
       byteLength: 34261814
     },
     {
-      archivePath: 'data/alan-vector-7.0.21.pmtiles',
+      archivePath: 'data/alan-vector-7.0.22.pmtiles',
       partsPath: 'data/shards/vector/',
-      byteLength: 13549632
+      byteLength: 14524520
     }
   ];
 
@@ -123,7 +123,7 @@
     data: window.ALAN_MAP_DATA,
     maplibregl: window.maplibregl,
     regionalLabels3D: window.RegionalLabels3D,
-    storageKey: 'alan-map-stage7.0.21-view'
+    storageKey: 'alan-map-stage7.0.22-view'
   });
   window.ALAN_MAP_INSTANCE = mapInstance;
 

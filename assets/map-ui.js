@@ -6,11 +6,12 @@
 })(typeof self !== 'undefined' ? self : this, function (root) {
   'use strict';
 
-  const VERSION = '7.0.21';
-  const DEFAULT_STORAGE_KEY = 'alan-map-stage7.0.21-view';
+  const VERSION = '7.0.22';
+  const DEFAULT_STORAGE_KEY = 'alan-map-stage7.0.22-view';
   const STATE_SCHEMA_VERSION = 1;
   const STATE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
   const LEGACY_STORAGE_KEYS = [
+    'alan-map-stage7.0.21-view',
     'alan-map-stage7.0.20-view',
     'alan-map-stage7.0.19-view', 'alan-map-stage7.0.18-view', 'alan-map-stage7.0.17-view', 'alan-map-stage7.0.16-view', 'alan-map-stage7.0.15-view', 'alan-map-stage7.0.14-view', 'alan-map-stage7.0.12-view',
     'alan-map-stage7.0.11-view', 'alan-map-stage7.0.10-view',
@@ -247,7 +248,7 @@
       <div class="alan-map-canvas" data-role="map" aria-label="Интерактивная рельефная карта"></div>
       <div class="alan-map-loading" data-role="loading"><div class="alan-map-loading-card"><div class="alan-map-spinner"></div><div class="alan-map-loading-title">Загрузка карты</div><div class="alan-map-loading-text" data-role="loading-text">Подготавливается рельеф и законченный картографический стиль.</div></div></div>
       <div class="alan-map-toolbar" data-role="toolbar">
-        <div class="alan-map-toolbar-head"><div class="alan-map-toolbar-titles"><div class="alan-map-title">Alan Map · 7.0.21</div><div class="alan-map-subtitle">Автономная карта · физически обрезанные DEM и векторные данные</div></div><button class="alan-map-collapse-button" data-action="toggle-toolbar" type="button" aria-expanded="true" aria-label="Скрыть панель">−</button></div>
+        <div class="alan-map-toolbar-head"><div class="alan-map-toolbar-titles"><div class="alan-map-title">Alan Map · 7.0.22</div><div class="alan-map-subtitle">Автономная карта · физически обрезанные DEM и векторные данные</div></div><button class="alan-map-collapse-button" data-action="toggle-toolbar" type="button" aria-expanded="true" aria-label="Скрыть панель">−</button></div>
         <div class="alan-map-buttons alan-map-action-buttons"><button data-action="reset" type="button">Сброс</button><button class="alan-map-fullscreen-button" data-action="fullscreen" type="button" aria-pressed="false">На весь экран</button></div>
         <div class="alan-map-buttons alan-map-layer-buttons"><button data-toggle="roads" class="active" type="button">Дороги</button><button data-toggle="rivers" class="active" type="button">Вода</button><button data-toggle="regions" class="active" type="button">Районы</button><button data-toggle="labels" class="active" type="button">Подписи</button><button data-toggle="modern" type="button">Современные</button></div>
         <div class="alan-map-control-row"><label>Рельеф</label><input data-control="relief" type="range" min="1" max="4.2" step="0.05" value="2.55"><span data-value="relief" class="alan-map-value">2.6×</span></div>
