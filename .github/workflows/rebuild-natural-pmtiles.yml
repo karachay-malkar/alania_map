@@ -80,10 +80,24 @@ jobs:
       - name: Prepare map frame and retained names
         run: python tools/build_natural_layers.py prepare
 
+      - name: Restore fixed OSM extraction cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            build/source.osm.pbf
+            build/source.osm.pbf.md5
+            build/source-md5.txt
+            build/osm-clipped.gpkg
+          key: alan-osm-260726-map-frame-v1
+
       - name: Download fixed Geofabrik snapshot
         run: |
-          curl --fail --location --retry 4 --retry-delay 5 "$SOURCE_URL" -o build/source.osm.pbf
-          curl --fail --location --retry 4 "$SOURCE_MD5_URL" -o build/source.osm.pbf.md5
+          if [ ! -f build/source.osm.pbf ]; then
+            curl --fail --location --retry 4 --retry-delay 5 "$SOURCE_URL" -o build/source.osm.pbf
+          fi
+          if [ ! -f build/source.osm.pbf.md5 ]; then
+            curl --fail --location --retry 4 "$SOURCE_MD5_URL" -o build/source.osm.pbf.md5
+          fi
           EXPECTED_MD5="$(awk '{print $1}' build/source.osm.pbf.md5)"
           ACTUAL_MD5="$(md5sum build/source.osm.pbf | awk '{print $1}')"
           test "$EXPECTED_MD5" = "$ACTUAL_MD5"
@@ -91,19 +105,22 @@ jobs:
 
       - name: Physically clip OSM geometry
         run: |
-          rm -f build/osm-clipped.gpkg
-          ogr2ogr -f GPKG build/osm-clipped.gpkg build/source.osm.pbf lines \
-            -nln lines -clipsrc build/map-frame.geojson -makevalid -skipfailures
-          ogr2ogr -f GPKG -update build/osm-clipped.gpkg build/source.osm.pbf multipolygons \
-            -nln multipolygons -clipsrc build/map-frame.geojson -makevalid -skipfailures
-          ogr2ogr -f GPKG -update build/osm-clipped.gpkg build/source.osm.pbf points \
-            -nln points -clipsrc build/map-frame.geojson -skipfailures
+          if [ ! -f build/osm-clipped.gpkg ]; then
+            ogr2ogr -f GPKG build/osm-clipped.gpkg build/source.osm.pbf lines \
+              -nln lines -clipsrc build/map-frame.geojson -makevalid -skipfailures
+            ogr2ogr -f GPKG -update build/osm-clipped.gpkg build/source.osm.pbf multipolygons \
+              -nln multipolygons -clipsrc build/map-frame.geojson -makevalid -skipfailures
+            ogr2ogr -f GPKG -update build/osm-clipped.gpkg build/source.osm.pbf points \
+              -nln points -clipsrc build/map-frame.geojson -skipfailures
+          fi
           ogrinfo build/osm-clipped.gpkg lines -so
           ogrinfo build/osm-clipped.gpkg multipolygons -so
           ogrinfo build/osm-clipped.gpkg points -so
 
       - name: Classify and validate natural features
-        run: python tools/build_natural_layers.py classify
+        run: |
+          python tools/build_natural_layers.py classify
+          python tools/optimize_natural_layers.py
 
       - name: Package replacement vector archive
         run: |
@@ -111,7 +128,7 @@ jobs:
             --output=build/alan-vector-7.0.22.mbtiles \
             --minimum-zoom=7 --maximum-zoom=13 \
             --force --read-parallel --no-feature-limit --no-tile-size-limit \
-            --buffer=12 --simplification=2 \
+            --buffer=12 --simplification=3 \
             -L landcover:build/landcover.geojson \
             -L landuse:build/landuse.geojson \
             -L transportation:build/transportation.geojson \
