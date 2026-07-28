@@ -1,0 +1,39 @@
+{
+  "rules": [
+    {"id":"kuban","tier":1,"names":["Кубань","Kuban"]},
+    {"id":"teberda","tier":1,"names":["Теберда","Teberda"]},
+    {"id":"bolshoy-zelenchuk","tier":1,"names":["Большой Зеленчук","Bolshoy Zelenchuk","Большой Зеленчук река"]},
+    {"id":"maly-zelenchuk","tier":1,"names":["Малый Зеленчук","Maly Zelenchuk"]},
+    {"id":"terek","tier":1,"names":["Терек","Terek"]},
+    {"id":"malka","tier":1,"names":["Малка","Malka"]},
+    {"id":"baksan","tier":1,"names":["Баксан","Baksan"]},
+    {"id":"chegem","tier":1,"names":["Чегем","Chegem"]},
+    {"id":"cherek-balkarsky","tier":1,"names":["Черек Балкарский","Черек-Балкарский","Cherek Balkarsky"]},
+    {"id":"cherek-bezengiysky","tier":1,"names":["Черек Безенгийский","Черек-Безенгийский","Cherek Bezengiysky"]},
+    {"id":"urukh","tier":1,"names":["Урух","Urukh"]},
+
+    {"id":"ullukam","tier":2,"names":["Уллукам","Уллу-Кам","Ullukam"]},
+    {"id":"uchkulan","tier":2,"names":["Учкулан","Uchkulan"]},
+    {"id":"makhar","tier":2,"names":["Махар","Makhar"]},
+    {"id":"gondaray","tier":2,"names":["Гондарай","Gondaray"]},
+    {"id":"jamagat","tier":2,"names":["Джамагат","Dzhamagat","Jamagat"]},
+    {"id":"aksaut","tier":2,"names":["Аксаут","Aksaut"]},
+    {"id":"marukha","tier":2,"names":["Маруха","Marukha"]},
+    {"id":"nalchik","tier":2,"names":["Нальчик","Nalchik"]},
+    {"id":"urvan","tier":2,"names":["Урвань","Urvan"]},
+    {"id":"psysh","tier":2,"names":["Псыш","Psysh"]},
+    {"id":"arkhyz","tier":2,"names":["Архыз","Arkhyz"]},
+
+    {"id":"baduk","tier":3,"names":["Бадук","Baduk"]},
+    {"id":"alibek","tier":3,"names":["Алибек","Alibek"]},
+    {"id":"dombay-ulgen","tier":3,"names":["Домбай-Ульген","Домбай-Ёльген","Dombay-Ulgen"]},
+    {"id":"kizgych","tier":3,"names":["Кизгыч","Kizgych"]},
+    {"id":"sofia","tier":3,"names":["София","Sofia"]},
+    {"id":"bashil-auzu-su","tier":3,"names":["Башиль-Аузу-Су","Башильаузусу","Bashil-Auzu-Su"]},
+    {"id":"gara-auzu-su","tier":3,"names":["Гара-Аузу-Су","Гарааузусу","Gara-Auzu-Su"]},
+    {"id":"dykh-su","tier":3,"names":["Дых-Су","Дыхсу","Dykh-Su"]},
+    {"id":"kara-su","tier":3,"names":["Кара-Су","Карасу","Kara-Su"]},
+    {"id":"sukan-su","tier":3,"names":["Сукан-Су","Сукансу","Sukan-Su"]}
+  ],
+  "elbrus_names": ["Эльбрус","Минги Тау","Минги-тау","Mingi Tau","Mount Elbrus","Elbrus"]
+}
