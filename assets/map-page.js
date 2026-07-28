@@ -25,7 +25,7 @@
     {
       archivePath: 'data/alan-vector-7.0.22.pmtiles',
       partsPath: 'data/shards/vector/',
-      byteLength: 14524520
+      byteLength: 14491508
     }
   ];
 

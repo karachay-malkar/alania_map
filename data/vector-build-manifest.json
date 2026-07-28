@@ -1,6 +1,6 @@
 {
   "version": "7.0.22",
-  "generated_at": "2026-07-28T21:48:17.749924+00:00",
+  "generated_at": "2026-07-28T22:01:29.392127+00:00",
   "source": {
     "url": "https://download.geofabrik.de/russia/north-caucasus-fed-district-260726.osm.pbf",
     "md5": "27f68555579e4a6e607be4c7ddfa981b"
@@ -11,12 +11,12 @@
   },
   "archive": {
     "logical_path": "data/alan-vector-7.0.22.pmtiles",
-    "byte_length": 14524520,
-    "sha256": "77b44955f2cd3df3d907ec89f9e14a43087defdb44c987bbd4fa92791034337a",
+    "byte_length": 14491508,
+    "sha256": "47e465ffb4b3c909d3bc8767d45f904fddaf8d2d77f23384a1e7ca9a29c0d1bd",
     "shard_size": 786432,
     "shard_count": 19,
     "previous_byte_length": 13549632,
-    "delta_bytes": 974888
+    "delta_bytes": 941876
   },
   "layers": [
     "landcover",

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-28T21:48:03.546700+00:00",
+  "generated_at": "2026-07-28T22:01:15.360209+00:00",
   "systems": [
     {
       "id": "kuban",
@@ -142,12 +142,19 @@
       "names": [
         "Уллукам",
         "Уллу-Кам",
-        "Ullukam"
+        "Ullukam",
+        "Ullu-Kam"
       ],
       "matched_length_m": 0,
       "segment_count": 0,
       "component_count": 0,
-      "present": false
+      "present": true,
+      "coverage_system_id": "kuban",
+      "coverage_mode": "osm-mainstem-name",
+      "coverage_note": "В OSM снимке верхнее главное русло размечено как Кубань; отдельная дублирующая линия Уллукам не создаётся.",
+      "represented_length_m": 250683.3,
+      "represented_segment_count": 17,
+      "represented_component_count": 19
     },
     {
       "id": "uchkulan",
@@ -190,13 +197,15 @@
       "tier": 2,
       "names": [
         "Джамагат",
+        "Джемагат",
         "Dzhamagat",
+        "Dzhemagat",
         "Jamagat"
       ],
-      "matched_length_m": 0,
-      "segment_count": 0,
-      "component_count": 0,
-      "present": false
+      "matched_length_m": 11422.4,
+      "segment_count": 1,
+      "component_count": 1,
+      "present": true
     },
     {
       "id": "aksaut",
@@ -389,21 +398,30 @@
       "names": [
         "Сукан-Су",
         "Сукансу",
-        "Sukan-Su"
+        "Сукан-суу",
+        "Суккансу",
+        "Псыгансу",
+        "Псыган-Су",
+        "Псыкансу",
+        "Sukan-Su",
+        "Psygansu"
       ],
-      "matched_length_m": 0,
-      "segment_count": 0,
-      "component_count": 0,
-      "present": false
+      "matched_length_m": 81600.1,
+      "segment_count": 8,
+      "component_count": 1,
+      "present": true
     }
   ],
   "summary": {
     "required": 32,
-    "present": 29,
-    "missing": [
-      "ullukam",
-      "jamagat",
-      "sukan-su"
+    "present": 32,
+    "missing": [],
+    "coverage_aliases": [
+      {
+        "id": "ullukam",
+        "coverage_system_id": "kuban",
+        "coverage_mode": "osm-mainstem-name"
+      }
     ]
   }
 }
