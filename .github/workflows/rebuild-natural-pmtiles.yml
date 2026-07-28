@@ -25,8 +25,8 @@ permissions:
   contents: write
 
 concurrency:
-  group: osm-natural-7.0.22
-  cancel-in-progress: false
+  group: osm-natural-7.0.22-${{ github.event_name }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -43,9 +43,14 @@ jobs:
 
       - name: Install system tools
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            gdal-bin jq curl ca-certificates build-essential libsqlite3-dev zlib1g-dev
+          export DEBIAN_FRONTEND=noninteractive
+          if ! command -v ogr2ogr >/dev/null 2>&1; then
+            timeout 300 sudo apt-get update -o Acquire::Retries=3
+            timeout 300 sudo apt-get install -y --no-install-recommends \
+              gdal-bin jq curl ca-certificates build-essential libsqlite3-dev zlib1g-dev
+          else
+            sudo apt-get install -y --no-install-recommends jq curl ca-certificates build-essential libsqlite3-dev zlib1g-dev
+          fi
 
       - uses: actions/setup-python@v5
         with:
