@@ -132,7 +132,10 @@ def classify():
  for r in rr:
   sid=r['id']; gg=[g for g in geoms.get(sid,[]) if g is not None and not g.is_empty]; components=0
   if gg:
-   merged=linemerge(unary_union(gg)); components=len(merged.geoms) if hasattr(merged,'geoms') else 1
+   unified=unary_union(gg)
+   if unified.geom_type=='LineString':components=1
+   else:
+    merged=linemerge(unified); components=len(merged.geoms) if hasattr(merged,'geoms') else 1
   systems.append({'id':sid,'tier':r['tier'],'names':r['names'],'matched_length_m':round(lengths.get(sid,0),1),'segment_count':len(gg),'component_count':components,'present':lengths.get(sid,0)>0})
  report={'generated_at':datetime.now(timezone.utc).isoformat(),'systems':systems,'summary':{'required':len(systems),'present':sum(x['present'] for x in systems),'missing':[x['id'] for x in systems if not x['present']]}}
  (BUILD/'river-network-report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
