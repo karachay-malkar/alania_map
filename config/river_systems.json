@@ -12,11 +12,18 @@
     {"id":"cherek-bezengiysky","tier":1,"names":["Черек Безенгийский","Черек-Безенгийский","Cherek Bezengiysky"]},
     {"id":"urukh","tier":1,"names":["Урух","Urukh"]},
 
-    {"id":"ullukam","tier":2,"names":["Уллукам","Уллу-Кам","Ullukam"]},
+    {
+      "id":"ullukam",
+      "tier":2,
+      "names":["Уллукам","Уллу-Кам","Ullukam","Ullu-Kam"],
+      "covered_by":["kuban"],
+      "coverage_mode":"osm-mainstem-name",
+      "coverage_note":"В OSM снимке верхнее главное русло размечено как Кубань; отдельная дублирующая линия Уллукам не создаётся."
+    },
     {"id":"uchkulan","tier":2,"names":["Учкулан","Uchkulan"]},
     {"id":"makhar","tier":2,"names":["Махар","Makhar"]},
     {"id":"gondaray","tier":2,"names":["Гондарай","Gondaray"]},
-    {"id":"jamagat","tier":2,"names":["Джамагат","Dzhamagat","Jamagat"]},
+    {"id":"jamagat","tier":2,"names":["Джамагат","Джемагат","Dzhamagat","Dzhemagat","Jamagat"]},
     {"id":"aksaut","tier":2,"names":["Аксаут","Aksaut"]},
     {"id":"marukha","tier":2,"names":["Маруха","Marukha"]},
     {"id":"nalchik","tier":2,"names":["Нальчик","Nalchik"]},
@@ -33,7 +40,7 @@
     {"id":"gara-auzu-su","tier":3,"names":["Гара-Аузу-Су","Гарааузусу","Gara-Auzu-Su"]},
     {"id":"dykh-su","tier":3,"names":["Дых-Су","Дыхсу","Dykh-Su"]},
     {"id":"kara-su","tier":3,"names":["Кара-Су","Карасу","Kara-Su"]},
-    {"id":"sukan-su","tier":3,"names":["Сукан-Су","Сукансу","Sukan-Su"]}
+    {"id":"sukan-su","tier":3,"names":["Сукан-Су","Сукансу","Сукан-суу","Суккансу","Псыгансу","Псыган-Су","Псыкансу","Sukan-Su","Psygansu"]}
   ],
   "elbrus_names": ["Эльбрус","Минги Тау","Минги-тау","Mingi Tau","Mount Elbrus","Elbrus"]
 }
