@@ -14,13 +14,26 @@ on:
       - 'tests/**'
       - 'index.html'
       - 'README.md'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/validate-fantasy-map.yml'
+      - 'assets/bootstrap.js'
+      - 'assets/map-page.js'
+      - 'assets/map-ui.js'
+      - 'assets/fantasy-relief.js'
+      - 'assets/fantasy-style.js'
+      - 'tests/**'
+      - 'index.html'
+      - 'README.md'
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: fantasy-map-7.0.23-${{ github.ref }}
+  group: fantasy-map-7.0.23-${{ github.event_name }}
   cancel-in-progress: true
 
 jobs:
