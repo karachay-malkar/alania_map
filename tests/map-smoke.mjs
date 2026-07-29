@@ -78,20 +78,17 @@ const checkpointResults = {};
 for (const checkpoint of checkpoints) {
   checkpointResults[checkpoint.id] = await page.evaluate(async (current) => {
     const map = window.ALAN_MAP_INSTANCE.map;
+    map.stop();
     map.jumpTo({center: current.center, zoom: current.zoom, pitch: 0, bearing: 180});
-    await new Promise((resolve) => {
-      if (map.areTilesLoaded()) {
-        requestAnimationFrame(() => requestAnimationFrame(resolve));
-        return;
-      }
-      const timeout = setTimeout(resolve, 15000);
-      map.once('idle', () => {
-        clearTimeout(timeout);
-        resolve();
-      });
-    });
-    const sourceFeatures = map.querySourceFeatures('openmaptiles', {sourceLayer: current.layer});
-    const values = [...new Set(sourceFeatures.map((feature) => feature.properties?.[current.property]).filter(Boolean))];
+    const deadline = performance.now() + 30000;
+    let sourceFeatures = [];
+    let values = [];
+    do {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      sourceFeatures = map.querySourceFeatures('openmaptiles', {sourceLayer: current.layer});
+      values = [...new Set(sourceFeatures.map((feature) => feature.properties?.[current.property]).filter(Boolean))];
+      if (values.includes(current.expected)) break;
+    } while (performance.now() < deadline);
     return {
       featureCount: sourceFeatures.length,
       values,
@@ -110,7 +107,9 @@ const performanceSample = await page.evaluate(async () => {
   map.on('render', sample);
   map.easeTo({center: [42.35, 43.55], zoom: 8.5, pitch: 45, duration: 1200});
   await new Promise((resolve) => setTimeout(resolve, 1400));
+  map.stop();
   map.off('render', sample);
+  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
   const elapsed = performance.now() - start;
   return {
     elapsedMs: Math.round(elapsed),
