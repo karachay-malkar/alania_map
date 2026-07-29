@@ -445,24 +445,32 @@
     }
 
     function riverWidth(scale, halo = false) {
-      const base = [
+      const scaledTierValue = (main, regional, local) => riverTierValue(
+        main * Number(scale) + (halo ? 3.0 : 0),
+        regional * Number(scale) + (halo ? 2.2 : 0),
+        local * Number(scale) + (halo ? 1.6 : 0)
+      );
+      return [
         'interpolate',['linear'],['zoom'],
-        7.0,riverTierValue(1.15,0.15,0.03),
-        8.2,riverTierValue(2.1,0.35,0.05),
-        9.0,riverTierValue(2.45,1.15,0.08),
-        11.2,riverTierValue(3.5,2.3,0.72),
-        14.3,riverTierValue(4.6,3.2,2.2)
+        7.0,scaledTierValue(1.15,0.15,0.03),
+        8.2,scaledTierValue(2.1,0.35,0.05),
+        9.0,scaledTierValue(2.45,1.15,0.08),
+        11.2,scaledTierValue(3.5,2.3,0.72),
+        14.3,scaledTierValue(4.6,3.2,2.2)
       ];
-      if (!halo) return ['*', Number(scale), base];
-      return ['+', ['*', Number(scale), base], riverTierValue(3.0,2.2,1.6)];
     }
 
     function riverOpacity(halo = false) {
+      const main = halo ? 0.88 : 0.98;
+      const regional = halo ? 0.82 : 0.94;
+      const local = halo ? 0.70 : 0.82;
       return [
-        'case',
-        ['==',['get','tier'],1],halo ? 0.88 : 0.98,
-        ['==',['get','tier'],2],['interpolate',['linear'],['zoom'],8.2,0,8.9,halo ? 0.82 : 0.94],
-        ['interpolate',['linear'],['zoom'],10.4,0,11.2,halo ? 0.70 : 0.82]
+        'interpolate',['linear'],['zoom'],
+        7.0,riverTierValue(main,0,0),
+        8.2,riverTierValue(main,0,0),
+        8.9,riverTierValue(main,regional,0),
+        10.4,riverTierValue(main,regional,0),
+        11.2,riverTierValue(main,regional,local)
       ];
     }
 
@@ -536,7 +544,7 @@
         {id:'modern-objects',type:'circle',source:'points',minzoom:OBJECT_PRESENTATION.modernObjects.minZoom,filter:sourceFilter('modernObjects'),layout:{'visibility':state.modern?'visible':'none'},paint:pointPaint(OBJECT_PRESENTATION.modernObjects.pointStyle,'#8b8984','#f4ead6',0.72)},
         {id:'mountain-passes',type:'circle',source:'points',minzoom:OBJECT_PRESENTATION.passes.minZoom,filter:['all',sourceFilter('passes'),['==',['get','visible'],1]],paint:pointPaint(OBJECT_PRESENTATION.passes.pointStyle,'#7b6d5d','#f2e9d8')},
         ...(natureEnabled ? [
-          {id:'osm-peak-points',type:'circle',source:'openmaptiles','source-layer':'peak',minzoom:VISIBILITY_ZOOM.DISTANT,filter:['!=',['get','hidden'],1],paint:{'circle-radius':['match',['get','peak_level'],1,4,2.5],'circle-color':['match',['get','peak_level'],1,'#514b44','#675f55'],'circle-stroke-color':'#f7efe0','circle-stroke-width':1,'circle-opacity':['case',['==',['get','peak_level'],1],1,['interpolate',['linear'],['zoom'],9.8,0,10.2,1]],'circle-stroke-opacity':['case',['==',['get','peak_level'],1],1,['interpolate',['linear'],['zoom'],9.8,0,10.2,1]],'circle-pitch-alignment':'viewport','circle-pitch-scale':'viewport'}}
+          {id:'osm-peak-points',type:'circle',source:'openmaptiles','source-layer':'peak',minzoom:VISIBILITY_ZOOM.DISTANT,filter:['!=',['get','hidden'],1],paint:{'circle-radius':['match',['get','peak_level'],1,4,2.5],'circle-color':['match',['get','peak_level'],1,'#514b44','#675f55'],'circle-stroke-color':'#f7efe0','circle-stroke-width':1,'circle-opacity':['interpolate',['linear'],['zoom'],7,['match',['get','peak_level'],1,1,0],9.8,['match',['get','peak_level'],1,1,0],10.2,1],'circle-stroke-opacity':['interpolate',['linear'],['zoom'],7,['match',['get','peak_level'],1,1,0],9.8,['match',['get','peak_level'],1,1,0],10.2,1],'circle-pitch-alignment':'viewport','circle-pitch-scale':'viewport'}}
         ] : [])
       ];
 
@@ -545,7 +553,7 @@
           {id:'osm-river-label-main',type:'symbol',source:'openmaptiles','source-layer':'waterway',minzoom:VISIBILITY_ZOOM.DISTANT,filter:['==',['get','tier'],1],layout:{'symbol-placement':'line','symbol-spacing':500,'text-field':labelName,'text-font':['Noto Sans Regular'],'text-size':['interpolate',['linear'],['zoom'],7,9.5,11,14.5],'text-letter-spacing':0.055,'text-rotation-alignment':'map','text-pitch-alignment':'viewport','text-keep-upright':true,'text-max-angle':38,'text-allow-overlap':false},paint:{'text-color':'#126083','text-halo-color':'#f5ead5','text-halo-width':1.7,'text-halo-blur':0.55}},
           {id:'osm-river-label-regional',type:'symbol',source:'openmaptiles','source-layer':'waterway',minzoom:9,filter:['==',['get','tier'],2],layout:{'symbol-placement':'line','symbol-spacing':440,'text-field':labelName,'text-font':['Noto Sans Regular'],'text-size':['interpolate',['linear'],['zoom'],9,9.1,12,12.7],'text-letter-spacing':0.04,'text-rotation-alignment':'map','text-pitch-alignment':'viewport','text-keep-upright':true,'text-max-angle':42,'text-allow-overlap':false},paint:{'text-color':'#126083','text-halo-color':'#f5ead5','text-halo-width':1.45,'text-halo-blur':0.45}},
           {id:'osm-water-labels',type:'symbol',source:'openmaptiles','source-layer':'water',minzoom:10,filter:['all',['in',['get','class'],['literal',['lake','reservoir','pond']]],['==',['get','label_primary'],1]],layout:{'text-field':labelName,'text-font':['Noto Sans Regular'],'text-size':10.5,'text-allow-overlap':false},paint:{'text-color':'#126083','text-halo-color':'#f5ead5','text-halo-width':1.75,'text-halo-blur':0.5}},
-          {id:'osm-peak-labels',type:'symbol',source:'openmaptiles','source-layer':'peak',minzoom:VISIBILITY_ZOOM.DISTANT,filter:['!=',['get','hidden'],1],layout:{'text-field':['case',['==',['get','peak_level'],1],['format',labelName,{},'\n',{},['concat',['to-string',['get','ele']],' м'],{'font-scale':0.72}],labelName],'text-font':['Noto Sans Regular'],'text-size':['match',['get','peak_level'],1,11.5,9.7],'text-offset':[0,1.1],'text-anchor':'top','text-allow-overlap':false},paint:{'text-color':'#514a43','text-halo-color':'#f7efe0','text-halo-width':['match',['get','peak_level'],1,1.9,1.5],'text-opacity':['case',['==',['get','peak_level'],1],1,['interpolate',['linear'],['zoom'],9.8,0,10.2,1]]}}
+          {id:'osm-peak-labels',type:'symbol',source:'openmaptiles','source-layer':'peak',minzoom:VISIBILITY_ZOOM.DISTANT,filter:['!=',['get','hidden'],1],layout:{'text-field':['case',['==',['get','peak_level'],1],['format',labelName,{},'\n',{},['concat',['to-string',['get','ele']],' м'],{'font-scale':0.72}],labelName],'text-font':['Noto Sans Regular'],'text-size':['match',['get','peak_level'],1,11.5,9.7],'text-offset':[0,1.1],'text-anchor':'top','text-allow-overlap':false},paint:{'text-color':'#514a43','text-halo-color':'#f7efe0','text-halo-width':['match',['get','peak_level'],1,1.9,1.5],'text-opacity':['interpolate',['linear'],['zoom'],7,['match',['get','peak_level'],1,1,0],9.8,['match',['get','peak_level'],1,1,0],10.2,1]}}
         ] : []),
         {id:'regional-labels-fallback',type:'symbol',source:'lines',minzoom:VISIBILITY_ZOOM.DISTANT,maxzoom:LABEL_ZOOM.REGIONAL_MAX,filter:sourceFilter('regionalLabels'),layout:{'visibility':'none','symbol-placement':'line-center','icon-image':['get','icon_id'],'icon-size':0.58,'icon-rotation-alignment':'viewport','icon-pitch-alignment':'viewport','icon-keep-upright':true,'icon-allow-overlap':true,'icon-ignore-placement':true,'icon-padding':1,'symbol-sort-key':['get','placement_priority']},paint:{'icon-opacity':['interpolate',['linear'],['zoom'],7.0,1,9.5,1,10.0,0]}},
         {id:'settlement-labels-current',type:'symbol',source:'points',minzoom:OBJECT_PRESENTATION.currentSettlements.minZoom,filter:['all',sourceFilter('objects'),['==',['get','visible'],1],['==',['get','object_type'],'settlement'],['!=',['get','object_subtype'],'historic_settlement']],layout:{'text-field':labelName,'text-font':['Noto Sans Regular'],'text-size':['interpolate',['linear'],['zoom'],8.0,10.2,12.5,12.6],'text-offset':[0,1.08],'text-anchor':'top','text-allow-overlap':true,'text-ignore-placement':true,'text-optional':false,'text-max-width':100,'text-line-height':1.0},paint:{'text-color':'#304553','text-halo-color':'#f4ead6','text-halo-width':2.2,'text-halo-blur':0.35}},
