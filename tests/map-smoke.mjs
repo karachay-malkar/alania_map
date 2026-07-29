@@ -90,22 +90,20 @@ for (const checkpoint of checkpoints) {
 
 const performanceSample = await page.evaluate(async () => {
   const map = window.ALAN_MAP_INSTANCE.map;
-  const frames = [];
+  let frameCount = 0;
   const start = performance.now();
-  let running = true;
-  const sample = (now) => {
-    frames.push(now);
-    if (running) requestAnimationFrame(sample);
+  const sample = () => {
+    frameCount += 1;
   };
-  requestAnimationFrame(sample);
+  map.on('render', sample);
   map.easeTo({center: [42.35, 43.55], zoom: 8.5, pitch: 45, duration: 1200});
   await new Promise((resolve) => setTimeout(resolve, 1400));
-  running = false;
+  map.off('render', sample);
   const elapsed = performance.now() - start;
   return {
     elapsedMs: Math.round(elapsed),
-    frameCount: frames.length,
-    approximateFps: Number((frames.length / (elapsed / 1000)).toFixed(1))
+    frameCount,
+    approximateFps: Number((frameCount / (elapsed / 1000)).toFixed(1))
   };
 });
 
@@ -134,7 +132,10 @@ const diagnostics = await page.evaluate(() => {
 });
 
 const localOrigin = 'http://127.0.0.1:8000/';
-const externalRequests = requests.filter((url) => !url.startsWith(localOrigin));
+const localBlobOrigin = `blob:${localOrigin}`;
+const externalRequests = requests.filter((url) =>
+  !url.startsWith(localOrigin) && !url.startsWith(localBlobOrigin)
+);
 const unversionedShardRequests = requests.filter((url) =>
   /\/data\/shards\/(?:vector|dem)\/part-\d+\.bin(?:\?|$)/.test(url)
 );
@@ -174,6 +175,9 @@ if (diagnostics.network.errors && Object.keys(diagnostics.network.errors).length
 }
 if (!diagnostics.shard || diagnostics.shard.cache.entries > 16) {
   throw new Error(`Shard LRU regression: ${JSON.stringify(diagnostics.shard)}`);
+}
+if (performanceSample.frameCount < 1) {
+  throw new Error(`No rendered frames were observed during map movement: ${JSON.stringify(performanceSample)}`);
 }
 if (externalRequests.length) {
   throw new Error(`External cartographic requests detected: ${externalRequests.join('\n')}`);
