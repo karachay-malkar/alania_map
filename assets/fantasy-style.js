@@ -5,7 +5,7 @@
 })(typeof self !== 'undefined' ? self : this, function (root) {
   'use strict';
 
-  const VERSION = '1.1.0';
+  const VERSION = '1.1.1';
   const STORAGE_KEY = 'alan-map-stage7.0.23-fantasy-style';
   const RIDGE_SOURCE_ID = 'fantasy-ridges';
   const LANDMARK_SOURCE_ID = 'fantasy-landmarks';
@@ -93,9 +93,11 @@
     return target && typeof target.querySelector === 'function' ? target : null;
   }
 
-  function setStatus(host, text) {
+  function setStatus(host, text, isError = false) {
     const status = host?.querySelector?.('[data-role="status"]');
-    if (status) status.textContent = text;
+    if (!status) return;
+    status.textContent = text;
+    status.classList.toggle('error', Boolean(isError));
   }
 
   function injectUiStyle() {
@@ -129,18 +131,12 @@
     const classFilter = (ridgeClass) => ['==',['get','fantasy_class'],ridgeClass];
     return [
       {
-        id:'fantasy-paper-grain',
-        type:'fill',
-        source:'polygons',
+        id:'fantasy-paper-grain',type:'fill',source:'polygons',
         filter:['==',['get','alan_source'],'focus'],
         paint:{'fill-pattern':'fantasy-paper-grain','fill-opacity':0.38}
       },
       {
-        id:'fantasy-ridge-shadow',
-        type:'line',
-        source:RIDGE_SOURCE_ID,
-        minzoom:7,
-        maxzoom:12.8,
+        id:'fantasy-ridge-shadow',type:'line',source:RIDGE_SOURCE_ID,minzoom:7,maxzoom:12.8,
         filter:['in',['get','fantasy_class'],['literal',['main','secondary']]],
         layout:{'line-cap':'round','line-join':'round'},
         paint:{
@@ -151,107 +147,59 @@
         }
       },
       {
-        id:'fantasy-slope-hachures',
-        type:'symbol',
-        source:RIDGE_SOURCE_ID,
-        minzoom:9,
-        maxzoom:13.2,
+        id:'fantasy-slope-hachures',type:'symbol',source:RIDGE_SOURCE_ID,minzoom:9,maxzoom:13.2,
         filter:['in',['get','fantasy_class'],['literal',['main','secondary']]],
         layout:{
-          'symbol-placement':'line',
-          'symbol-spacing':64,
-          'icon-image':'fantasy-hachure',
+          'symbol-placement':'line','symbol-spacing':64,'icon-image':'fantasy-hachure',
           'icon-size':['interpolate',['linear'],['zoom'],9,0.35,11.5,0.52,13.2,0.60],
-          'icon-rotate':90,
-          'icon-rotation-alignment':'map',
-          'icon-pitch-alignment':'viewport',
-          'icon-allow-overlap':false,
-          'icon-ignore-placement':true,
-          'icon-padding':1
+          'icon-rotate':90,'icon-rotation-alignment':'map','icon-pitch-alignment':'viewport',
+          'icon-allow-overlap':false,'icon-ignore-placement':true,'icon-padding':1
         },
         paint:{'icon-opacity':['interpolate',['linear'],['zoom'],9,0,9.5,0.36,11.8,0.48,13.2,0]}
       },
       {
-        id:'fantasy-mountains-main',
-        type:'symbol',
-        source:RIDGE_SOURCE_ID,
-        minzoom:7,
-        maxzoom:11.35,
+        id:'fantasy-mountains-main',type:'symbol',source:RIDGE_SOURCE_ID,minzoom:7,maxzoom:11.35,
         filter:classFilter('main'),
         layout:{
-          'symbol-placement':'line',
-          'symbol-spacing':['interpolate',['linear'],['zoom'],7,88,9.5,108,11.35,134],
-          'icon-image':['get','fantasy_icon'],
-          'icon-size':['interpolate',['linear'],['zoom'],7,0.48,8.8,0.68,10.7,0.86],
-          'icon-rotation-alignment':'viewport',
-          'icon-pitch-alignment':'viewport',
-          'icon-keep-upright':true,
-          'icon-allow-overlap':true,
-          'icon-ignore-placement':true,
-          'icon-padding':1,
+          'symbol-placement':'line','symbol-spacing':['interpolate',['linear'],['zoom'],7,88,9.5,108,11.35,134],
+          'icon-image':['get','fantasy_icon'],'icon-size':['interpolate',['linear'],['zoom'],7,0.48,8.8,0.68,10.7,0.86],
+          'icon-rotation-alignment':'viewport','icon-pitch-alignment':'viewport','icon-keep-upright':true,
+          'icon-allow-overlap':true,'icon-ignore-placement':true,'icon-padding':1,
           'symbol-sort-key':['get','fantasy_sort_key']
         },
         paint:{'icon-opacity':['interpolate',['linear'],['zoom'],7,0.88,9.8,0.92,10.8,0.64,11.35,0]}
       },
       {
-        id:'fantasy-mountains-secondary',
-        type:'symbol',
-        source:RIDGE_SOURCE_ID,
-        minzoom:8.15,
-        maxzoom:11.9,
+        id:'fantasy-mountains-secondary',type:'symbol',source:RIDGE_SOURCE_ID,minzoom:8.15,maxzoom:11.9,
         filter:classFilter('secondary'),
         layout:{
-          'symbol-placement':'line',
-          'symbol-spacing':['interpolate',['linear'],['zoom'],8.15,112,10,136,11.9,162],
-          'icon-image':['get','fantasy_icon'],
-          'icon-size':['interpolate',['linear'],['zoom'],8.15,0.43,10.4,0.62,11.9,0.73],
-          'icon-rotation-alignment':'viewport',
-          'icon-pitch-alignment':'viewport',
-          'icon-keep-upright':true,
-          'icon-allow-overlap':true,
-          'icon-ignore-placement':true,
-          'icon-padding':1,
+          'symbol-placement':'line','symbol-spacing':['interpolate',['linear'],['zoom'],8.15,112,10,136,11.9,162],
+          'icon-image':['get','fantasy_icon'],'icon-size':['interpolate',['linear'],['zoom'],8.15,0.43,10.4,0.62,11.9,0.73],
+          'icon-rotation-alignment':'viewport','icon-pitch-alignment':'viewport','icon-keep-upright':true,
+          'icon-allow-overlap':true,'icon-ignore-placement':true,'icon-padding':1,
           'symbol-sort-key':['get','fantasy_sort_key']
         },
         paint:{'icon-opacity':['interpolate',['linear'],['zoom'],8.15,0,8.55,0.76,10.9,0.78,11.9,0]}
       },
       {
-        id:'fantasy-mountains-spur',
-        type:'symbol',
-        source:RIDGE_SOURCE_ID,
-        minzoom:9.25,
-        maxzoom:12.65,
+        id:'fantasy-mountains-spur',type:'symbol',source:RIDGE_SOURCE_ID,minzoom:9.25,maxzoom:12.65,
         filter:classFilter('spur'),
         layout:{
-          'symbol-placement':'line',
-          'symbol-spacing':['interpolate',['linear'],['zoom'],9.25,142,11,174,12.65,214],
-          'icon-image':['get','fantasy_icon'],
-          'icon-size':['interpolate',['linear'],['zoom'],9.25,0.39,11.5,0.56,12.65,0.64],
-          'icon-rotation-alignment':'viewport',
-          'icon-pitch-alignment':'viewport',
-          'icon-keep-upright':true,
-          'icon-allow-overlap':false,
-          'icon-ignore-placement':false,
-          'icon-padding':2,
+          'symbol-placement':'line','symbol-spacing':['interpolate',['linear'],['zoom'],9.25,142,11,174,12.65,214],
+          'icon-image':['get','fantasy_icon'],'icon-size':['interpolate',['linear'],['zoom'],9.25,0.39,11.5,0.56,12.65,0.64],
+          'icon-rotation-alignment':'viewport','icon-pitch-alignment':'viewport','icon-keep-upright':true,
+          'icon-allow-overlap':false,'icon-ignore-placement':false,'icon-padding':2,
           'symbol-sort-key':['get','fantasy_sort_key']
         },
         paint:{'icon-opacity':['interpolate',['linear'],['zoom'],9.25,0,9.7,0.58,11.8,0.62,12.65,0]}
       },
       {
-        id:'fantasy-elbrus-massif',
-        type:'symbol',
-        source:LANDMARK_SOURCE_ID,
-        minzoom:7,
-        maxzoom:11.8,
+        id:'fantasy-elbrus-massif',type:'symbol',source:LANDMARK_SOURCE_ID,minzoom:7,maxzoom:11.8,
         filter:['==',['get','fantasy_landmark'],'elbrus'],
         layout:{
-          'icon-image':'fantasy-elbrus',
-          'icon-size':['interpolate',['linear'],['zoom'],7,0.52,9,0.76,10.8,1.02],
-          'icon-rotation-alignment':'viewport',
-          'icon-pitch-alignment':'viewport',
-          'icon-allow-overlap':true,
-          'icon-ignore-placement':true,
-          'symbol-sort-key':50
+          'icon-image':'fantasy-elbrus','icon-size':['interpolate',['linear'],['zoom'],7,0.52,9,0.76,10.8,1.02],
+          'icon-rotation-alignment':'viewport','icon-pitch-alignment':'viewport',
+          'icon-allow-overlap':true,'icon-ignore-placement':true,'symbol-sort-key':50
         },
         paint:{'icon-opacity':['interpolate',['linear'],['zoom'],7,0.94,10.8,0.96,11.8,0]}
       }
@@ -264,6 +212,7 @@
     let moving = false;
     let enabled = safeStorageGet(STORAGE_KEY) !== '0';
     let ridgeDiagnostics = null;
+    let installationError = '';
     let button = null;
     const paintSnapshots = new Map();
     const layoutSnapshots = new Map();
@@ -320,10 +269,8 @@
     }
 
     function addImages() {
-      const images = relief.createImages();
-      for (const [id, image] of Object.entries(images)) {
-        if (!image || map.hasImage(id)) continue;
-        map.addImage(id, image, {pixelRatio:2});
+      for (const [id, image] of Object.entries(relief.createImages())) {
+        if (image && !map.hasImage(id)) map.addImage(id, image, {pixelRatio:2});
       }
     }
 
@@ -331,10 +278,15 @@
       const ridges = relief.buildRidgeCollection(data?.ridges || {type:'FeatureCollection',features:[]});
       ridgeDiagnostics = ridges.diagnostics;
       if (!map.getSource(RIDGE_SOURCE_ID)) {
-        map.addSource(RIDGE_SOURCE_ID, {type:'geojson',data:{type:'FeatureCollection',features:ridges.features},maxzoom:14,tolerance:0.35,buffer:128});
+        map.addSource(RIDGE_SOURCE_ID, {
+          type:'geojson',data:{type:'FeatureCollection',features:ridges.features},
+          maxzoom:14,tolerance:0.35,buffer:128
+        });
       }
       if (!map.getSource(LANDMARK_SOURCE_ID)) {
-        map.addSource(LANDMARK_SOURCE_ID, {type:'geojson',data:createLandmarkCollection(data),maxzoom:14,tolerance:0.1,buffer:64});
+        map.addSource(LANDMARK_SOURCE_ID, {
+          type:'geojson',data:createLandmarkCollection(data),maxzoom:14,tolerance:0.1,buffer:64
+        });
       }
       for (const layer of createFantasyLayers()) {
         if (map.getLayer(layer.id)) continue;
@@ -400,16 +352,24 @@
     }
 
     function install() {
-      if (installed || destroyed || !map?.isStyleLoaded?.()) return false;
-      addImages();
-      addSourcesAndLayers();
-      injectToggle();
-      map.on('movestart', onMoveStart);
-      map.on('moveend', onMoveEnd);
-      installed = true;
-      setEnabled(enabled, {persist:false,announce:false});
-      setStatus(host, 'Гибридный фэнтезийный рельеф готов. Детализация меняется автоматически при приближении.');
-      return true;
+      if (installed) return true;
+      if (destroyed || !map?.isStyleLoaded?.()) return false;
+      try {
+        addImages();
+        addSourcesAndLayers();
+        injectToggle();
+        map.on('movestart', onMoveStart);
+        map.on('moveend', onMoveEnd);
+        installed = true;
+        installationError = '';
+        setEnabled(enabled, {persist:false,announce:false});
+        setStatus(host, 'Гибридный фэнтезийный рельеф готов. Детализация меняется автоматически при приближении.');
+        return true;
+      } catch (error) {
+        installationError = String(error?.message || error);
+        setStatus(host, `Фэнтезийный слой не установлен: ${installationError}`, true);
+        throw error;
+      }
     }
 
     function destroy() {
@@ -422,10 +382,7 @@
 
     function diagnostics() {
       return {
-        version:VERSION,
-        installed,
-        enabled,
-        moving,
+        version:VERSION,installed,enabled,moving,installationError,
         sourcePresent:Boolean(map?.getSource?.(RIDGE_SOURCE_ID)),
         landmarkSourcePresent:Boolean(map?.getSource?.(LANDMARK_SOURCE_ID)),
         layers:Object.fromEntries(FANTASY_LAYER_IDS.map((id) => [id, Boolean(map?.getLayer?.(id))])),
@@ -450,26 +407,50 @@
       let controller = null;
       let pendingEnabled = null;
       let destroyed = false;
+      let idleRetryScheduled = false;
+      let wrapperError = '';
 
       const ensureController = () => {
-        if (destroyed || controller || !host || !instance?.map) return controller;
-        controller = createController({host,map:instance.map,data:options.data || root.ALAN_MAP_DATA,relief});
-        if (pendingEnabled !== null) controller.setEnabled(pendingEnabled, {announce:false});
-        controller.install();
+        idleRetryScheduled = false;
+        if (destroyed || !host || !instance?.map) return controller;
+        if (!controller) {
+          controller = createController({host,map:instance.map,data:options.data || root.ALAN_MAP_DATA,relief});
+          if (pendingEnabled !== null) controller.setEnabled(pendingEnabled, {announce:false});
+        }
+        try {
+          if (controller.install()) {
+            wrapperError = '';
+            return controller;
+          }
+        } catch (error) {
+          wrapperError = String(error?.message || error);
+          console.error('Alan fantasy style installation failed:', error);
+          return controller;
+        }
+        if (!idleRetryScheduled && !destroyed) {
+          idleRetryScheduled = true;
+          instance.map.once('idle', ensureController);
+        }
         return controller;
       };
 
-      if (host) {
-        host.addEventListener('alan-map:ready', ensureController, {once:true});
-        if (instance?.map?.isStyleLoaded?.()) root.requestAnimationFrame?.(ensureController);
+      if (host) host.addEventListener('alan-map:ready', ensureController, {once:true});
+      if (instance?.map) {
+        idleRetryScheduled = true;
+        instance.map.once('idle', ensureController);
       }
 
-      instance.getFantasyDiagnostics = () => controller?.diagnostics() || {
-        version:VERSION,installed:false,enabled:pendingEnabled ?? safeStorageGet(STORAGE_KEY) !== '0',moving:false,sourcePresent:false,landmarkSourcePresent:false,layers:{},ridge:null
+      instance.getFantasyDiagnostics = () => {
+        const diagnostics = controller?.diagnostics() || {
+          version:VERSION,installed:false,enabled:pendingEnabled ?? safeStorageGet(STORAGE_KEY) !== '0',
+          moving:false,installationError:'',sourcePresent:false,landmarkSourcePresent:false,layers:{},ridge:null
+        };
+        return {...diagnostics,wrapperError,idleRetryScheduled};
       };
       instance.setFantasyStyle = (value) => {
         pendingEnabled = Boolean(value);
-        return ensureController()?.setEnabled(pendingEnabled) ?? pendingEnabled;
+        const activeController = ensureController();
+        return activeController?.setEnabled(pendingEnabled) ?? pendingEnabled;
       };
       instance.isFantasyStyleEnabled = () => controller?.diagnostics().enabled ?? (pendingEnabled ?? safeStorageGet(STORAGE_KEY) !== '0');
 
