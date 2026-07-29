@@ -48,8 +48,8 @@ assert.equal(
   false
 );
 
-assert.equal(FantasyRelief.version, '1.0.0');
-assert.equal(FantasyStyle.version, '1.0.0');
+assert.equal(FantasyRelief.version, '1.1.0');
+assert.equal(FantasyStyle.version, '1.1.0');
 const fantasyRidges = FantasyRelief.buildRidgeCollection({
   type: 'FeatureCollection',
   features: [
@@ -71,6 +71,12 @@ assert.deepEqual(
 assert.ok(FantasyStyle.layerIds.includes('fantasy-paper-grain'));
 assert.ok(FantasyStyle.layerIds.includes('fantasy-mountains-main'));
 assert.ok(FantasyStyle.layerIds.includes('fantasy-slope-hachures'));
+assert.ok(FantasyStyle.layerIds.includes('fantasy-elbrus-massif'));
+const landmark = FantasyStyle.createLandmarkCollection({elbrusFocus:[42.44,43.35]});
+assert.equal(landmark.features.length, 1);
+assert.equal(landmark.features[0].properties.fantasy_landmark, 'elbrus');
+assert.deepEqual(landmark.features[0].geometry.coordinates, [42.44,43.35]);
+assert.equal(FantasyStyle.createLandmarkCollection({elbrusFocus:null}).features.length, 0);
 
 const mapUi = fs.readFileSync(new URL('../assets/map-ui.js', import.meta.url), 'utf8');
 for (const obsolete of [
@@ -101,6 +107,11 @@ for (const file of ['../assets/fantasy-relief.js','../assets/fantasy-style.js'])
   const content = fs.readFileSync(new URL(file, import.meta.url), 'utf8');
   assert.equal(/https?:\/\//.test(content), false, `external dependency in ${file}`);
 }
+const reliefSource = fs.readFileSync(new URL('../assets/fantasy-relief.js', import.meta.url), 'utf8');
+assert.ok(reliefSource.includes('bezierCurveTo'));
+assert.ok(reliefSource.includes('quadraticCurveTo'));
+assert.ok(reliefSource.includes("'fantasy-elbrus'"));
+assert.ok(reliefSource.includes('rgba(39, 61, 72'));
 
 console.log(JSON.stringify({
   version: AlanMap.version,
