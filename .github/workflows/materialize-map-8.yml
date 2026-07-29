@@ -1,0 +1,130 @@
+name: Materialize Alan Map 8.0
+
+on:
+  push:
+    branches:
+      - 8.0
+    paths:
+      - 'delivery/v8/**'
+      - '.github/workflows/materialize-map-8.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: materialize-alan-map-8.0
+  cancel-in-progress: false
+
+jobs:
+  materialize-and-validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply version 8.0 code
+        run: |
+          cat delivery/v8/patch-*.txt | base64 --decode | gzip --decompress > /tmp/alan-map-8.0.patch
+          git apply --check /tmp/alan-map-8.0.patch
+          git apply /tmp/alan-map-8.0.patch
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Generate the 30 transparent mountain PNGs
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pillow==11.3.0
+          python delivery/v8/apply_v8.py
+          test "$(find assets/mountains -maxdepth 1 -name 'mount-*.png' | wc -l)" -eq 30
+          test -f assets/mountains/elbrus.png
+          test -f assets/mountains/catalog.json
+          rm -rf delivery/v8
+          rm .github/workflows/materialize-map-8.yml
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Validate runtime and mountain library
+        run: node tests/runtime-contract.mjs
+
+      - name: Install browser runtime
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Run browser smoke test
+        run: |
+          mkdir -p build
+          python3 -m http.server 8000 > build/http-server.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID || true' EXIT
+          node tests/map-smoke.mjs
+
+      - name: Create full project archive
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from zipfile import ZIP_DEFLATED, ZipFile
+
+          root = Path('.')
+          output = Path('build/alan-map-8.0.zip')
+          excluded = {'.git', 'build', 'node_modules', 'playwright-report', 'test-results', '__pycache__'}
+          with ZipFile(output, 'w', ZIP_DEFLATED) as archive:
+              for path in sorted(root.rglob('*')):
+                  if not path.is_file() or any(part in excluded for part in path.parts):
+                      continue
+                  archive.write(path, path.as_posix())
+
+          report_paths = [
+              'index.html', 'README.md', 'DATA-SOURCES-AND-LICENSES.md',
+              'assets/bootstrap.js', 'assets/map-page.js', 'assets/map-ui.js',
+              'assets/fantasy-relief.js', 'assets/fantasy-style.js',
+              'assets/mountains/catalog.json', 'assets/mountains/elbrus.png',
+              'assets/map-data.part-000.js', 'assets/map-data.part-001.js',
+              'data/vector-build-manifest.json', 'data/shards-manifest.json',
+              'data/river-network-report.json', 'data/natural-layer-report.json'
+          ]
+          sizes = {path: Path(path).stat().st_size for path in report_paths}
+          sizes['assets/mountains/mount-1..30.png'] = sum(path.stat().st_size for path in Path('assets/mountains').glob('mount-*.png'))
+          sizes['assets/mountains/mountain_count'] = len(list(Path('assets/mountains').glob('mount-*.png')))
+          sizes['data/shards/vector-7.0.23'] = sum(path.stat().st_size for path in Path('data/shards/vector-7.0.23').glob('part-*.bin'))
+          sizes['data/shards/vector_count'] = len(list(Path('data/shards/vector-7.0.23').glob('part-*.bin')))
+          sizes['data/shards/dem-7.0.21'] = sum(path.stat().st_size for path in Path('data/shards/dem-7.0.21').glob('part-*.bin'))
+          sizes[output.name] = output.stat().st_size
+          Path('build/file-sizes-8.0.json').write_text(json.dumps(sizes, ensure_ascii=False, indent=2), encoding='utf-8')
+          PY
+
+      - name: Commit Alan Map 8.0
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Release Alan Map 8.0 illustrated mountain chains"
+          git push origin HEAD:8.0
+
+      - name: Upload validation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: alan-map-8.0-validation
+          path: |
+            build/map-smoke.png
+            build/browser-diagnostics.json
+            build/http-server.log
+          if-no-files-found: warn
+
+      - name: Upload full project archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: alan-map-8.0-package
+          path: |
+            build/alan-map-8.0.zip
+            build/file-sizes-8.0.json
+          if-no-files-found: error
