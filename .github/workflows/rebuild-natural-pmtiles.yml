@@ -85,7 +85,8 @@ jobs:
         run: python tools/build_natural_layers.py prepare
 
       - name: Restore fixed OSM extraction cache
-        uses: actions/cache@v4
+        id: osm-cache
+        uses: actions/cache/restore@v4
         with:
           path: |
             build/source.osm.pbf
@@ -123,6 +124,17 @@ jobs:
           ogrinfo build/osm-clipped.gpkg multipolygons -so
           ogrinfo build/osm-clipped.gpkg multilinestrings -so
           ogrinfo build/osm-clipped.gpkg points -so
+
+      - name: Save fixed OSM extraction cache
+        if: steps.osm-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            build/source.osm.pbf
+            build/source.osm.pbf.md5
+            build/source-md5.txt
+            build/osm-clipped.gpkg
+          key: alan-osm-260726-map-frame-v2-topology
 
       - name: Classify and validate natural features
         run: |
@@ -233,6 +245,8 @@ jobs:
             build/browser-diagnostics.json
             build/pmtiles-show.txt
             build/http-server.log
+            build/river-network-report.json
+            build/natural-layer-report.json
             data/vector-build-manifest.json
             data/river-network-report.json
             data/natural-layer-report.json
