@@ -6,11 +6,12 @@
 })(typeof self !== 'undefined' ? self : this, function (root) {
   'use strict';
 
-  const VERSION = '7.0.22';
-  const DEFAULT_STORAGE_KEY = 'alan-map-stage7.0.22-view';
+  const VERSION = '7.0.23';
+  const DEFAULT_STORAGE_KEY = 'alan-map-stage7.0.23-view';
   const STATE_SCHEMA_VERSION = 1;
   const STATE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
   const LEGACY_STORAGE_KEYS = [
+    'alan-map-stage7.0.22-view',
     'alan-map-stage7.0.21-view',
     'alan-map-stage7.0.20-view',
     'alan-map-stage7.0.19-view', 'alan-map-stage7.0.18-view', 'alan-map-stage7.0.17-view', 'alan-map-stage7.0.16-view', 'alan-map-stage7.0.15-view', 'alan-map-stage7.0.14-view', 'alan-map-stage7.0.12-view',
@@ -39,8 +40,7 @@
     historicObjects:Object.freeze({minZoom:10, pointStyle:'small'}),
     waterObjects:Object.freeze({minZoom:10, pointStyle:'small'}),
     naturalObjects:Object.freeze({minZoom:10, pointStyle:'small'}),
-    modernObjects:Object.freeze({minZoom:10, pointStyle:'small'}),
-    mainLakes:Object.freeze({minZoom:12, pointStyle:'large'})
+    modernObjects:Object.freeze({minZoom:10, pointStyle:'small'})
   });
 
   function requireElement(target) {
@@ -143,12 +143,12 @@
       const explicitlyWeak =
         (deviceMemory > 0 && deviceMemory <= 2) ||
         (hardwareConcurrency > 0 && hardwareConcurrency <= 2);
-      mode = explicitlyWeak ? 'balanced' : 'high';
+      mode = explicitlyWeak ? 'low' : 'balanced';
     }
     const profiles = {
-      low: {mode: 'low', pixelRatio: 1.75, maxTileCacheZoomLevels: 3, maxTileCacheSize: 72, maxCanvasSize: 6144, antialias: false, forestPattern: false},
-      balanced: {mode: 'balanced', pixelRatio: 2.5, maxTileCacheZoomLevels: 5, maxTileCacheSize: 112, maxCanvasSize: 8192, antialias: true, forestPattern: true},
-      high: {mode: 'high', pixelRatio: 3, maxTileCacheZoomLevels: 6, maxTileCacheSize: 160, maxCanvasSize: 8192, antialias: true, forestPattern: true}
+      low: {mode: 'low', pixelRatio: 1.25, maxTileCacheZoomLevels: 3, maxTileCacheSize: 64, maxCanvasSize: 6144, antialias: false, forestPattern: false},
+      balanced: {mode: 'balanced', pixelRatio: 1.75, maxTileCacheZoomLevels: 4, maxTileCacheSize: 80, maxCanvasSize: 6144, antialias: false, forestPattern: true},
+      high: {mode: 'high', pixelRatio: 2, maxTileCacheZoomLevels: 5, maxTileCacheSize: 96, maxCanvasSize: 8192, antialias: true, forestPattern: true}
     };
     return {...profiles[mode], detectedDevicePixelRatio: devicePixelRatio};
   }
@@ -185,8 +185,7 @@
         ['modernObjects', data.modernObjects],
         ['peaks', data.peaks],
         ['highPeaks', data.highPeaks],
-        ['passes', data.passes],
-        ['mainLakes', data.mainLakes]
+        ['passes', data.passes]
       ])
     };
   }
@@ -248,7 +247,7 @@
       <div class="alan-map-canvas" data-role="map" aria-label="Интерактивная рельефная карта"></div>
       <div class="alan-map-loading" data-role="loading"><div class="alan-map-loading-card"><div class="alan-map-spinner"></div><div class="alan-map-loading-title">Загрузка карты</div><div class="alan-map-loading-text" data-role="loading-text">Подготавливается рельеф и законченный картографический стиль.</div></div></div>
       <div class="alan-map-toolbar" data-role="toolbar">
-        <div class="alan-map-toolbar-head"><div class="alan-map-toolbar-titles"><div class="alan-map-title">Alan Map · 7.0.22</div><div class="alan-map-subtitle">Автономная карта · физически обрезанные DEM и векторные данные</div></div><button class="alan-map-collapse-button" data-action="toggle-toolbar" type="button" aria-expanded="true" aria-label="Скрыть панель">−</button></div>
+        <div class="alan-map-toolbar-head"><div class="alan-map-toolbar-titles"><div class="alan-map-title">Alan Map · 7.0.23</div><div class="alan-map-subtitle">Автономная карта · физически обрезанные DEM и векторные данные</div></div><button class="alan-map-collapse-button" data-action="toggle-toolbar" type="button" aria-expanded="true" aria-label="Скрыть панель">−</button></div>
         <div class="alan-map-buttons alan-map-action-buttons"><button data-action="reset" type="button">Сброс</button><button class="alan-map-fullscreen-button" data-action="fullscreen" type="button" aria-pressed="false">На весь экран</button></div>
         <div class="alan-map-buttons alan-map-layer-buttons"><button data-toggle="roads" class="active" type="button">Дороги</button><button data-toggle="rivers" class="active" type="button">Вода</button><button data-toggle="regions" class="active" type="button">Районы</button><button data-toggle="labels" class="active" type="button">Подписи</button><button data-toggle="modern" type="button">Современные</button></div>
         <div class="alan-map-control-row"><label>Рельеф</label><input data-control="relief" type="range" min="1" max="4.2" step="0.05" value="2.55"><span data-value="relief" class="alan-map-value">2.6×</span></div>
@@ -319,13 +318,14 @@
 
     const layerIds = {
       roads: ['road-casing','road-main','road-minor','road-tunnel','road-bridge'],
-      riverGeometry: ['river-halo','river-main'],
-      riverLabels: ['river-labels-main','river-labels-branch'],
+      riverGeometry: ['osm-river-water-fill','osm-river-halo','osm-river-line'],
+      riverLabels: ['osm-river-label-main','osm-river-label-regional'],
       regions: ['regional-labels-fallback'],
       modernGeometry: ['modern-objects'],
       modernLabels: ['modern-labels'],
-      labels: ['main-lake-labels','settlement-labels-current','settlement-labels-local','historic-object-labels','mountain-object-labels','water-object-labels','natural-object-labels','mountain-pass-labels','peak-labels','five-thousander-labels'],
-      detailPoints: ['settlement-current-points','settlement-historic-points','historic-object-points','mountain-object-points','water-object-points','natural-object-points','mountain-passes','peak-points','five-thousander-points','main-lake-points']
+      labels: ['osm-water-labels','osm-peak-labels','settlement-labels-current','settlement-labels-local','historic-object-labels','mountain-object-labels','water-object-labels','natural-object-labels','mountain-pass-labels'],
+      detailPoints: ['settlement-current-points','settlement-historic-points','historic-object-points','mountain-object-points','water-object-points','natural-object-points','mountain-passes','osm-peak-points'],
+      secondaryLabels: ['historic-object-labels','mountain-object-labels','water-object-labels','natural-object-labels','mountain-pass-labels','osm-peak-labels']
     };
 
     let map = null;
@@ -340,6 +340,8 @@
     let resizeFrame = null;
     let resizeObserver = null;
     let correctingCamera = false;
+    let moving = false;
+    let regionalLabelsInitializationScheduled = false;
     let api = null;
     let stateMigrationNeeded = false;
     const sourceErrors = new Map();
@@ -438,8 +440,30 @@
       saveTimer = setTimeout(saveStateNow, 180);
     }
 
-    function riverWidth(scale, extra = 0) {
-      return ['interpolate',['linear'],['zoom'],7.0,1.15*scale+extra,8,2.0*scale+extra,11,3.35*scale+extra,14.3,4.6*scale+extra];
+    function riverTierValue(main, regional, local) {
+      return ['match',['get','tier'],1,main,2,regional,local];
+    }
+
+    function riverWidth(scale, halo = false) {
+      const base = [
+        'interpolate',['linear'],['zoom'],
+        7.0,riverTierValue(1.15,0.15,0.03),
+        8.2,riverTierValue(2.1,0.35,0.05),
+        9.0,riverTierValue(2.45,1.15,0.08),
+        11.2,riverTierValue(3.5,2.3,0.72),
+        14.3,riverTierValue(4.6,3.2,2.2)
+      ];
+      if (!halo) return ['*', Number(scale), base];
+      return ['+', ['*', Number(scale), base], riverTierValue(3.0,2.2,1.6)];
+    }
+
+    function riverOpacity(halo = false) {
+      return [
+        'case',
+        ['==',['get','tier'],1],halo ? 0.88 : 0.98,
+        ['==',['get','tier'],2],['interpolate',['linear'],['zoom'],8.2,0,8.9,halo ? 0.82 : 0.94],
+        ['interpolate',['linear'],['zoom'],10.4,0,11.2,halo ? 0.70 : 0.82]
+      ];
     }
 
     function coreStyle() {
@@ -464,12 +488,7 @@
         {id:'background',type:'background',paint:{'background-color':'#25282a'}},
         {id:'focus-paper',type:'fill',source:'polygons',filter:sourceFilter('focus'),paint:{'fill-color':'#eadfc8','fill-opacity':0.98}},
         {id:'terrain-hillshade',type:'hillshade',source:'terrain-dem',paint:{'hillshade-illumination-anchor':'viewport','hillshade-illumination-direction':315,'hillshade-exaggeration':0.62,'hillshade-shadow-color':'#294252','hillshade-highlight-color':'#f8efd9','hillshade-accent-color':'#806b50'}},
-        {id:'ridge-lines',type:'line',source:'lines',filter:['all',sourceFilter('ridges'),['==',['get','visible'],1]],paint:{'line-color':'#675f55','line-width':['interpolate',['linear'],['zoom'],6,0.48,10,1.12],'line-opacity':['interpolate',['linear'],['zoom'],6,0.24,10,0.40],'line-dasharray':[1.2,2.1]}},
-        {id:'glacier-fill',type:'fill',source:'polygons',filter:['all',sourceFilter('glaciers'),['==',['get','visible'],1]],paint:{'fill-color':'#f2f8f7','fill-opacity':0.68,'fill-outline-color':'#91b6c1'}},
-        {id:'peak-snow',type:'fill',source:'polygons',filter:sourceFilter('peakSnow'),paint:{'fill-color':'#f3f7f6','fill-opacity':['match',['get','snow_category'],'large',0.55,'medium',0.48,0.42]}},
-        {id:'elbrus-snow-mass',type:'fill',source:'polygons',filter:['all',sourceFilter('elbrusSnow'),['==',['get','zone_type'],'mass']],paint:{'fill-color':'#eef4f3','fill-opacity':0.58}},
-        {id:'elbrus-snow-core',type:'fill',source:'polygons',filter:['all',sourceFilter('elbrusSnow'),['==',['get','zone_type'],'core']],paint:{'fill-color':'#ffffff','fill-opacity':0.70}},
-        {id:'elbrus-snow-glaciers',type:'fill',source:'polygons',filter:['all',sourceFilter('elbrusSnow'),['==',['get','zone_type'],'glacier']],paint:{'fill-color':'#f2f7f6','fill-opacity':0.78}}
+        {id:'ridge-lines',type:'line',source:'lines',filter:['all',sourceFilter('ridges'),['==',['get','visible'],1]],paint:{'line-color':'#675f55','line-width':['interpolate',['linear'],['zoom'],6,0.48,10,1.12],'line-opacity':['interpolate',['linear'],['zoom'],6,0.24,10,0.40],'line-dasharray':[1.2,2.1]}}
       ];
 
       const natureLayers = [];
@@ -480,12 +499,14 @@
         const majorRoadTunnel = ['all',roadClassFilter,['==',['get','brunnel'],'tunnel']];
         const majorRoadBridge = ['all',roadClassFilter,['==',['get','brunnel'],'bridge']];
         natureLayers.push(
-          {id:'permanent-snow-fill',type:'fill',source:'openmaptiles','source-layer':'landcover',minzoom:VISIBILITY_ZOOM.DISTANT,filter:['any',['==',['get','class'],'ice'],['==',['get','subclass'],'glacier']],paint:{'fill-color':'#f8fbfa','fill-opacity':['interpolate',['linear'],['zoom'],7.0,0.72,9,0.92],'fill-outline-color':'#8fb6c1'}},
+          {id:'osm-glacier-fill',type:'fill',source:'openmaptiles','source-layer':'landcover',minzoom:VISIBILITY_ZOOM.DISTANT,filter:['all',['==',['get','class'],'ice'],['==',['get','subclass'],'glacier']],paint:{'fill-color':'#f2f8f7','fill-opacity':['interpolate',['linear'],['zoom'],7,0.72,9,0.90,12,0.94],'fill-outline-color':'#8fb6c1'}},
+          {id:'osm-snow-fill',type:'fill',source:'openmaptiles','source-layer':'landcover',minzoom:VISIBILITY_ZOOM.DISTANT,filter:['all',['==',['get','class'],'ice'],['==',['get','subclass'],'snow']],paint:{'fill-color':'#fbfdfc','fill-opacity':['interpolate',['linear'],['zoom'],7,0.58,9,0.78,12,0.86],'fill-outline-color':'#b8ced3'}},
           {id:'forest-fill',type:'fill',source:'openmaptiles','source-layer':'landcover',minzoom:VISIBILITY_ZOOM.DISTANT,filter:['==',['get','class'],'wood'],paint:{'fill-color':'#647b5b','fill-opacity':['interpolate',['linear'],['zoom'],7.0,0.20,8,0.26,11,0.32]}},
-          {id:'forest-pattern',type:'fill',source:'openmaptiles','source-layer':'landcover',minzoom:VISIBILITY_ZOOM.MEDIUM,filter:['==',['get','class'],'wood'],layout:{'visibility':qualityProfile.forestPattern?'visible':'none'},paint:{'fill-pattern':'forest-canopy','fill-opacity':['interpolate',['linear'],['zoom'],8.0,0.20,9,0.40,12,0.55]}},
+          {id:'forest-pattern',type:'fill',source:'openmaptiles','source-layer':'landcover',minzoom:10.5,filter:['==',['get','class'],'wood'],layout:{'visibility':qualityProfile.forestPattern?'visible':'none'},paint:{'fill-pattern':'forest-canopy','fill-opacity':['interpolate',['linear'],['zoom'],10.5,0.28,12,0.52]}},
           ...residentialLayerDefinitions(),
-          {id:'lake-fill',type:'fill',source:'openmaptiles','source-layer':'water',minzoom:VISIBILITY_ZOOM.DISTANT,filter:['==',['get','class'],'lake'],paint:{'fill-color':'#6aa7bb','fill-opacity':['interpolate',['linear'],['zoom'],7.0,0.62,9.2,0.72,12,0.78]}},
-          {id:'lake-outline',type:'line',source:'openmaptiles','source-layer':'water',minzoom:VISIBILITY_ZOOM.DISTANT,filter:['==',['get','class'],'lake'],paint:{'line-color':'#79b6c9','line-width':['interpolate',['linear'],['zoom'],7.0,0.75,11,1.65],'line-opacity':['interpolate',['linear'],['zoom'],7.0,0.72,7.5,0.94]}}
+          {id:'osm-water-fill',type:'fill',source:'openmaptiles','source-layer':'water',minzoom:VISIBILITY_ZOOM.DISTANT,filter:['in',['get','class'],['literal',['lake','reservoir','pond']]],paint:{'fill-color':['match',['get','class'],'reservoir','#659db2','pond','#75a8b5','#6aa7bb'],'fill-opacity':['interpolate',['linear'],['zoom'],7.0,0.62,9.2,0.72,12,0.78]}},
+          {id:'osm-water-outline',type:'line',source:'openmaptiles','source-layer':'water',minzoom:VISIBILITY_ZOOM.DISTANT,filter:['in',['get','class'],['literal',['lake','reservoir','pond']]],paint:{'line-color':'#79b6c9','line-width':['interpolate',['linear'],['zoom'],7.0,0.75,11,1.65],'line-opacity':['interpolate',['linear'],['zoom'],7.0,0.72,7.5,0.94]}},
+          {id:'osm-river-water-fill',type:'fill',source:'openmaptiles','source-layer':'water',minzoom:VISIBILITY_ZOOM.DISTANT,filter:['==',['get','class'],'river'],paint:{'fill-color':'#6aa7bb','fill-opacity':['interpolate',['linear'],['zoom'],7,0.50,10,0.68,13,0.76]}}
         );
         roadLayers.push(
           {id:'road-casing',type:'line',source:'openmaptiles','source-layer':'transportation',minzoom:VISIBILITY_ZOOM.DISTANT,filter:majorRoadAboveGround,layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#f0dfbd','line-width':['interpolate',['linear'],['zoom'],7.0,0.35,8.0,1.45,10,4.8,13,8.1],'line-opacity':['interpolate',['linear'],['zoom'],7.0,0,7.45,0.35,8.0,0.9]}},
@@ -499,8 +520,10 @@
       const lineLayers = [
         {id:'boundary-line',type:'line',source:'lines',minzoom:VISIBILITY_ZOOM.DISTANT,filter:sourceFilter('boundaries'),layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#554d45','line-width':['interpolate',['linear'],['zoom'],7.0,1.0,8.5,1.5,14.3,2.2],'line-opacity':0.9}},
         ...roadLayers,
-        {id:'river-halo',type:'line',source:'lines',minzoom:VISIBILITY_ZOOM.DISTANT,filter:['all',sourceFilter('rivers'),['==',['get','visible'],1]],layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#f4ead6','line-width':riverWidth(state.rivers,3.6),'line-opacity':0.88,'line-blur':0.45}},
-        {id:'river-main',type:'line',source:'lines',minzoom:VISIBILITY_ZOOM.DISTANT,filter:['all',sourceFilter('rivers'),['==',['get','visible'],1]],layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#3f8dac','line-width':riverWidth(state.rivers,0),'line-opacity':0.98}}
+        ...(natureEnabled ? [
+          {id:'osm-river-halo',type:'line',source:'openmaptiles','source-layer':'waterway',minzoom:VISIBILITY_ZOOM.DISTANT,layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#f4ead6','line-width':riverWidth(state.rivers,true),'line-opacity':riverOpacity(true),'line-blur':0.4}},
+          {id:'osm-river-line',type:'line',source:'openmaptiles','source-layer':'waterway',minzoom:VISIBILITY_ZOOM.DISTANT,layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#3f8dac','line-width':riverWidth(state.rivers,false),'line-opacity':riverOpacity(false)}}
+        ] : [])
       ];
 
       const pointLayers = [
@@ -512,23 +535,24 @@
         {id:'natural-object-points',type:'circle',source:'points',minzoom:OBJECT_PRESENTATION.naturalObjects.minZoom,filter:['all',sourceFilter('objects'),['==',['get','visible'],1],['==',['get','object_type'],'natural']],paint:pointPaint(OBJECT_PRESENTATION.naturalObjects.pointStyle,'#65795c','#efe8d8',0.9)},
         {id:'modern-objects',type:'circle',source:'points',minzoom:OBJECT_PRESENTATION.modernObjects.minZoom,filter:sourceFilter('modernObjects'),layout:{'visibility':state.modern?'visible':'none'},paint:pointPaint(OBJECT_PRESENTATION.modernObjects.pointStyle,'#8b8984','#f4ead6',0.72)},
         {id:'mountain-passes',type:'circle',source:'points',minzoom:OBJECT_PRESENTATION.passes.minZoom,filter:['all',sourceFilter('passes'),['==',['get','visible'],1]],paint:pointPaint(OBJECT_PRESENTATION.passes.pointStyle,'#7b6d5d','#f2e9d8')},
-        {id:'peak-points',type:'circle',source:'points',minzoom:OBJECT_PRESENTATION.peaks.minZoom,filter:['all',sourceFilter('peaks'),['==',['get','visible'],1],['==',['get','label_tier'],'peak_close']],paint:pointPaint(OBJECT_PRESENTATION.peaks.pointStyle,'#675f55','#f5ead5')},
-        {id:'five-thousander-points',type:'circle',source:'points',minzoom:OBJECT_PRESENTATION.fiveThousanders.minZoom,filter:['all',sourceFilter('highPeaks'),['==',['get','display_rank'],2]],paint:pointPaint(OBJECT_PRESENTATION.fiveThousanders.pointStyle,'#514b44','#f7efe0')},
-        {id:'main-lake-points',type:'circle',source:'points',minzoom:OBJECT_PRESENTATION.mainLakes.minZoom,filter:sourceFilter('mainLakes'),paint:pointPaint(OBJECT_PRESENTATION.mainLakes.pointStyle,'#4b9eb7','#d6f1f1',0.92)}
+        ...(natureEnabled ? [
+          {id:'osm-peak-points',type:'circle',source:'openmaptiles','source-layer':'peak',minzoom:VISIBILITY_ZOOM.DISTANT,filter:['!=',['get','hidden'],1],paint:{'circle-radius':['match',['get','peak_level'],1,4,2.5],'circle-color':['match',['get','peak_level'],1,'#514b44','#675f55'],'circle-stroke-color':'#f7efe0','circle-stroke-width':1,'circle-opacity':['case',['==',['get','peak_level'],1],1,['interpolate',['linear'],['zoom'],9.8,0,10.2,1]],'circle-stroke-opacity':['case',['==',['get','peak_level'],1],1,['interpolate',['linear'],['zoom'],9.8,0,10.2,1]],'circle-pitch-alignment':'viewport','circle-pitch-scale':'viewport'}}
+        ] : [])
       ];
 
       const labelLayers = [
-        {id:'river-labels-main',type:'symbol',source:'lines',minzoom:VISIBILITY_ZOOM.DISTANT,filter:['all',sourceFilter('rivers'),['==',['get','visible'],1],['==',['get','label_tier'],1]],layout:{'symbol-placement':'line','symbol-spacing':500,'text-field':labelName,'text-font':['Noto Sans Regular'],'text-size':['interpolate',['linear'],['zoom'],7.0,9.5,11,14.5],'text-letter-spacing':0.055,'text-rotation-alignment':'map','text-pitch-alignment':'viewport','text-keep-upright':true,'text-max-angle':38,'text-allow-overlap':false},paint:{'text-color':'#126083','text-halo-color':'#f5ead5','text-halo-width':1.7,'text-halo-blur':0.55}},
-        {id:'river-labels-branch',type:'symbol',source:'lines',minzoom:VISIBILITY_ZOOM.DISTANT,filter:['all',sourceFilter('rivers'),['==',['get','visible'],1],['==',['get','label_tier'],2]],layout:{'symbol-placement':'line','symbol-spacing':430,'text-field':labelName,'text-font':['Noto Sans Regular'],'text-size':['interpolate',['linear'],['zoom'],7.0,9.2,11,14.0],'text-letter-spacing':0.045,'text-rotation-alignment':'map','text-pitch-alignment':'viewport','text-keep-upright':true,'text-max-angle':42,'text-allow-overlap':false},paint:{'text-color':'#126083','text-halo-color':'#f5ead5','text-halo-width':1.5,'text-halo-blur':0.5}},
+        ...(natureEnabled ? [
+          {id:'osm-river-label-main',type:'symbol',source:'openmaptiles','source-layer':'waterway',minzoom:VISIBILITY_ZOOM.DISTANT,filter:['==',['get','tier'],1],layout:{'symbol-placement':'line','symbol-spacing':500,'text-field':labelName,'text-font':['Noto Sans Regular'],'text-size':['interpolate',['linear'],['zoom'],7,9.5,11,14.5],'text-letter-spacing':0.055,'text-rotation-alignment':'map','text-pitch-alignment':'viewport','text-keep-upright':true,'text-max-angle':38,'text-allow-overlap':false},paint:{'text-color':'#126083','text-halo-color':'#f5ead5','text-halo-width':1.7,'text-halo-blur':0.55}},
+          {id:'osm-river-label-regional',type:'symbol',source:'openmaptiles','source-layer':'waterway',minzoom:9,filter:['==',['get','tier'],2],layout:{'symbol-placement':'line','symbol-spacing':440,'text-field':labelName,'text-font':['Noto Sans Regular'],'text-size':['interpolate',['linear'],['zoom'],9,9.1,12,12.7],'text-letter-spacing':0.04,'text-rotation-alignment':'map','text-pitch-alignment':'viewport','text-keep-upright':true,'text-max-angle':42,'text-allow-overlap':false},paint:{'text-color':'#126083','text-halo-color':'#f5ead5','text-halo-width':1.45,'text-halo-blur':0.45}},
+          {id:'osm-water-labels',type:'symbol',source:'openmaptiles','source-layer':'water',minzoom:10,filter:['all',['in',['get','class'],['literal',['lake','reservoir','pond']]],['==',['get','label_primary'],1]],layout:{'text-field':labelName,'text-font':['Noto Sans Regular'],'text-size':10.5,'text-allow-overlap':false},paint:{'text-color':'#126083','text-halo-color':'#f5ead5','text-halo-width':1.75,'text-halo-blur':0.5}},
+          {id:'osm-peak-labels',type:'symbol',source:'openmaptiles','source-layer':'peak',minzoom:VISIBILITY_ZOOM.DISTANT,filter:['!=',['get','hidden'],1],layout:{'text-field':['case',['==',['get','peak_level'],1],['format',labelName,{},'\n',{},['concat',['to-string',['get','ele']],' м'],{'font-scale':0.72}],labelName],'text-font':['Noto Sans Regular'],'text-size':['match',['get','peak_level'],1,11.5,9.7],'text-offset':[0,1.1],'text-anchor':'top','text-allow-overlap':false},paint:{'text-color':'#514a43','text-halo-color':'#f7efe0','text-halo-width':['match',['get','peak_level'],1,1.9,1.5],'text-opacity':['case',['==',['get','peak_level'],1],1,['interpolate',['linear'],['zoom'],9.8,0,10.2,1]]}}
+        ] : []),
         {id:'regional-labels-fallback',type:'symbol',source:'lines',minzoom:VISIBILITY_ZOOM.DISTANT,maxzoom:LABEL_ZOOM.REGIONAL_MAX,filter:sourceFilter('regionalLabels'),layout:{'visibility':'none','symbol-placement':'line-center','icon-image':['get','icon_id'],'icon-size':0.58,'icon-rotation-alignment':'viewport','icon-pitch-alignment':'viewport','icon-keep-upright':true,'icon-allow-overlap':true,'icon-ignore-placement':true,'icon-padding':1,'symbol-sort-key':['get','placement_priority']},paint:{'icon-opacity':['interpolate',['linear'],['zoom'],7.0,1,9.5,1,10.0,0]}},
         {id:'settlement-labels-current',type:'symbol',source:'points',minzoom:OBJECT_PRESENTATION.currentSettlements.minZoom,filter:['all',sourceFilter('objects'),['==',['get','visible'],1],['==',['get','object_type'],'settlement'],['!=',['get','object_subtype'],'historic_settlement']],layout:{'text-field':labelName,'text-font':['Noto Sans Regular'],'text-size':['interpolate',['linear'],['zoom'],8.0,10.2,12.5,12.6],'text-offset':[0,1.08],'text-anchor':'top','text-allow-overlap':true,'text-ignore-placement':true,'text-optional':false,'text-max-width':100,'text-line-height':1.0},paint:{'text-color':'#304553','text-halo-color':'#f4ead6','text-halo-width':2.2,'text-halo-blur':0.35}},
         {id:'settlement-labels-local',type:'symbol',source:'points',minzoom:OBJECT_PRESENTATION.historicSettlements.minZoom,filter:['all',sourceFilter('objects'),['==',['get','visible'],1],['==',['get','object_type'],'settlement'],['==',['get','object_subtype'],'historic_settlement']],layout:{'text-field':labelName,'text-font':['Noto Sans Regular'],'text-size':9.5,'text-offset':[0,1.0],'text-anchor':'top','text-allow-overlap':true,'text-ignore-placement':true,'text-optional':false,'text-max-width':100,'text-line-height':1.0},paint:{'text-color':'#5a4128','text-halo-color':'#f4ead6','text-halo-width':2.0,'text-halo-blur':0.3}},
         {id:'historic-object-labels',type:'symbol',source:'points',minzoom:OBJECT_PRESENTATION.historicObjects.minZoom,filter:['all',sourceFilter('objects'),['==',['get','visible'],1],['in',['get','object_type'],['literal',['fortification','landmark']]]],layout:{'text-field':labelName,'text-font':['Noto Sans Regular'],'text-size':9.4,'text-offset':[0,1.1],'text-anchor':'top','text-allow-overlap':false},paint:{'text-color':'#34383b','text-halo-color':'#f4ead6','text-halo-width':1.35}},
         {id:'mountain-object-labels',type:'symbol',source:'points',minzoom:OBJECT_PRESENTATION.mountainObjects.minZoom,filter:['all',sourceFilter('objects'),['==',['get','visible'],1],['==',['get','object_type'],'mountain']],layout:{'text-field':labelName,'text-font':['Noto Sans Regular'],'text-size':9.7,'text-offset':[0,1.05],'text-anchor':'top','text-allow-overlap':false},paint:{'text-color':'#514a43','text-halo-color':'#f4ead6','text-halo-width':1.4}},
         ...supplementalLabelLayerDefinitions(labelName),
-        {id:'peak-labels',type:'symbol',source:'points',minzoom:OBJECT_PRESENTATION.peaks.minZoom,filter:['all',sourceFilter('peaks'),['==',['get','visible'],1],['==',['get','label_tier'],'peak_close']],layout:{'text-field':labelName,'text-font':['Noto Sans Regular'],'text-size':9.7,'text-offset':[0,1.0],'text-anchor':'top','text-allow-overlap':false},paint:{'text-color':'#514a43','text-halo-color':'#f4ead6','text-halo-width':1.5}},
-        {id:'five-thousander-labels',type:'symbol',source:'points',minzoom:OBJECT_PRESENTATION.fiveThousanders.minZoom,filter:['all',sourceFilter('highPeaks'),['==',['get','display_rank'],2]],layout:{'text-field':['format',labelName,{},'\n',{},['concat',['to-string',['get','elevation_m']],' м'],{'font-scale':0.72}],'text-font':['Noto Sans Regular'],'text-size':11.5,'text-offset':[0,1.15],'text-anchor':'top','text-allow-overlap':false},paint:{'text-color':'#514a43','text-halo-color':'#f7efe0','text-halo-width':1.9}},
-        {id:'main-lake-labels',type:'symbol',source:'points',minzoom:OBJECT_PRESENTATION.mainLakes.minZoom,filter:sourceFilter('mainLakes'),layout:{'text-field':labelName,'text-font':['Noto Sans Regular'],'text-size':10.5,'text-offset':[0,1.05],'text-anchor':'top','text-allow-overlap':false},paint:{'text-color':'#126083','text-halo-color':'#f5ead5','text-halo-width':1.75,'text-halo-blur':0.5}},
         {id:'modern-labels',type:'symbol',source:'points',minzoom:OBJECT_PRESENTATION.modernObjects.minZoom,filter:sourceFilter('modernObjects'),layout:{'visibility':state.modern?'visible':'none','text-field':labelName,'text-font':['Noto Sans Regular'],'text-size':9.5,'text-offset':[0,1],'text-anchor':'top'},paint:{'text-color':'#6b6965','text-halo-color':'#f4ead6','text-halo-width':1.2}}
       ];
 
@@ -574,6 +598,7 @@
     }
 
     function initializeRegionalLabels3D() {
+      if (destroyed || regionalLabels3d || regionalLabels3dFailed) return;
       const rendererFactory = options.regionalLabels3D || root.RegionalLabels3D;
       if (!rendererFactory?.create) {
         showRegionalLabelsFallback('3D-модуль районных названий не подключён; включён резервный слой.');
@@ -604,6 +629,16 @@
       }
     }
 
+    function scheduleRegionalLabels3D() {
+      if (regionalLabelsInitializationScheduled || regionalLabels3d || regionalLabels3dFailed || !map) return;
+      regionalLabelsInitializationScheduled = true;
+      map.once('idle', () => {
+        regionalLabelsInitializationScheduled = false;
+        initializeRegionalLabels3D();
+        applyLayerState();
+      });
+    }
+
     function setVisibility(ids, visible) {
       if (!map) return;
       ids.forEach((id) => {if (map.getLayer(id)) map.setLayoutProperty(id,'visibility',visible?'visible':'none');});
@@ -628,6 +663,10 @@
       setVisibility(layerIds.modernGeometry,modernVisible);
       setVisibility(layerIds.modernLabels,modernVisible && labelsVisible);
       setVisibility(layerIds.labels,labelsVisible);
+      if (moving) setVisibility(layerIds.secondaryLabels,false);
+      if (map?.getLayer('forest-pattern')) {
+        map.setLayoutProperty('forest-pattern','visibility',qualityProfile.forestPattern && !moving ? 'visible' : 'none');
+      }
     }
 
     function applyReliefNow(value) {
@@ -651,8 +690,8 @@
       const numericValue = clamp(Number(value),.7,2.2);
       riverValue.textContent = `${numericValue.toFixed(2)}×`;
       if (!map || !map.isStyleLoaded()) return;
-      if (map.getLayer('river-halo')) map.setPaintProperty('river-halo','line-width',riverWidth(numericValue,3.6));
-      if (map.getLayer('river-main')) map.setPaintProperty('river-main','line-width',riverWidth(numericValue,0));
+      if (map.getLayer('osm-river-halo')) map.setPaintProperty('osm-river-halo','line-width',riverWidth(numericValue,true));
+      if (map.getLayer('osm-river-line')) map.setPaintProperty('osm-river-line','line-width',riverWidth(numericValue,false));
       queueSave();
     }
 
@@ -787,16 +826,33 @@
       const feature = event.features?.[0];
       if (!feature) return;
       const properties = feature.properties || {};
-      const isLake = feature.layer?.id === 'lake-fill';
-      const kind = isLake ? 'озеро' : properties.object_type || (properties.river_id ? 'река' : properties.peak_id ? 'вершина' : properties.pass_id ? 'перевал' : 'объект');
-      const title = properties.name_alan_latin || properties.name_ru || properties.name_map || properties.name || properties.source_name || (isLake ? 'Озеро' : 'Объект');
+      const layerId = feature.layer?.id || '';
+      const waterKind = properties.class === 'reservoir' ? 'водохранилище' : properties.class === 'pond' ? 'пруд' : 'озеро';
+      const kind = layerId === 'osm-water-fill'
+        ? waterKind
+        : layerId === 'osm-river-line'
+          ? (properties.class === 'canal' ? 'канал' : 'река')
+          : layerId === 'osm-glacier-fill'
+            ? 'ледник'
+            : layerId === 'osm-snow-fill'
+              ? 'постоянный снег'
+              : layerId === 'osm-peak-points'
+                ? 'вершина'
+                : properties.object_type || (properties.pass_id ? 'перевал' : 'объект');
+      const title = properties.name_alan_latin || properties.name_ru || properties.name_map || properties.name || properties.source_name || (kind === 'озеро' ? 'Озеро' : 'Объект');
       const body = properties.description_ru || '';
-      const meta = properties.elevation_m ? `Высота: ${escapeHtml(properties.elevation_m)} м` : properties.river_class ? `Класс реки: ${escapeHtml(properties.river_class)}` : '';
+      const elevation = properties.ele || properties.elevation_m;
+      const meta = elevation ? `Высота: ${escapeHtml(elevation)} м` : properties.system_id ? `Речная система: ${escapeHtml(properties.system_id)}` : '';
       new maplibregl.Popup({closeButton:true,maxWidth:'310px'}).setLngLat(event.lngLat).setHTML(`<div class="alan-map-popup-title">${escapeHtml(title)}</div><div class="alan-map-popup-kind">${escapeHtml(kind)}</div>${body?`<div class="alan-map-popup-body">${escapeHtml(body)}</div>`:''}${meta?`<div class="alan-map-popup-meta">${meta}</div>`:''}`).addTo(map);
     }
 
     function registerInteractiveLayers() {
-      const clickableLayers = ['settlement-current-points','settlement-historic-points','historic-object-points','mountain-object-points','water-object-points','natural-object-points','modern-objects','mountain-passes','peak-points','five-thousander-points','river-main','lake-fill','main-lake-points'];
+      const clickableLayers = [
+        'settlement-current-points','settlement-historic-points','historic-object-points',
+        'mountain-object-points','water-object-points','natural-object-points','modern-objects',
+        'mountain-passes','osm-peak-points','osm-river-line','osm-water-fill',
+        'osm-glacier-fill','osm-snow-fill'
+      ];
       clickableLayers.filter((id) => map.getLayer(id)).forEach((id) => {
         map.on('mouseenter',id,() => {map.getCanvas().style.cursor='pointer';});
         map.on('mouseleave',id,() => {map.getCanvas().style.cursor='';});
@@ -809,7 +865,7 @@
       ready = true;
       clearTimeout(loadingTimer);
       if (readyFrame !== null) cancelAnimationFrame(readyFrame);
-      initializeRegionalLabels3D();
+      scheduleRegionalLabels3D();
       applyLayerState();
       registerInteractiveLayers();
       loadingElement.classList.add('hidden');
@@ -905,7 +961,6 @@
       if (typeof ResizeObserver === 'function') {
         resizeObserver = new ResizeObserver(queueMapResize);
         resizeObserver.observe(host);
-        resizeObserver.observe(mapElement);
       }
 
       map.addControl(new maplibregl.NavigationControl({showCompass:true,showZoom:true,visualizePitch:true}),'bottom-left');
@@ -927,6 +982,7 @@
       map.on('sourcedata',(event) => {
         if (event.isSourceLoaded && event.sourceId) {
           sourceLoaded.add(event.sourceId);
+          sourceErrors.delete(event.sourceId);
           updateNetworkStatus();
         }
       });
@@ -938,7 +994,19 @@
         updateNetworkStatus();
       });
 
+      document.addEventListener('alan-map:pmtiles-shard-loaded',(event) => {
+        const archivePath = String(event.detail?.archivePath || '');
+        const sourceId = archivePath.includes('dem') ? 'terrain-dem' : archivePath.includes('vector') ? 'openmaptiles' : '';
+        if (sourceId && sourceErrors.delete(sourceId)) updateNetworkStatus();
+      },{signal:uiAbort.signal});
+
+      map.on('movestart',() => {
+        moving = true;
+        applyLayerState();
+      });
       map.on('moveend',() => {
+        moving = false;
+        applyLayerState();
         if (correctingCamera) {correctingCamera=false;queueSave();return;}
         if (!enforceSoftCameraBounds()) queueSave();
       });
@@ -1040,6 +1108,3 @@
     }
   };
 });
-
-  
-  

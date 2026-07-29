@@ -5,4 +5,5 @@
 - Сборка: GDAL/OGR, GeoPandas/Shapely, Tippecanoe, PMTiles CLI.
 - MapLibre GL JS 5.24.0; PMTiles JS 4.4.1; локальный Noto Sans.
 
-Манифест: `data/vector-build-manifest.json`. Реки: `data/river-network-report.json`.
+Манифесты: `data/vector-build-manifest.json`, `data/shards-manifest.json`.
+Проверки данных: `data/river-network-report.json`, `data/natural-layer-report.json`.

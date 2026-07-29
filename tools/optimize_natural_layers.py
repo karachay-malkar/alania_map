@@ -22,6 +22,21 @@ def compact_feature_properties(path: Path, mode: str) -> None:
             keep = {'class', 'subclass'}
         elif mode == 'transportation':
             keep = {'class', 'subclass', 'brunnel'}
+        elif mode == 'water':
+            keep = {
+                'osm_id', 'class', 'subclass', 'name', 'name_ru',
+                'name_alan_latin', 'lake_id', 'label_primary', 'area_m2'
+            }
+        elif mode == 'waterway':
+            keep = {
+                'class', 'tier', 'system_id', 'name', 'name_ru',
+                'name_alan_latin', 'segment_count'
+            }
+        elif mode == 'peak':
+            keep = {
+                'osm_id', 'class', 'name', 'name_ru', 'name_alan_latin',
+                'ele', 'peak_level', 'hidden'
+            }
         else:
             keep = set(properties)
         feature['properties'] = {
@@ -38,6 +53,9 @@ def main() -> None:
     compact_feature_properties(BUILD / 'landcover.geojson', 'landcover')
     compact_feature_properties(BUILD / 'landuse.geojson', 'landuse')
     compact_feature_properties(BUILD / 'transportation.geojson', 'transportation')
+    compact_feature_properties(BUILD / 'water.geojson', 'water')
+    compact_feature_properties(BUILD / 'waterway.geojson', 'waterway')
+    compact_feature_properties(BUILD / 'peak.geojson', 'peak')
 
 
 if __name__ == '__main__':

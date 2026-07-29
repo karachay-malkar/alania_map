@@ -1,7 +1,9 @@
-
-
 (() => {
   'use strict';
+
+  const VERSION = '7.0.23';
+  const MANIFEST_PATH = 'data/shards-manifest.json';
+  const MAX_CACHED_SHARDS = 16;
 
   const root = document.getElementById('alan-map-root');
   if (!root) throw new Error('Alan Map root container was not found.');
@@ -13,29 +15,85 @@
   let resizeFrame = null;
   let orientationTimer = null;
   let mapInstance = null;
-  if (!window.pmtiles?.Protocol) throw new Error('Alan Map: локальный PMTiles-модуль не подключён.');
 
-  const PMTILES_SHARD_SIZE = 786432;
-  const PMTILES_SHARDS = [
-    {
-      archivePath: 'data/alan-dem-7.0.21.pmtiles',
-      partsPath: 'data/shards/dem/',
-      byteLength: 34261814
-    },
-    {
-      archivePath: 'data/alan-vector-7.0.22.pmtiles',
-      partsPath: 'data/shards/vector/',
-      byteLength: 14491508
+  class ShardLruCache {
+    constructor(maxEntries) {
+      this.maxEntries = maxEntries;
+      this.entries = new Map();
+      this.hits = 0;
+      this.misses = 0;
+      this.evictions = 0;
     }
-  ];
+
+    getOrCreate(key, factory) {
+      if (this.entries.has(key)) {
+        const existing = this.entries.get(key);
+        this.entries.delete(key);
+        this.entries.set(key, existing);
+        this.hits += 1;
+        return existing;
+      }
+
+      this.misses += 1;
+      const promise = Promise.resolve()
+        .then(factory)
+        .catch((error) => {
+          if (this.entries.get(key) === promise) this.entries.delete(key);
+          throw error;
+        });
+      this.entries.set(key, promise);
+      while (this.entries.size > this.maxEntries) {
+        const oldestKey = this.entries.keys().next().value;
+        if (oldestKey === undefined) break;
+        this.entries.delete(oldestKey);
+        this.evictions += 1;
+      }
+      return promise;
+    }
+
+    diagnostics() {
+      return {
+        maxEntries: this.maxEntries,
+        entries: this.entries.size,
+        hits: this.hits,
+        misses: this.misses,
+        evictions: this.evictions
+      };
+    }
+  }
 
   class ShardedPmtilesSource {
-    constructor(archiveUrl, partsUrl, byteLength, shardSize = PMTILES_SHARD_SIZE) {
-      this.archiveUrl = archiveUrl;
-      this.partsUrl = partsUrl;
-      this.byteLength = byteLength;
-      this.shardSize = shardSize;
-      this.cache = new Map();
+    constructor(archivePath, archiveManifest, cache) {
+      this.archivePath = archivePath;
+      this.archiveUrl = new URL(archivePath, document.baseURI).href;
+      this.partsUrl = new URL(archiveManifest.parts_path, document.baseURI);
+      this.byteLength = Number(archiveManifest.byte_length);
+      this.shardSize = Number(archiveManifest.shard_size);
+      this.shards = archiveManifest.shards;
+      this.cache = cache;
+      this.requests = 0;
+      this.loaded = new Set();
+      this.validateManifest();
+    }
+
+    validateManifest() {
+      if (!Number.isSafeInteger(this.byteLength) || this.byteLength <= 0) {
+        throw new Error(`Alan Map: неверный размер архива ${this.archivePath} в манифесте.`);
+      }
+      if (!Number.isSafeInteger(this.shardSize) || this.shardSize <= 0 || !Array.isArray(this.shards) || !this.shards.length) {
+        throw new Error(`Alan Map: повреждён список фрагментов ${this.archivePath}.`);
+      }
+      let total = 0;
+      this.shards.forEach((shard, index) => {
+        const expectedName = `part-${String(index).padStart(3, '0')}.bin`;
+        if (shard.file !== expectedName || !Number.isSafeInteger(Number(shard.size)) || Number(shard.size) <= 0) {
+          throw new Error(`Alan Map: неверная запись фрагмента ${expectedName} в ${MANIFEST_PATH}.`);
+        }
+        total += Number(shard.size);
+      });
+      if (total !== this.byteLength) {
+        throw new Error(`Alan Map: сумма фрагментов ${this.archivePath} (${total}) не совпадает с размером архива (${this.byteLength}).`);
+      }
     }
 
     getKey() {
@@ -43,27 +101,42 @@
     }
 
     async loadShard(index) {
-      if (this.cache.has(index)) return this.cache.get(index);
-      const fileName = `part-${String(index).padStart(3, '0')}.bin`;
-      const request = fetch(new URL(fileName, this.partsUrl).href, {cache: 'force-cache'})
-        .then((response) => {
-          if (!response.ok) throw new Error(`Alan Map: не загружен фрагмент ${fileName} (${response.status}).`);
-          return response.arrayBuffer();
-        });
-      this.cache.set(index, request);
-      try {
-        return await request;
-      } catch (error) {
-        this.cache.delete(index);
-        throw error;
+      const descriptor = this.shards[index];
+      if (!descriptor) {
+        throw new Error(`Alan Map: фрагмент part-${String(index).padStart(3, '0')}.bin отсутствует в манифесте ${this.archivePath}.`);
       }
+      const cacheKey = `${this.archivePath}:${descriptor.file}`;
+      return this.cache.getOrCreate(cacheKey, async () => {
+        this.requests += 1;
+        const url = new URL(descriptor.file, this.partsUrl).href;
+        const response = await fetch(url, {cache: index === 0 ? 'no-cache' : 'default'});
+        if (!response.ok) {
+          throw new Error(`Alan Map: не загружен ${this.archivePath} / ${descriptor.file} (HTTP ${response.status}).`);
+        }
+        const buffer = await response.arrayBuffer();
+        const expectedSize = Number(descriptor.size);
+        if (buffer.byteLength !== expectedSize) {
+          throw new Error(
+            `Alan Map: повреждён ${this.archivePath} / ${descriptor.file}: получено ${buffer.byteLength} байт, ожидалось ${expectedSize}.`
+          );
+        }
+        this.loaded.add(index);
+        document.dispatchEvent(new CustomEvent('alan-map:pmtiles-shard-loaded', {
+          detail: {archivePath: this.archivePath, file: descriptor.file, size: buffer.byteLength}
+        }));
+        return buffer;
+      });
     }
 
     async getBytes(offset, length, signal) {
       if (signal?.aborted) throw signal.reason || new DOMException('Aborted', 'AbortError');
-      if (!Number.isSafeInteger(offset) || !Number.isSafeInteger(length) || offset < 0 || length < 0 || offset + length > this.byteLength) {
-        throw new RangeError(`Alan Map: неверный диапазон PMTiles ${offset}:${length}.`);
+      if (
+        !Number.isSafeInteger(offset) || !Number.isSafeInteger(length) ||
+        offset < 0 || length < 0 || offset + length > this.byteLength
+      ) {
+        throw new RangeError(`Alan Map: неверный диапазон ${this.archivePath} ${offset}:${length}.`);
       }
+
       const output = new Uint8Array(length);
       let sourceOffset = offset;
       let outputOffset = 0;
@@ -73,25 +146,27 @@
         const shardOffset = sourceOffset % this.shardSize;
         const shard = new Uint8Array(await this.loadShard(shardIndex));
         const copyLength = Math.min(length - outputOffset, shard.length - shardOffset);
-        if (copyLength <= 0) throw new Error(`Alan Map: повреждён фрагмент PMTiles ${shardIndex}.`);
+        if (copyLength <= 0) {
+          const file = this.shards[shardIndex]?.file || `part-${String(shardIndex).padStart(3, '0')}.bin`;
+          throw new Error(`Alan Map: диапазон ${offset}:${length} выходит за фактический размер ${this.archivePath} / ${file}.`);
+        }
         output.set(shard.subarray(shardOffset, shardOffset + copyLength), outputOffset);
         sourceOffset += copyLength;
         outputOffset += copyLength;
       }
       return {data: output.buffer};
     }
-  }
 
-  const pmtilesProtocol = new window.pmtiles.Protocol();
-  for (const archive of PMTILES_SHARDS) {
-    const archiveUrl = new URL(archive.archivePath, document.baseURI).href;
-    const partsUrl = new URL(archive.partsPath, document.baseURI).href;
-    pmtilesProtocol.add(new window.pmtiles.PMTiles(
-      new ShardedPmtilesSource(archiveUrl, partsUrl, archive.byteLength)
-    ));
+    diagnostics() {
+      return {
+        archivePath: this.archivePath,
+        byteLength: this.byteLength,
+        shardCount: this.shards.length,
+        loadedShardCount: this.loaded.size,
+        requests: this.requests
+      };
+    }
   }
-  window.maplibregl.addProtocol('pmtiles', pmtilesProtocol.tile);
-  window.ALAN_MAP_PMTILES_PROTOCOL = pmtilesProtocol;
 
   function viewportHeight() {
     const visualHeight = Number(window.visualViewport?.height || 0);
@@ -117,22 +192,66 @@
     orientationTimer = setTimeout(applyViewportHeight, 180);
   }
 
-  applyViewportHeight();
+  async function loadShardManifest() {
+    const response = await fetch(new URL(MANIFEST_PATH, document.baseURI).href, {cache: 'no-cache'});
+    if (!response.ok) throw new Error(`Alan Map: не загружен ${MANIFEST_PATH} (HTTP ${response.status}).`);
+    const manifest = await response.json();
+    if (manifest?.schema_version !== 1 || !manifest.archives || typeof manifest.archives !== 'object') {
+      throw new Error(`Alan Map: повреждён ${MANIFEST_PATH}.`);
+    }
+    return manifest;
+  }
 
-  mapInstance = window.AlanMap.mount(root, {
-    data: window.ALAN_MAP_DATA,
-    maplibregl: window.maplibregl,
-    regionalLabels3D: window.RegionalLabels3D,
-    storageKey: 'alan-map-stage7.0.22-view'
+  async function start() {
+    if (!window.pmtiles?.Protocol || !window.pmtiles?.PMTiles) {
+      throw new Error('Alan Map: локальный PMTiles-модуль не подключён.');
+    }
+    const data = window.ALAN_MAP_DATA;
+    if (!data?.regionalDem?.archivePath || !data?.regionalVector?.archivePath) {
+      throw new Error('Alan Map: в данных отсутствуют пути локальных PMTiles.');
+    }
+
+    const manifest = await loadShardManifest();
+    const archivePaths = [data.regionalDem.archivePath, data.regionalVector.archivePath];
+    const cache = new ShardLruCache(MAX_CACHED_SHARDS);
+    const sources = [];
+    const protocol = new window.pmtiles.Protocol();
+
+    for (const archivePath of archivePaths) {
+      const archiveManifest = manifest.archives[archivePath];
+      if (!archiveManifest) throw new Error(`Alan Map: архив ${archivePath} отсутствует в ${MANIFEST_PATH}.`);
+      const source = new ShardedPmtilesSource(archivePath, archiveManifest, cache);
+      sources.push(source);
+      protocol.add(new window.pmtiles.PMTiles(source));
+    }
+
+    window.maplibregl.addProtocol('pmtiles', protocol.tile);
+    window.ALAN_MAP_PMTILES_PROTOCOL = protocol;
+    window.ALAN_MAP_PMTILES_SHARD_DIAGNOSTICS = () => ({
+      manifestVersion: manifest.generated_at || null,
+      cache: cache.diagnostics(),
+      archives: sources.map((source) => source.diagnostics())
+    });
+
+    applyViewportHeight();
+    mapInstance = window.AlanMap.mount(root, {
+      data,
+      maplibregl: window.maplibregl,
+      regionalLabels3D: window.RegionalLabels3D,
+      storageKey: `alan-map-stage${VERSION}-view`
+    });
+    window.ALAN_MAP_INSTANCE = mapInstance;
+
+    window.addEventListener('resize', applyViewportHeight, {passive: true});
+    window.addEventListener('orientationchange', queueOrientationResize, {passive: true});
+    window.visualViewport?.addEventListener('resize', applyViewportHeight, {passive: true});
+    document.addEventListener('fullscreenchange', applyViewportHeight);
+    document.addEventListener('webkitfullscreenchange', applyViewportHeight);
+  }
+
+  start().catch((error) => {
+    console.error(error);
+    root.innerHTML = `<div class="alan-map-fatal-error">Карта не загрузилась: ${String(error?.message || error)}</div>`;
+    root.dispatchEvent(new CustomEvent('alan-map:error', {detail: {message: String(error?.message || error)}}));
   });
-  window.ALAN_MAP_INSTANCE = mapInstance;
-
-  window.addEventListener('resize', applyViewportHeight, {passive: true});
-  window.addEventListener('orientationchange', queueOrientationResize, {passive: true});
-  window.visualViewport?.addEventListener('resize', applyViewportHeight, {passive: true});
-  document.addEventListener('fullscreenchange', applyViewportHeight);
-  document.addEventListener('webkitfullscreenchange', applyViewportHeight);
 })();
-
-  
-  

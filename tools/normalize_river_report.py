@@ -35,6 +35,7 @@ def normalize_report(require_all: bool = False) -> dict:
             'matched_length_m': 0,
             'segment_count': 0,
             'component_count': 0,
+            'gaps': [],
             'coverage_system_id': coverage_id,
             'coverage_mode': rule.get('coverage_mode', 'standard-mainstem-alias'),
             'coverage_note': rule.get('coverage_note', ''),
@@ -45,10 +46,18 @@ def normalize_report(require_all: bool = False) -> dict:
 
     ordered = report.get('systems', [])
     missing = [system['id'] for system in ordered if not system.get('present')]
+    disconnected = [
+        system['id']
+        for system in ordered
+        if system.get('present')
+        and not system.get('coverage_system_id')
+        and int(system.get('component_count') or 0) > int(rules.get(system['id'], {}).get('max_components', 1))
+    ]
     report['summary'] = {
         'required': len(ordered),
         'present': len(ordered) - len(missing),
         'missing': missing,
+        'disconnected': disconnected,
         'coverage_aliases': [
             {
                 'id': system['id'],
@@ -65,8 +74,10 @@ def normalize_report(require_all: bool = False) -> dict:
         encoding='utf-8'
     )
 
-    if require_all and missing:
-        raise RuntimeError(f'Mandatory river systems are missing: {missing}')
+    if require_all and (missing or disconnected):
+        raise RuntimeError(
+            f'Mandatory river validation failed: missing={missing}, disconnected={disconnected}'
+        )
     return report
 
 

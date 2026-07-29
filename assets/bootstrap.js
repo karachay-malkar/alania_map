@@ -23,7 +23,6 @@
     await executeParts(["map-data.part-000.js","map-data.part-001.js"], 'map-data.js');
     await loadScript('map-core.js');
     await loadScript('map-ui.js');
-    await loadScript('map-natural.js');
     await loadScript('map-page.js');
   })().catch((error) => {
     console.error(error);
