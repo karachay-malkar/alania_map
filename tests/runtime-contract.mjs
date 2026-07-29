@@ -49,7 +49,7 @@ assert.equal(
 );
 
 assert.equal(FantasyRelief.version, '1.1.0');
-assert.equal(FantasyStyle.version, '1.1.0');
+assert.equal(FantasyStyle.version, '1.1.1');
 const fantasyRidges = FantasyRelief.buildRidgeCollection({
   type: 'FeatureCollection',
   features: [
@@ -112,6 +112,9 @@ assert.ok(reliefSource.includes('bezierCurveTo'));
 assert.ok(reliefSource.includes('quadraticCurveTo'));
 assert.ok(reliefSource.includes("'fantasy-elbrus'"));
 assert.ok(reliefSource.includes('rgba(39, 61, 72'));
+const styleSource = fs.readFileSync(new URL('../assets/fantasy-style.js', import.meta.url), 'utf8');
+assert.ok(styleSource.includes("instance.map.once('idle', ensureController)"));
+assert.ok(styleSource.includes('idleRetryScheduled'));
 
 console.log(JSON.stringify({
   version: AlanMap.version,
