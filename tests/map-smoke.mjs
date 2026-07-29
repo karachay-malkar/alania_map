@@ -22,11 +22,30 @@ await page.goto('http://127.0.0.1:8000/index.html', {
   waitUntil: 'domcontentloaded',
   timeout: 120000
 });
-await page.waitForFunction(
-  () => window.ALAN_MAP_INSTANCE?.map?.isStyleLoaded?.(),
-  null,
-  {timeout: 120000}
-);
+try {
+  await page.waitForFunction(
+    () => window.ALAN_MAP_INSTANCE?.map?.isStyleLoaded?.(),
+    null,
+    {timeout: 120000}
+  );
+} catch (error) {
+  const startupDiagnostics = await page.evaluate(() => ({
+    fatalError: document.querySelector('.alan-map-fatal-error')?.textContent || '',
+    rootText: document.getElementById('alan-map-root')?.textContent?.slice(0, 1000) || '',
+    hasInstance: Boolean(window.ALAN_MAP_INSTANCE),
+    hasManifestDiagnostics: Boolean(window.ALAN_MAP_PMTILES_SHARD_DIAGNOSTICS),
+    shard: window.ALAN_MAP_PMTILES_SHARD_DIAGNOSTICS?.() || null,
+    readyState: document.readyState
+  }));
+  fs.mkdirSync('build', {recursive: true});
+  fs.writeFileSync(
+    'build/browser-diagnostics.json',
+    JSON.stringify({startupDiagnostics, consoleErrors, requests}, null, 2)
+  );
+  await page.screenshot({path: 'build/map-smoke.png', fullPage: true});
+  console.error(JSON.stringify({startupDiagnostics, consoleErrors}, null, 2));
+  throw error;
+}
 await page.waitForFunction(
   () => document.querySelector('.alan-map-loading')?.classList.contains('hidden'),
   null,
