@@ -141,7 +141,11 @@
         layout:{'line-cap':'round','line-join':'round'},
         paint:{
           'line-color':'rgba(39,61,72,.68)',
-          'line-width':['match',['get','fantasy_class'],'main',['interpolate',['linear'],['zoom'],7,1.25,10,2.4],['interpolate',['linear'],['zoom'],8,0.7,11,1.45]],
+          'line-width':['interpolate',['linear'],['zoom'],
+            7,['match',['get','fantasy_class'],'main',1.25,0.7],
+            10,['match',['get','fantasy_class'],'main',2.4,1.18],
+            12.8,['match',['get','fantasy_class'],'main',3.0,1.45]
+          ],
           'line-opacity':['interpolate',['linear'],['zoom'],7,0.26,9.5,0.38,12.8,0],
           'line-blur':0.55
         }
