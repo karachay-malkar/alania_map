@@ -7,6 +7,12 @@ on:
     paths:
       - 'delivery/v8/**'
       - '.github/workflows/materialize-map-8.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'delivery/v8/**'
+      - '.github/workflows/materialize-map-8.yml'
   workflow_dispatch:
 
 permissions:
@@ -23,6 +29,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: 8.0
           fetch-depth: 0
 
       - name: Apply version 8.0 code
