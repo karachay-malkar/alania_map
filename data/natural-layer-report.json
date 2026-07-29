@@ -1,0 +1,171 @@
+{
+  "generated_at": "2026-07-29T14:29:50.372226+00:00",
+  "strict_water_classes": [
+    "lake",
+    "reservoir",
+    "pond",
+    "river"
+  ],
+  "pond_min_area_m2": 5000.0,
+  "water_stats": {
+    "curated_osm_lake": 1,
+    "excluded_basin": 11,
+    "excluded_fully_overlapped_ice": 2,
+    "excluded_ice": 1056,
+    "excluded_quarry": 56,
+    "excluded_rapids": 1,
+    "excluded_reservoir": 1,
+    "excluded_small_river_polygon": 2,
+    "excluded_swimming_pool": 24,
+    "excluded_temporary": 55,
+    "excluded_unclassified_water": 1747,
+    "excluded_wastewater": 19,
+    "included_lake": 332,
+    "included_pond": 106,
+    "included_reservoir": 21,
+    "included_river": 57
+  },
+  "water_ice_overlap_m2": 0.0,
+  "main_lakes": [
+    {
+      "lake_id": "lake_chirik_kol",
+      "name_map": "ÇIRIK KÖL",
+      "name_ru": "Нижнее Голубое озеро",
+      "visible": 1,
+      "name_alan_latin": "ÇIRIK KÖL",
+      "description_ru": "Нижнее Голубое озеро — объект типа «lake» в редактируемом реестре Alan Map.",
+      "reference_point": [
+        43.530988,
+        43.232265
+      ],
+      "osm_ids": [],
+      "resolved": true,
+      "resolved_osm_name": "",
+      "resolved_geometry_hash": "667d784db6b59a84"
+    },
+    {
+      "lake_id": "lake_shadkhurey_big",
+      "name_map": "ŞADXUREY",
+      "name_ru": "Большое Шадхурейское озеро",
+      "visible": 1,
+      "name_alan_latin": "ŞADXUREY",
+      "description_ru": "Большое Шадхурейское озеро — объект типа «lake» в редактируемом реестре Alan Map.",
+      "reference_point": [
+        43.07779,
+        43.70578
+      ],
+      "osm_ids": [
+        "6780594"
+      ],
+      "resolved": true,
+      "resolved_osm_name": "Шадхурей Большой",
+      "resolved_geometry_hash": "cd25fce131a91b00"
+    },
+    {
+      "lake_id": "lake_donguz_orun",
+      "name_map": "DOÑUZ-ORUN-KÖL",
+      "name_ru": "Озеро Донгуз-Орун-Кёль",
+      "visible": 1,
+      "name_alan_latin": "DOÑUZ-ORUN-KÖL",
+      "description_ru": "Озеро Донгуз-Орун-Кёль — объект типа «lake» в редактируемом реестре Alan Map.",
+      "reference_point": [
+        42.465151,
+        43.220846
+      ],
+      "osm_ids": [
+        "6491128"
+      ],
+      "resolved": true,
+      "resolved_osm_name": "Малый Донгуз-Орункель",
+      "resolved_geometry_hash": "d5ce8200672ac48c"
+    },
+    {
+      "lake_id": "lake_kara_kol",
+      "name_map": "QARA-KÖL",
+      "name_ru": "Озеро Кара-Кёль",
+      "visible": 1,
+      "name_alan_latin": "QARA-KÖL",
+      "description_ru": "Озеро Кара-Кёль — объект типа «lake» в редактируемом реестре Alan Map.",
+      "reference_point": [
+        41.743485,
+        43.437018
+      ],
+      "osm_ids": [],
+      "resolved": true,
+      "resolved_osm_name": "Кара-Кёль",
+      "resolved_geometry_hash": "168a4b7425c0469e"
+    },
+    {
+      "lake_id": "lake_tumanly_kol",
+      "name_map": "TUMANLI-KÖL",
+      "name_ru": "Озеро Туманлы-Кёль",
+      "visible": 1,
+      "name_alan_latin": "TUMANLI-KÖL",
+      "description_ru": "Озеро Туманлы-Кёль — объект типа «lake» в редактируемом реестре Alan Map.",
+      "reference_point": [
+        41.792928,
+        43.285277
+      ],
+      "osm_ids": [],
+      "resolved": true,
+      "resolved_osm_name": "Туманлыкёль",
+      "resolved_geometry_hash": "5e64f209958de4b0"
+    },
+    {
+      "lake_id": "lake_baduk",
+      "name_map": "BADUK KÖLLE",
+      "name_ru": "Бадукские озёра",
+      "visible": 1,
+      "name_alan_latin": "BADUK KÖLLE",
+      "description_ru": "Бадукские озёра — объект типа «lake» в редактируемом реестре Alan Map.",
+      "reference_point": [
+        41.681,
+        43.394
+      ],
+      "osm_ids": [],
+      "resolved": true,
+      "resolved_osm_name": "Первое Бадукское озеро",
+      "resolved_geometry_hash": "ea6cae40d72a73a4"
+    },
+    {
+      "lake_id": "lake_sofia",
+      "name_map": "SOFIYA KÖLLE",
+      "name_ru": "Софийские озёра",
+      "visible": 1,
+      "name_alan_latin": "SOFIYA KÖLLE",
+      "description_ru": "Софийские озёра — объект типа «lake» в редактируемом реестре Alan Map.",
+      "reference_point": [
+        41.438257,
+        43.649518
+      ],
+      "osm_ids": [],
+      "resolved": true,
+      "resolved_osm_name": "",
+      "resolved_geometry_hash": "4c9a54cb0e2fb661"
+    },
+    {
+      "lake_id": "lake_dukka",
+      "name_map": "DUKKA KÖLLE",
+      "name_ru": "Дуккинские озёра",
+      "visible": 1,
+      "name_alan_latin": "DUKKA KÖLLE",
+      "description_ru": "Дуккинские озёра — объект типа «lake» в редактируемом реестре Alan Map.",
+      "reference_point": [
+        41.420344,
+        43.656766
+      ],
+      "osm_ids": [],
+      "resolved": true,
+      "resolved_osm_name": "",
+      "resolved_geometry_hash": "4c9a54cb0e2fb661"
+    }
+  ],
+  "feature_counts": {
+    "landcover": 16023,
+    "landuse": 1234,
+    "transportation": 28542,
+    "water": 516,
+    "waterway": 746,
+    "peak": 3799
+  }
+}

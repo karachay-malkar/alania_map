@@ -1,0 +1,343 @@
+{
+  "version": "8.0",
+  "pixel_ratio": 4,
+  "mountains": [
+    {
+      "id": "mount-1",
+      "file": "mount-1.png",
+      "width_px": 201,
+      "height_px": 139,
+      "profiles": [
+        "rocky",
+        "massif"
+      ],
+      "nominal_width_km": 7.5
+    },
+    {
+      "id": "mount-2",
+      "file": "mount-2.png",
+      "width_px": 323,
+      "height_px": 99,
+      "profiles": [
+        "ridge",
+        "massif"
+      ],
+      "nominal_width_km": 11
+    },
+    {
+      "id": "mount-3",
+      "file": "mount-3.png",
+      "width_px": 296,
+      "height_px": 99,
+      "profiles": [
+        "massif",
+        "rocky"
+      ],
+      "nominal_width_km": 11
+    },
+    {
+      "id": "mount-4",
+      "file": "mount-4.png",
+      "width_px": 284,
+      "height_px": 96,
+      "profiles": [
+        "rocky",
+        "massif"
+      ],
+      "nominal_width_km": 10
+    },
+    {
+      "id": "mount-5",
+      "file": "mount-5.png",
+      "width_px": 243,
+      "height_px": 112,
+      "profiles": [
+        "rocky",
+        "ridge"
+      ],
+      "nominal_width_km": 8.5
+    },
+    {
+      "id": "mount-6",
+      "file": "mount-6.png",
+      "width_px": 257,
+      "height_px": 109,
+      "profiles": [
+        "ridge",
+        "gentle"
+      ],
+      "nominal_width_km": 9
+    },
+    {
+      "id": "mount-7",
+      "file": "mount-7.png",
+      "width_px": 352,
+      "height_px": 100,
+      "profiles": [
+        "gentle",
+        "ridge"
+      ],
+      "nominal_width_km": 12
+    },
+    {
+      "id": "mount-8",
+      "file": "mount-8.png",
+      "width_px": 301,
+      "height_px": 91,
+      "profiles": [
+        "ridge",
+        "gentle"
+      ],
+      "nominal_width_km": 11
+    },
+    {
+      "id": "mount-9",
+      "file": "mount-9.png",
+      "width_px": 344,
+      "height_px": 99,
+      "profiles": [
+        "gentle",
+        "ridge"
+      ],
+      "nominal_width_km": 12
+    },
+    {
+      "id": "mount-10",
+      "file": "mount-10.png",
+      "width_px": 280,
+      "height_px": 97,
+      "profiles": [
+        "ridge",
+        "massif"
+      ],
+      "nominal_width_km": 10
+    },
+    {
+      "id": "mount-11",
+      "file": "mount-11.png",
+      "width_px": 158,
+      "height_px": 143,
+      "profiles": [
+        "rocky",
+        "massif"
+      ],
+      "nominal_width_km": 6.5
+    },
+    {
+      "id": "mount-12",
+      "file": "mount-12.png",
+      "width_px": 322,
+      "height_px": 114,
+      "profiles": [
+        "massif",
+        "ridge"
+      ],
+      "nominal_width_km": 11.5
+    },
+    {
+      "id": "mount-13",
+      "file": "mount-13.png",
+      "width_px": 329,
+      "height_px": 104,
+      "profiles": [
+        "gentle",
+        "ridge"
+      ],
+      "nominal_width_km": 11
+    },
+    {
+      "id": "mount-14",
+      "file": "mount-14.png",
+      "width_px": 274,
+      "height_px": 84,
+      "profiles": [
+        "gentle",
+        "ridge"
+      ],
+      "nominal_width_km": 10
+    },
+    {
+      "id": "mount-15",
+      "file": "mount-15.png",
+      "width_px": 239,
+      "height_px": 137,
+      "profiles": [
+        "rocky",
+        "massif"
+      ],
+      "nominal_width_km": 8
+    },
+    {
+      "id": "mount-16",
+      "file": "mount-16.png",
+      "width_px": 312,
+      "height_px": 109,
+      "profiles": [
+        "ridge",
+        "massif"
+      ],
+      "nominal_width_km": 10.5
+    },
+    {
+      "id": "mount-17",
+      "file": "mount-17.png",
+      "width_px": 316,
+      "height_px": 102,
+      "profiles": [
+        "ridge",
+        "gentle"
+      ],
+      "nominal_width_km": 10.5
+    },
+    {
+      "id": "mount-18",
+      "file": "mount-18.png",
+      "width_px": 279,
+      "height_px": 100,
+      "profiles": [
+        "ridge",
+        "rocky"
+      ],
+      "nominal_width_km": 9.5
+    },
+    {
+      "id": "mount-19",
+      "file": "mount-19.png",
+      "width_px": 229,
+      "height_px": 108,
+      "profiles": [
+        "rocky",
+        "massif"
+      ],
+      "nominal_width_km": 8
+    },
+    {
+      "id": "mount-20",
+      "file": "mount-20.png",
+      "width_px": 313,
+      "height_px": 96,
+      "profiles": [
+        "gentle",
+        "ridge"
+      ],
+      "nominal_width_km": 11
+    },
+    {
+      "id": "mount-21",
+      "file": "mount-21.png",
+      "width_px": 213,
+      "height_px": 118,
+      "profiles": [
+        "massif",
+        "rocky"
+      ],
+      "nominal_width_km": 8
+    },
+    {
+      "id": "mount-22",
+      "file": "mount-22.png",
+      "width_px": 306,
+      "height_px": 103,
+      "profiles": [
+        "ridge",
+        "massif"
+      ],
+      "nominal_width_km": 10.5
+    },
+    {
+      "id": "mount-23",
+      "file": "mount-23.png",
+      "width_px": 270,
+      "height_px": 98,
+      "profiles": [
+        "massif",
+        "rocky"
+      ],
+      "nominal_width_km": 10
+    },
+    {
+      "id": "mount-24",
+      "file": "mount-24.png",
+      "width_px": 352,
+      "height_px": 99,
+      "profiles": [
+        "gentle",
+        "ridge"
+      ],
+      "nominal_width_km": 12.5
+    },
+    {
+      "id": "mount-25",
+      "file": "mount-25.png",
+      "width_px": 248,
+      "height_px": 120,
+      "profiles": [
+        "rocky",
+        "massif"
+      ],
+      "nominal_width_km": 7.5
+    },
+    {
+      "id": "mount-26",
+      "file": "mount-26.png",
+      "width_px": 315,
+      "height_px": 106,
+      "profiles": [
+        "massif",
+        "ridge"
+      ],
+      "nominal_width_km": 11.5
+    },
+    {
+      "id": "mount-27",
+      "file": "mount-27.png",
+      "width_px": 256,
+      "height_px": 103,
+      "profiles": [
+        "ridge",
+        "rocky"
+      ],
+      "nominal_width_km": 8.5
+    },
+    {
+      "id": "mount-28",
+      "file": "mount-28.png",
+      "width_px": 339,
+      "height_px": 89,
+      "profiles": [
+        "gentle",
+        "ridge"
+      ],
+      "nominal_width_km": 12
+    },
+    {
+      "id": "mount-29",
+      "file": "mount-29.png",
+      "width_px": 302,
+      "height_px": 97,
+      "profiles": [
+        "rocky",
+        "ridge"
+      ],
+      "nominal_width_km": 10
+    },
+    {
+      "id": "mount-30",
+      "file": "mount-30.png",
+      "width_px": 290,
+      "height_px": 91,
+      "profiles": [
+        "ridge",
+        "gentle"
+      ],
+      "nominal_width_km": 10.5
+    }
+  ],
+  "elbrus": {
+    "id": "elbrus",
+    "file": "elbrus.png",
+    "width_px": 1020,
+    "height_px": 503,
+    "nominal_width_km": 44
+  }
+}

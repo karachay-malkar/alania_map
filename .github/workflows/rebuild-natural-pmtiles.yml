@@ -1,0 +1,269 @@
+name: Build OSM natural PMTiles
+
+on:
+  push:
+    branches:
+      - 7.0.23
+    paths:
+      - '.github/workflows/rebuild-natural-pmtiles.yml'
+      - 'tools/**'
+      - 'config/**'
+      - 'tests/**'
+      - 'assets/map-page.js'
+      - 'assets/map-ui.js'
+      - 'assets/bootstrap.js'
+      - 'assets/fantasy-relief.js'
+      - 'assets/fantasy-style.js'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/rebuild-natural-pmtiles.yml'
+      - 'tools/**'
+      - 'config/**'
+      - 'tests/**'
+      - 'assets/map-page.js'
+      - 'assets/map-ui.js'
+      - 'assets/bootstrap.js'
+      - 'assets/fantasy-relief.js'
+      - 'assets/fantasy-style.js'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: osm-natural-7.0.23-${{ github.event_name }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      SOURCE_URL: https://download.geofabrik.de/russia/north-caucasus-fed-district-260726.osm.pbf
+      SOURCE_MD5_URL: https://download.geofabrik.de/russia/north-caucasus-fed-district-260726.osm.pbf.md5
+      PMTILES_VERSION: v1.30.1
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install system tools
+        run: |
+          export DEBIAN_FRONTEND=noninteractive
+          sudo apt-get update -o Acquire::Retries=3
+          sudo apt-get install -y --no-install-recommends \
+            gdal-bin jq curl ca-certificates build-essential libsqlite3-dev zlib1g-dev
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install geometry libraries
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install geopandas==1.1.1 shapely==2.1.1 pyogrio==0.11.1
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.x'
+
+      - name: Install PMTiles CLI
+        run: |
+          go install github.com/protomaps/go-pmtiles@${PMTILES_VERSION}
+          GO_BIN="$(go env GOPATH)/bin"
+          test -x "$GO_BIN/go-pmtiles"
+          ln -sf "$GO_BIN/go-pmtiles" "$GO_BIN/pmtiles"
+          echo "$GO_BIN" >> "$GITHUB_PATH"
+
+      - name: Build Tippecanoe from source
+        run: |
+          git clone --depth 1 https://github.com/felt/tippecanoe.git build/tippecanoe
+          make -C build/tippecanoe -j2
+          sudo make -C build/tippecanoe install
+          git -C build/tippecanoe rev-parse HEAD > build/tippecanoe-commit.txt
+
+      - name: Prepare map frame and retained names
+        run: python tools/build_natural_layers.py prepare
+
+      - name: Restore fixed OSM extraction cache
+        id: osm-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            build/source.osm.pbf
+            build/source.osm.pbf.md5
+            build/source-md5.txt
+            build/osm-clipped.gpkg
+          key: alan-osm-260726-map-frame-v2-topology
+
+      - name: Download fixed Geofabrik snapshot
+        run: |
+          if [ ! -f build/source.osm.pbf ]; then
+            curl --fail --location --retry 4 --retry-delay 5 "$SOURCE_URL" -o build/source.osm.pbf
+          fi
+          if [ ! -f build/source.osm.pbf.md5 ]; then
+            curl --fail --location --retry 4 "$SOURCE_MD5_URL" -o build/source.osm.pbf.md5
+          fi
+          EXPECTED_MD5="$(awk '{print $1}' build/source.osm.pbf.md5)"
+          ACTUAL_MD5="$(md5sum build/source.osm.pbf | awk '{print $1}')"
+          test "$EXPECTED_MD5" = "$ACTUAL_MD5"
+          echo "$ACTUAL_MD5" > build/source-md5.txt
+
+      - name: Physically clip OSM geometry
+        run: |
+          if [ ! -f build/osm-clipped.gpkg ]; then
+            ogr2ogr -f GPKG build/osm-clipped.gpkg build/source.osm.pbf lines \
+              -nln lines -clipsrc build/map-frame.geojson -makevalid -skipfailures
+            ogr2ogr -f GPKG -update build/osm-clipped.gpkg build/source.osm.pbf multipolygons \
+              -nln multipolygons -clipsrc build/map-frame.geojson -makevalid -skipfailures
+            ogr2ogr -f GPKG -update build/osm-clipped.gpkg build/source.osm.pbf multilinestrings \
+              -nln multilinestrings -clipsrc build/map-frame.geojson -makevalid -skipfailures
+            ogr2ogr -f GPKG -update build/osm-clipped.gpkg build/source.osm.pbf points \
+              -nln points -clipsrc build/map-frame.geojson -skipfailures
+          fi
+          ogrinfo build/osm-clipped.gpkg lines -so
+          ogrinfo build/osm-clipped.gpkg multipolygons -so
+          ogrinfo build/osm-clipped.gpkg multilinestrings -so
+          ogrinfo build/osm-clipped.gpkg points -so
+
+      - name: Save fixed OSM extraction cache
+        if: steps.osm-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            build/source.osm.pbf
+            build/source.osm.pbf.md5
+            build/source-md5.txt
+            build/osm-clipped.gpkg
+          key: alan-osm-260726-map-frame-v2-topology
+
+      - name: Classify and validate natural features
+        run: |
+          python tools/build_natural_layers.py classify
+          python tools/normalize_river_report.py --require-all
+          python tools/optimize_natural_layers.py
+
+      - name: Package replacement vector archive
+        run: |
+          tippecanoe \
+            --output=build/alan-vector-7.0.23.mbtiles \
+            --minimum-zoom=7 --maximum-zoom=13 \
+            --force --read-parallel --no-feature-limit --no-tile-size-limit \
+            --buffer=12 --simplification=3 \
+            -L landcover:build/landcover.geojson \
+            -L landuse:build/landuse.geojson \
+            -L transportation:build/transportation.geojson \
+            -L water:build/water.geojson \
+            -L waterway:build/waterway.geojson \
+            -L peak:build/peak.geojson
+          pmtiles convert build/alan-vector-7.0.23.mbtiles build/alan-vector-7.0.23.pmtiles
+          pmtiles verify build/alan-vector-7.0.23.pmtiles
+          pmtiles show build/alan-vector-7.0.23.pmtiles --metadata | tee build/pmtiles-show.txt
+          jq -e '.vector_layers | map(.id) | index("waterway") != null' build/pmtiles-show.txt
+          jq -e '.vector_layers | map(.id) | index("peak") != null' build/pmtiles-show.txt
+
+      - name: Integrate generated data
+        run: |
+          python tools/build_natural_layers.py patch-runtime \
+            --archive build/alan-vector-7.0.23.pmtiles \
+            --source-url "$SOURCE_URL" \
+            --source-md5 "$(cat build/source-md5.txt)" \
+            --pipeline "gdal-geopandas-tippecanoe-pmtiles" \
+            --tippecanoe-commit "$(cat build/tippecanoe-commit.txt)"
+          python tools/build_natural_layers.py validate-repository
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Browser smoke test
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+          python3 -m http.server 8000 > build/http-server.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID || true' EXIT
+          node tests/runtime-contract.mjs
+          node tests/map-smoke.mjs
+
+      - name: Commit generated implementation
+        if: github.event_name != 'pull_request'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A \
+            assets/bootstrap.js assets/map-page.js assets/map-ui.js \
+            assets/fantasy-relief.js assets/fantasy-style.js \
+            assets/map-data.part-000.js assets/map-data.part-001.js \
+            index.html README.md DATA-SOURCES-AND-LICENSES.md \
+            data/shards data/shards-manifest.json data/vector-build-manifest.json \
+            data/river-network-report.json data/natural-layer-report.json \
+            tools config tests .github/workflows .gitignore
+          if git diff --cached --quiet; then
+            echo "No generated changes"
+          else
+            git commit -m "Build OSM natural layers for Alan Map 7.0.23"
+            git push origin HEAD:${GITHUB_REF_NAME}
+          fi
+
+      - name: Create full project archive
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from zipfile import ZipFile, ZIP_DEFLATED
+
+          root = Path('.')
+          output = Path('build/alan-map-7.0.23.zip')
+          excluded = {'.git', 'build', 'node_modules', 'playwright-report', 'test-results', '__pycache__'}
+          with ZipFile(output, 'w', ZIP_DEFLATED) as archive:
+              for path in sorted(root.rglob('*')):
+                  if not path.is_file() or any(part in excluded for part in path.parts):
+                      continue
+                  archive.write(path, path.as_posix())
+
+          paths = [
+              'index.html', 'README.md', 'DATA-SOURCES-AND-LICENSES.md',
+              'assets/bootstrap.js', 'assets/map-page.js', 'assets/map-ui.js',
+              'assets/fantasy-relief.js', 'assets/fantasy-style.js',
+              'assets/map-data.part-000.js', 'assets/map-data.part-001.js',
+              'data/vector-build-manifest.json', 'data/shards-manifest.json',
+              'data/river-network-report.json', 'data/natural-layer-report.json'
+          ]
+          result = {path: Path(path).stat().st_size for path in paths}
+          result['data/shards/vector-7.0.23'] = sum(path.stat().st_size for path in Path('data/shards/vector-7.0.23').glob('part-*.bin'))
+          result['data/shards/vector_count'] = len(list(Path('data/shards/vector-7.0.23').glob('part-*.bin')))
+          result['data/shards/dem-7.0.21'] = sum(path.stat().st_size for path in Path('data/shards/dem-7.0.21').glob('part-*.bin'))
+          result['alan-map-7.0.23.zip'] = output.stat().st_size
+          Path('build/file-sizes.json').write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding='utf-8')
+          PY
+
+      - name: Upload validation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: alan-map-7.0.23-validation
+          path: |
+            build/map-smoke.png
+            build/browser-diagnostics.json
+            build/pmtiles-show.txt
+            build/http-server.log
+            build/river-network-report.json
+            build/natural-layer-report.json
+            data/vector-build-manifest.json
+            data/river-network-report.json
+            data/natural-layer-report.json
+            data/shards-manifest.json
+          if-no-files-found: warn
+
+      - name: Upload full project archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: alan-map-7.0.23-package
+          path: |
+            build/alan-map-7.0.23.zip
+            build/file-sizes.json
+          if-no-files-found: error
