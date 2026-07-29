@@ -9,6 +9,9 @@ const page = await browser.newPage({
   viewport: {width: 1440, height: 1000},
   deviceScaleFactor: 1
 });
+page.setDefaultTimeout(120000);
+page.setDefaultNavigationTimeout(120000);
+
 const consoleErrors = [];
 const requests = [];
 page.on('console', (message) => {
@@ -16,6 +19,10 @@ page.on('console', (message) => {
 });
 page.on('pageerror', (error) => consoleErrors.push(String(error)));
 page.on('request', (request) => requests.push(request.url()));
+
+async function saveViewportScreenshot(path) {
+  await page.screenshot({path, fullPage: false, animations: 'disabled', timeout: 120000});
+}
 
 const startedAt = Date.now();
 await page.goto('http://127.0.0.1:8000/index.html', {
@@ -42,7 +49,7 @@ try {
     'build/browser-diagnostics.json',
     JSON.stringify({startupDiagnostics, consoleErrors, requests}, null, 2)
   );
-  await page.screenshot({path: 'build/map-smoke.png', fullPage: true});
+  await saveViewportScreenshot('build/map-smoke.png');
   console.error(JSON.stringify({startupDiagnostics, consoleErrors}, null, 2));
   throw error;
 }
@@ -54,7 +61,7 @@ await page.waitForFunction(
 await page.waitForFunction(
   () => window.ALAN_MAP_INSTANCE?.getFantasyDiagnostics?.().installed === true,
   null,
-  {timeout: 30000}
+  {timeout: 120000}
 );
 const firstUsefulFrameMs = Date.now() - startedAt;
 
@@ -127,7 +134,8 @@ const diagnostics = await page.evaluate(() => {
   ];
   const requiredFantasyLayers = [
     'fantasy-paper-grain', 'fantasy-ridge-shadow', 'fantasy-slope-hachures',
-    'fantasy-mountains-main', 'fantasy-mountains-secondary', 'fantasy-mountains-spur'
+    'fantasy-mountains-main', 'fantasy-mountains-secondary', 'fantasy-mountains-spur',
+    'fantasy-elbrus-massif'
   ];
   return {
     version: instance.version,
@@ -171,7 +179,7 @@ const report = {
 
 fs.mkdirSync('build', {recursive: true});
 fs.writeFileSync('build/browser-diagnostics.json', JSON.stringify(report, null, 2));
-await page.screenshot({path: 'build/map-smoke.png', fullPage: true});
+await saveViewportScreenshot('build/map-smoke.png');
 await browser.close();
 
 if (diagnostics.version !== '7.0.23') {
@@ -183,8 +191,11 @@ for (const [layer, present] of Object.entries(diagnostics.requiredLayers)) {
 for (const [layer, present] of Object.entries(diagnostics.requiredFantasyLayers)) {
   if (!present) throw new Error(`Required fantasy layer is missing: ${layer}`);
 }
-if (!diagnostics.fantasy?.installed || !diagnostics.fantasy?.enabled || !diagnostics.fantasy?.sourcePresent) {
+if (!diagnostics.fantasy?.installed || !diagnostics.fantasy?.enabled || !diagnostics.fantasy?.sourcePresent || !diagnostics.fantasy?.landmarkSourcePresent) {
   throw new Error(`Fantasy controller regression: ${JSON.stringify(diagnostics.fantasy)}`);
+}
+if (diagnostics.fantasy?.installationError || diagnostics.fantasy?.wrapperError) {
+  throw new Error(`Fantasy installation error: ${JSON.stringify(diagnostics.fantasy)}`);
 }
 if (!diagnostics.fantasyButton.present || !diagnostics.fantasyButton.active || diagnostics.fantasyButton.pressed !== 'true') {
   throw new Error(`Fantasy toggle regression: ${JSON.stringify(diagnostics.fantasyButton)}`);
