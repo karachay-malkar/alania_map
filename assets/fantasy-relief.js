@@ -5,14 +5,32 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  const VERSION = '1.1.0';
+  const VERSION = '2.0.0';
   const EARTH_RADIUS_KM = 6371.0088;
-  const INK = 'rgba(39, 61, 72, .96)';
-  const SHADE = 'rgba(48, 70, 78, .72)';
-  const PAPER = 'rgba(226, 208, 169, .94)';
-  const SNOW = 'rgba(249, 241, 216, .97)';
+  const REFERENCE_ZOOM = 7;
+  const IMAGE_PIXEL_RATIO = 4;
+  const ASSET_BASE_PATH = 'assets/mountains/';
+  const CATALOG = Object.freeze([{"id":"mount-1","file":"mount-1.png","width_px":201,"height_px":139,"profiles":["rocky","massif"],"nominal_width_km":7.5},{"id":"mount-2","file":"mount-2.png","width_px":323,"height_px":99,"profiles":["ridge","massif"],"nominal_width_km":11},{"id":"mount-3","file":"mount-3.png","width_px":296,"height_px":99,"profiles":["massif","rocky"],"nominal_width_km":11},{"id":"mount-4","file":"mount-4.png","width_px":284,"height_px":96,"profiles":["rocky","massif"],"nominal_width_km":10},{"id":"mount-5","file":"mount-5.png","width_px":243,"height_px":112,"profiles":["rocky","ridge"],"nominal_width_km":8.5},{"id":"mount-6","file":"mount-6.png","width_px":257,"height_px":109,"profiles":["ridge","gentle"],"nominal_width_km":9},{"id":"mount-7","file":"mount-7.png","width_px":352,"height_px":100,"profiles":["gentle","ridge"],"nominal_width_km":12},{"id":"mount-8","file":"mount-8.png","width_px":301,"height_px":91,"profiles":["ridge","gentle"],"nominal_width_km":11},{"id":"mount-9","file":"mount-9.png","width_px":344,"height_px":99,"profiles":["gentle","ridge"],"nominal_width_km":12},{"id":"mount-10","file":"mount-10.png","width_px":280,"height_px":97,"profiles":["ridge","massif"],"nominal_width_km":10},{"id":"mount-11","file":"mount-11.png","width_px":158,"height_px":143,"profiles":["rocky","massif"],"nominal_width_km":6.5},{"id":"mount-12","file":"mount-12.png","width_px":322,"height_px":114,"profiles":["massif","ridge"],"nominal_width_km":11.5},{"id":"mount-13","file":"mount-13.png","width_px":329,"height_px":104,"profiles":["gentle","ridge"],"nominal_width_km":11},{"id":"mount-14","file":"mount-14.png","width_px":274,"height_px":84,"profiles":["gentle","ridge"],"nominal_width_km":10},{"id":"mount-15","file":"mount-15.png","width_px":239,"height_px":137,"profiles":["rocky","massif"],"nominal_width_km":8},{"id":"mount-16","file":"mount-16.png","width_px":312,"height_px":109,"profiles":["ridge","massif"],"nominal_width_km":10.5},{"id":"mount-17","file":"mount-17.png","width_px":316,"height_px":102,"profiles":["ridge","gentle"],"nominal_width_km":10.5},{"id":"mount-18","file":"mount-18.png","width_px":279,"height_px":100,"profiles":["ridge","rocky"],"nominal_width_km":9.5},{"id":"mount-19","file":"mount-19.png","width_px":229,"height_px":108,"profiles":["rocky","massif"],"nominal_width_km":8},{"id":"mount-20","file":"mount-20.png","width_px":313,"height_px":96,"profiles":["gentle","ridge"],"nominal_width_km":11},{"id":"mount-21","file":"mount-21.png","width_px":213,"height_px":118,"profiles":["massif","rocky"],"nominal_width_km":8},{"id":"mount-22","file":"mount-22.png","width_px":306,"height_px":103,"profiles":["ridge","massif"],"nominal_width_km":10.5},{"id":"mount-23","file":"mount-23.png","width_px":270,"height_px":98,"profiles":["massif","rocky"],"nominal_width_km":10},{"id":"mount-24","file":"mount-24.png","width_px":352,"height_px":99,"profiles":["gentle","ridge"],"nominal_width_km":12.5},{"id":"mount-25","file":"mount-25.png","width_px":248,"height_px":120,"profiles":["rocky","massif"],"nominal_width_km":7.5},{"id":"mount-26","file":"mount-26.png","width_px":315,"height_px":106,"profiles":["massif","ridge"],"nominal_width_km":11.5},{"id":"mount-27","file":"mount-27.png","width_px":256,"height_px":103,"profiles":["ridge","rocky"],"nominal_width_km":8.5},{"id":"mount-28","file":"mount-28.png","width_px":339,"height_px":89,"profiles":["gentle","ridge"],"nominal_width_km":12},{"id":"mount-29","file":"mount-29.png","width_px":302,"height_px":97,"profiles":["rocky","ridge"],"nominal_width_km":10},{"id":"mount-30","file":"mount-30.png","width_px":290,"height_px":91,"profiles":["ridge","gentle"],"nominal_width_km":10.5}]);
+  const ELBRUS = Object.freeze({"id":"elbrus","file":"elbrus.png","width_px":1020,"height_px":503,"nominal_width_km":44});
+  const RIDGE_PROFILE_BY_ID = Object.freeze({"ridge_main_caucasus":"massif","ridge_sugan":"massif","ridge_adyrsu":"massif","ridge_sofia":"massif","ridge_chuchkhur":"massif","ridge_dzhentu":"massif","axis_bezengi_balkar":"massif","axis_kyukyurtly_kubansky":"massif","axis_adylsu":"massif","axis_teberda_dombay_side":"massif","axis_bezengi_khulam":"massif","ridge_black_rocks":"rocky","ridge_chaget_chat":"rocky","ridge_kyshkhadzher":"rocky","ridge_arkasara":"rocky","ridge_zagedan":"rocky","ridge_mystybashi":"rocky","ridge_abishira_akhuba":"rocky","ridge_chilik":"rocky","ridge_khatipara":"rocky","axis_gonachkhir_murudzhu":"rocky","axis_arkhyz_psysh_side":"rocky","axis_arkhyz_kyzgych_side":"rocky","axis_upper_balkar_east":"rocky","axis_upper_balkar_west":"rocky","axis_chegem_baksan_upper":"rocky","axis_bulungu_right":"rocky","axis_tyrnyauz_adyrsu_side":"rocky","axis_teberda_gonachkhir_side":"rocky","axis_tegenekli_irik_side":"rocky","ridge_daut":"ridge","ridge_magisho":"ridge","axis_tashorunbash":"ridge","axis_kyrtyk":"ridge","axis_kargashil":"ridge","axis_khulam_chegem":"ridge","axis_uzhum":"ridge","axis_gabulu_dukkinsky":"ridge","axis_uchkulan_ullukam_side":"ridge","axis_khurzuk_uchkulan_side":"ridge","axis_kartdjurt_north_side":"ridge","axis_baksan_malka_side":"gentle","axis_aktoprak_divide":"gentle","axis_balkbashi_spur":"spur"});
+  const PROFILE_CONFIG = Object.freeze({
+    massif:Object.freeze({scale:1.22,overlap:0.50,bridgeLimitKm:22,tier:1}),
+    rocky:Object.freeze({scale:1.10,overlap:0.52,bridgeLimitKm:10,tier:2}),
+    ridge:Object.freeze({scale:1.00,overlap:0.56,bridgeLimitKm:8,tier:2}),
+    gentle:Object.freeze({scale:0.96,overlap:0.60,bridgeLimitKm:10,tier:3}),
+    spur:Object.freeze({scale:0.82,overlap:0.54,bridgeLimitKm:7,tier:3})
+  });
 
   const clamp = (value, minimum, maximum) => Math.max(minimum, Math.min(maximum, value));
+
+  function hashString(value) {
+    let hash = 2166136261;
+    for (const character of String(value || '')) {
+      hash ^= character.charCodeAt(0);
+      hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
+  }
 
   function mulberry32(seed) {
     let state = seed >>> 0;
@@ -38,20 +56,13 @@
   function lineLengthKm(coordinates) {
     if (!Array.isArray(coordinates) || coordinates.length < 2) return 0;
     let total = 0;
-    for (let index = 1; index < coordinates.length; index += 1) {
-      total += haversineKm(coordinates[index - 1], coordinates[index]);
-    }
+    for (let index = 1; index < coordinates.length; index += 1) total += haversineKm(coordinates[index - 1], coordinates[index]);
     return total;
   }
 
-  function quantile(sortedValues, fraction) {
-    if (!sortedValues.length) return 0;
-    const position = clamp(Number(fraction), 0, 1) * (sortedValues.length - 1);
-    const lower = Math.floor(position);
-    const upper = Math.ceil(position);
-    if (lower === upper) return sortedValues[lower];
-    const weight = position - lower;
-    return sortedValues[lower] * (1 - weight) + sortedValues[upper] * weight;
+  function metersPerPixel(latitude, zoom = REFERENCE_ZOOM) {
+    const radians = Number(latitude || 0) * Math.PI / 180;
+    return Math.cos(radians) * 156543.03392804097 / (2 ** Number(zoom));
   }
 
   function flattenRidgeFeatures(collection) {
@@ -62,16 +73,11 @@
       const append = (coordinates, partIndex) => {
         if (!Array.isArray(coordinates) || coordinates.length < 2) return;
         const lengthKm = lineLengthKm(coordinates);
-        if (!Number.isFinite(lengthKm) || lengthKm < 1.2) return;
+        if (!Number.isFinite(lengthKm) || lengthKm < 0.6) return;
         flattened.push({
-          type: 'Feature',
-          properties: {
-            ...properties,
-            fantasy_source_index: featureIndex,
-            fantasy_part_index: partIndex,
-            fantasy_length_km: Number(lengthKm.toFixed(3))
-          },
-          geometry: {type: 'LineString', coordinates}
+          type:'Feature',
+          properties:{...properties,fantasy_source_index:featureIndex,fantasy_part_index:partIndex,fantasy_length_km:Number(lengthKm.toFixed(3))},
+          geometry:{type:'LineString',coordinates}
         });
       };
       if (geometry.type === 'LineString') append(geometry.coordinates, 0);
@@ -80,55 +86,215 @@
     return flattened;
   }
 
-  function explicitClass(properties) {
-    const raw = String(
-      properties?.fantasy_class ??
-      properties?.ridge_class ??
-      properties?.ridge_type ??
-      properties?.class ??
-      ''
-    ).toLowerCase();
-    if (/main|primary|major|principal|глав/.test(raw)) return 'main';
-    if (/secondary|regional|middle|сред/.test(raw)) return 'secondary';
-    if (/spur|local|minor|отрог/.test(raw)) return 'spur';
-    const tier = Number(properties?.tier ?? properties?.rank ?? properties?.level);
-    if (tier === 1) return 'main';
-    if (tier === 2) return 'secondary';
-    if (tier >= 3) return 'spur';
-    return '';
+  function profileForRidge(properties, lengthKm = 0) {
+    const axisId = String(properties?.axis_id || properties?.ridge_id || '');
+    if (RIDGE_PROFILE_BY_ID[axisId]) return RIDGE_PROFILE_BY_ID[axisId];
+    const name = String(properties?.name_ru || properties?.name || '').toLowerCase();
+    if (/отрог/.test(name)) return 'spur';
+    if (/скал|софий|суган|безенг|адыр|чучхур|дженту/.test(name)) return 'rocky';
+    if (/водораздел|борт/.test(name)) return lengthKm > 28 ? 'rocky' : 'ridge';
+    if (lengthKm > 38) return 'massif';
+    if (lengthKm < 10) return 'spur';
+    return 'ridge';
   }
 
-  function buildRidgeCollection(collection) {
-    const features = flattenRidgeFeatures(collection);
-    const lengths = features.map((feature) => feature.properties.fantasy_length_km).sort((a, b) => a - b);
-    const mainCutoff = Math.max(18, quantile(lengths, 0.78));
-    const secondaryCutoff = Math.max(7, quantile(lengths, 0.42));
-    const classCounts = {main: 0, secondary: 0, spur: 0};
+  function groupRidges(collection) {
+    const groups = new Map();
+    for (const feature of flattenRidgeFeatures(collection)) {
+      const key = String(feature.properties.axis_id || feature.properties.ridge_id || `ridge-${feature.properties.fantasy_source_index}`);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(feature);
+    }
+    return groups;
+  }
 
-    for (const [index, feature] of features.entries()) {
-      const properties = feature.properties;
-      const lengthKm = Number(properties.fantasy_length_km);
-      let ridgeClass = explicitClass(properties);
-      if (!ridgeClass) ridgeClass = lengthKm >= mainCutoff ? 'main' : lengthKm >= secondaryCutoff ? 'secondary' : 'spur';
-      const variantCount = ridgeClass === 'main' ? 4 : ridgeClass === 'secondary' ? 3 : 2;
-      const sourceSeed = Number(properties.fantasy_source_index || 0) * 17 + Number(properties.fantasy_part_index || 0) * 7 + index;
-      properties.fantasy_class = ridgeClass;
-      properties.fantasy_variant = sourceSeed % variantCount;
-      properties.fantasy_icon = `fantasy-mountain-${ridgeClass}-${properties.fantasy_variant}`;
-      properties.fantasy_sort_key = ridgeClass === 'main' ? 30 : ridgeClass === 'secondary' ? 20 : 10;
-      classCounts[ridgeClass] += 1;
+  function bridgeCoordinates(start, end, stepKm = 1.2) {
+    const distance = haversineKm(start, end);
+    if (distance <= stepKm) return [];
+    const count = Math.floor(distance / stepKm);
+    const points = [];
+    for (let index = 1; index <= count; index += 1) {
+      const t = index / (count + 1);
+      points.push([Number(start[0]) + (Number(end[0]) - Number(start[0])) * t, Number(start[1]) + (Number(end[1]) - Number(start[1])) * t]);
+    }
+    return points;
+  }
+
+  function mergePair(first, second, mode) {
+    let a = first;
+    let b = second;
+    if (mode === 'end-end') b = [...second].reverse();
+    if (mode === 'start-start') a = [...first].reverse();
+    if (mode === 'start-end') return mergePair(second, first, 'end-start');
+    const bridge = bridgeCoordinates(a[a.length - 1], b[0]);
+    return [...a, ...bridge, ...b];
+  }
+
+  function closestEndpointPair(first, second) {
+    const candidates = [
+      ['end-start',haversineKm(first[first.length - 1],second[0])],
+      ['end-end',haversineKm(first[first.length - 1],second[second.length - 1])],
+      ['start-start',haversineKm(first[0],second[0])],
+      ['start-end',haversineKm(first[0],second[second.length - 1])]
+    ];
+    candidates.sort((a,b) => a[1] - b[1]);
+    return {mode:candidates[0][0],distanceKm:candidates[0][1]};
+  }
+
+  function stitchRidgeParts(features, bridgeLimitKm) {
+    const paths = features.map((feature) => feature.geometry.coordinates.map((coordinate) => [Number(coordinate[0]),Number(coordinate[1])])).filter((coordinates) => coordinates.length > 1);
+    let changed = true;
+    while (changed && paths.length > 1) {
+      changed = false;
+      let best = null;
+      for (let firstIndex = 0; firstIndex < paths.length; firstIndex += 1) {
+        for (let secondIndex = firstIndex + 1; secondIndex < paths.length; secondIndex += 1) {
+          const candidate = closestEndpointPair(paths[firstIndex], paths[secondIndex]);
+          if (!best || candidate.distanceKm < best.distanceKm) best = {...candidate,firstIndex,secondIndex};
+        }
+      }
+      if (best && best.distanceKm <= bridgeLimitKm) {
+        const merged = mergePair(paths[best.firstIndex], paths[best.secondIndex], best.mode);
+        paths.splice(best.secondIndex, 1);
+        paths.splice(best.firstIndex, 1, merged);
+        changed = true;
+      }
+    }
+    return paths.sort((a,b) => lineLengthKm(b) - lineLengthKm(a));
+  }
+
+  function pointAtDistance(coordinates, distanceKm) {
+    if (!coordinates.length) return null;
+    if (distanceKm <= 0) return {coordinate:coordinates[0],segmentIndex:0};
+    let travelled = 0;
+    for (let index = 1; index < coordinates.length; index += 1) {
+      const segmentLength = haversineKm(coordinates[index - 1], coordinates[index]);
+      if (travelled + segmentLength >= distanceKm) {
+        const t = segmentLength > 0 ? (distanceKm - travelled) / segmentLength : 0;
+        return {
+          coordinate:[coordinates[index - 1][0] + (coordinates[index][0] - coordinates[index - 1][0]) * t,coordinates[index - 1][1] + (coordinates[index][1] - coordinates[index - 1][1]) * t],
+          segmentIndex:index - 1
+        };
+      }
+      travelled += segmentLength;
+    }
+    return {coordinate:coordinates[coordinates.length - 1],segmentIndex:Math.max(0,coordinates.length - 2)};
+  }
+
+  function catalogForProfile(profile) {
+    const direct = CATALOG.filter((icon) => icon.profiles.includes(profile));
+    return direct.length ? direct : CATALOG;
+  }
+
+  function iconSizeAtReferenceZoom(icon, nominalWidthKm, latitude) {
+    const cssWidth = Number(icon.width_px) / IMAGE_PIXEL_RATIO;
+    return Number((nominalWidthKm * 1000 / Math.max(1, metersPerPixel(latitude, REFERENCE_ZOOM) * cssWidth)).toFixed(6));
+  }
+
+  function buildChainFeatures(axisId, nameRu, profile, tier, coordinates, pathIndex, seed) {
+    const config = PROFILE_CONFIG[profile] || PROFILE_CONFIG.ridge;
+    const pool = catalogForProfile(profile);
+    const random = mulberry32(seed);
+    const totalLength = lineLengthKm(coordinates);
+    const features = [];
+    let distance = 0;
+    let sequence = 0;
+    let previousIconId = '';
+    let previousWidth = null;
+    let maximumGapRatio = 0;
+
+    const chooseIcon = (offset = 0) => {
+      let icon = pool[(seed + sequence * 7 + offset * 3) % pool.length];
+      if (icon.id === previousIconId && pool.length > 1) icon = pool[(pool.indexOf(icon) + 1) % pool.length];
+      return icon;
+    };
+
+    while (distance <= totalLength + 0.001 && sequence < 10000) {
+      const icon = chooseIcon();
+      const widthVariation = 0.91 + random() * 0.18;
+      const nominalWidthKm = Number(icon.nominal_width_km) * config.scale * widthVariation;
+      const position = pointAtDistance(coordinates, Math.min(distance,totalLength));
+      if (!position) break;
+      const sizeZ7 = iconSizeAtReferenceZoom(icon,nominalWidthKm,position.coordinate[1]);
+      features.push({
+        type:'Feature',
+        properties:{
+          fantasy_axis_id:axisId,fantasy_name_ru:nameRu,fantasy_profile:profile,fantasy_tier:tier,
+          fantasy_icon:icon.id,fantasy_size_z7:sizeZ7,fantasy_width_km:Number(nominalWidthKm.toFixed(3)),
+          fantasy_sequence:sequence,fantasy_path_index:pathIndex
+        },
+        geometry:{type:'Point',coordinates:position.coordinate}
+      });
+      previousIconId = icon.id;
+      const nextIcon = chooseIcon(1);
+      const nextWidth = Number(nextIcon.nominal_width_km) * config.scale * (0.96 + random() * 0.08);
+      const stepKm = clamp(((nominalWidthKm + nextWidth) / 2) * config.overlap,1.6,10.5);
+      if (previousWidth !== null) maximumGapRatio = Math.max(maximumGapRatio,stepKm / ((previousWidth + nominalWidthKm) / 2));
+      previousWidth = nominalWidthKm;
+      distance += stepKm;
+      sequence += 1;
+    }
+
+    const lastDistance = features.length ? lineLengthKm(coordinates.slice(0,Math.max(2,coordinates.length))) : 0;
+    return {features,totalLengthKm:totalLength,maximumGapRatio};
+  }
+
+  function buildMountainPointCollection(collection) {
+    const groups = groupRidges(collection);
+    const features = [];
+    const profileCounts = {massif:0,rocky:0,ridge:0,gentle:0,spur:0};
+    const tierCounts = {1:0,2:0,3:0};
+    let chainCount = 0;
+    let maximumGapRatio = 0;
+    let stitchedBridgeCount = 0;
+
+    for (const [axisId, group] of groups.entries()) {
+      const groupLength = group.reduce((sum,feature) => sum + Number(feature.properties.fantasy_length_km || 0),0);
+      const profile = profileForRidge(group[0]?.properties || {},groupLength);
+      const config = PROFILE_CONFIG[profile] || PROFILE_CONFIG.ridge;
+      const tier = axisId === 'ridge_main_caucasus' ? 1 : (profile === 'massif' && groupLength >= 25 ? 1 : config.tier);
+      const paths = stitchRidgeParts(group,axisId === 'ridge_main_caucasus' ? 24 : config.bridgeLimitKm);
+      stitchedBridgeCount += Math.max(0,group.length - paths.length);
+      profileCounts[profile] += paths.length;
+      tierCounts[tier] += paths.length;
+      for (const [pathIndex,path] of paths.entries()) {
+        const seed = hashString(`${axisId}:${pathIndex}`);
+        const chain = buildChainFeatures(axisId,String(group[0]?.properties?.name_ru || ''),profile,tier,path,pathIndex,seed);
+        features.push(...chain.features);
+        chainCount += 1;
+        maximumGapRatio = Math.max(maximumGapRatio,chain.maximumGapRatio);
+      }
     }
 
     return {
-      type: 'FeatureCollection',
+      type:'FeatureCollection',
       features,
-      diagnostics: {
-        sourceFeatureCount: collection?.features?.length || 0,
-        flattenedFeatureCount: features.length,
-        mainCutoffKm: Number(mainCutoff.toFixed(3)),
-        secondaryCutoffKm: Number(secondaryCutoff.toFixed(3)),
-        classCounts
+      diagnostics:{
+        sourceFeatureCount:collection?.features?.length || 0,
+        groupedRidgeCount:groups.size,
+        chainCount,
+        mountainPointCount:features.length,
+        stitchedBridgeCount,
+        maximumGapRatio:Number(maximumGapRatio.toFixed(3)),
+        profileCounts,
+        tierCounts
       }
+    };
+  }
+
+  function createLandmarkCollection(data) {
+    const coordinates = Array.isArray(data?.elbrusFocus) ? data.elbrusFocus.map(Number) : [];
+    const valid = coordinates.length === 2 && coordinates.every(Number.isFinite);
+    if (!valid) return {type:'FeatureCollection',features:[]};
+    return {
+      type:'FeatureCollection',
+      features:[{
+        type:'Feature',
+        properties:{
+          fantasy_landmark:'elbrus',fantasy_icon:'fantasy-elbrus',fantasy_size_z7:iconSizeAtReferenceZoom(ELBRUS,Number(ELBRUS.nominal_width_km),coordinates[1])
+        },
+        geometry:{type:'Point',coordinates}
+      }]
     };
   }
 
@@ -140,273 +306,74 @@
     return canvas;
   }
 
-  function imageDataFromCanvas(canvas) {
-    const context = canvas?.getContext?.('2d');
-    return context ? context.getImageData(0, 0, canvas.width, canvas.height) : null;
-  }
-
-  function smoothMountainOutline(context, peaks, baseY, width) {
-    context.beginPath();
-    context.moveTo(3, baseY + 1);
-    let previousX = 3;
-    let previousY = baseY + 1;
-    for (const peak of peaks) {
-      const leftX = peak.centerX - peak.halfWidth;
-      const rightX = peak.centerX + peak.halfWidth;
-      context.bezierCurveTo(
-        previousX + (leftX - previousX) * 0.54,
-        previousY - 1,
-        leftX + peak.halfWidth * 0.40,
-        peak.topY + peak.shoulderDrop,
-        peak.centerX,
-        peak.topY
-      );
-      context.bezierCurveTo(
-        peak.centerX + peak.halfWidth * 0.34,
-        peak.topY + peak.shoulderDrop * 0.72,
-        rightX - peak.halfWidth * 0.20,
-        baseY - 4,
-        rightX,
-        baseY
-      );
-      previousX = rightX;
-      previousY = baseY;
-    }
-    context.bezierCurveTo(previousX + 10, baseY + 2, width - 16, baseY + 3, width - 3, baseY + 1);
-    context.lineTo(width - 3, baseY + 7);
-    context.lineTo(3, baseY + 7);
-    context.closePath();
-  }
-
-  function drawSlopeStroke(context, startX, startY, endX, endY, width = 1.15) {
-    const controlX = startX + (endX - startX) * 0.58;
-    const controlY = startY + (endY - startY) * 0.32;
-    context.beginPath();
-    context.moveTo(startX, startY);
-    context.quadraticCurveTo(controlX, controlY, endX, endY);
-    context.strokeStyle = SHADE;
-    context.lineWidth = width;
-    context.stroke();
-  }
-
-  function mountainImage(ridgeClass, variant = 0) {
-    const width = 124;
-    const height = 82;
-    const canvas = requireCanvas(width, height);
-    if (!canvas) return null;
-    const context = canvas.getContext('2d');
-    const random = mulberry32(3109 + variant * 977 + (ridgeClass === 'main' ? 1 : ridgeClass === 'secondary' ? 2 : 3));
-    const profile = ridgeClass === 'main'
-      ? {peaks: variant % 2 === 0 ? 3 : 4, baseY: 69, topY: 8, spread: 29, line: 2.25, snow: true}
-      : ridgeClass === 'secondary'
-        ? {peaks: variant === 2 ? 4 : 3, baseY: 68, topY: 19, spread: 30, line: 2.0, snow: false}
-        : {peaks: 2, baseY: 65, topY: 30, spread: 39, line: 1.75, snow: false};
-
-    context.clearRect(0, 0, width, height);
-    context.lineCap = 'round';
-    context.lineJoin = 'round';
-
-    const peaks = [];
-    for (let index = 0; index < profile.peaks; index += 1) {
-      const centerX = width / 2 + (index - (profile.peaks - 1) / 2) * profile.spread + (random() - 0.5) * 7;
-      peaks.push({
-        centerX,
-        topY: profile.topY + random() * (ridgeClass === 'main' ? 14 : 11),
-        halfWidth: profile.spread * (0.70 + random() * 0.18),
-        shoulderDrop: 12 + random() * 8
-      });
-    }
-
-    smoothMountainOutline(context, peaks, profile.baseY, width);
-    context.fillStyle = PAPER;
-    context.fill();
-    context.strokeStyle = INK;
-    context.lineWidth = profile.line;
-    context.stroke();
-
-    for (const peak of peaks) {
-      const leftEndX = peak.centerX - peak.halfWidth * (0.42 + random() * 0.16);
-      const rightEndX = peak.centerX + peak.halfWidth * (0.38 + random() * 0.18);
-      drawSlopeStroke(context, peak.centerX - 0.5, peak.topY + 2, leftEndX, profile.baseY - 4, Math.max(1.05, profile.line * 0.62));
-      drawSlopeStroke(context, peak.centerX + 1.5, peak.topY + 4, rightEndX, profile.baseY - 8, Math.max(1.0, profile.line * 0.56));
-
-      const strokeCount = ridgeClass === 'spur' ? 2 : 4;
-      for (let strokeIndex = 0; strokeIndex < strokeCount; strokeIndex += 1) {
-        const side = strokeIndex % 2 === 0 ? -1 : 1;
-        const startY = peak.topY + 15 + strokeIndex * 7 + random() * 2;
-        const startX = peak.centerX + side * (5 + strokeIndex * 1.7);
-        const endX = peak.centerX + side * (15 + strokeIndex * 4.2 + random() * 3);
-        const endY = Math.min(profile.baseY - 4, startY + 11 + random() * 7);
-        drawSlopeStroke(context, startX, startY, endX, endY, 1.05);
-      }
-
-      if (profile.snow) {
-        const snowY = peak.topY + 11 + random() * 4;
-        context.beginPath();
-        context.moveTo(peak.centerX, peak.topY + 1);
-        context.bezierCurveTo(peak.centerX - 3, peak.topY + 5, peak.centerX - 7, snowY + 1, peak.centerX - 10, snowY + 5);
-        context.quadraticCurveTo(peak.centerX - 4, snowY + 1, peak.centerX - 1, snowY + 5);
-        context.quadraticCurveTo(peak.centerX + 4, snowY + 1, peak.centerX + 10, snowY + 4);
-        context.bezierCurveTo(peak.centerX + 7, snowY, peak.centerX + 3, peak.topY + 4, peak.centerX, peak.topY + 1);
-        context.closePath();
-        context.fillStyle = SNOW;
-        context.fill();
-        context.strokeStyle = INK;
-        context.lineWidth = 0.85;
-        context.stroke();
-      }
-    }
-
-    context.beginPath();
-    context.moveTo(4, profile.baseY + 3);
-    context.bezierCurveTo(width * 0.25, profile.baseY, width * 0.66, profile.baseY + 6, width - 4, profile.baseY + 2);
-    context.strokeStyle = 'rgba(39, 61, 72, .62)';
-    context.lineWidth = 1.35;
-    context.stroke();
-
-    return imageDataFromCanvas(canvas);
-  }
-
-  function elbrusImage() {
-    const width = 224;
-    const height = 132;
-    const canvas = requireCanvas(width, height);
-    if (!canvas) return null;
-    const context = canvas.getContext('2d');
-    context.clearRect(0, 0, width, height);
-    context.lineCap = 'round';
-    context.lineJoin = 'round';
-
-    context.beginPath();
-    context.moveTo(5, 112);
-    context.bezierCurveTo(27, 108, 43, 91, 58, 69);
-    context.bezierCurveTo(72, 47, 87, 26, 105, 20);
-    context.bezierCurveTo(115, 17, 122, 30, 129, 39);
-    context.bezierCurveTo(139, 28, 149, 16, 164, 18);
-    context.bezierCurveTo(184, 21, 191, 48, 198, 68);
-    context.bezierCurveTo(204, 87, 214, 104, 219, 111);
-    context.bezierCurveTo(172, 120, 57, 119, 5, 112);
-    context.closePath();
-    context.fillStyle = PAPER;
-    context.fill();
-    context.strokeStyle = INK;
-    context.lineWidth = 3.1;
-    context.stroke();
-
-    context.beginPath();
-    context.moveTo(105, 21);
-    context.bezierCurveTo(99, 34, 93, 45, 82, 58);
-    context.bezierCurveTo(75, 67, 68, 82, 60, 105);
-    context.moveTo(164, 19);
-    context.bezierCurveTo(158, 35, 151, 49, 140, 65);
-    context.bezierCurveTo(132, 78, 126, 92, 120, 108);
-    context.strokeStyle = SHADE;
-    context.lineWidth = 1.9;
-    context.stroke();
-
-    context.beginPath();
-    context.moveTo(105, 21);
-    context.bezierCurveTo(97, 31, 92, 40, 87, 49);
-    context.quadraticCurveTo(96, 44, 103, 50);
-    context.quadraticCurveTo(111, 43, 121, 47);
-    context.bezierCurveTo(116, 37, 111, 27, 105, 21);
-    context.closePath();
-    context.moveTo(164, 19);
-    context.bezierCurveTo(157, 29, 153, 38, 148, 49);
-    context.quadraticCurveTo(157, 43, 164, 50);
-    context.quadraticCurveTo(173, 43, 181, 49);
-    context.bezierCurveTo(176, 36, 171, 26, 164, 19);
-    context.closePath();
-    context.fillStyle = SNOW;
-    context.fill();
-    context.strokeStyle = INK;
-    context.lineWidth = 1.15;
-    context.stroke();
-
-    for (const [startX, startY, endX, endY] of [
-      [90,55,67,92],[116,55,101,92],[146,58,130,94],[177,57,192,94],
-      [76,76,51,105],[128,75,112,108],[157,75,146,108],[187,78,207,106]
-    ]) drawSlopeStroke(context,startX,startY,endX,endY,1.35);
-
-    context.beginPath();
-    context.moveTo(8, 114);
-    context.bezierCurveTo(58, 107, 164, 124, 217, 113);
-    context.strokeStyle = 'rgba(39, 61, 72, .68)';
-    context.lineWidth = 1.7;
-    context.stroke();
-    return imageDataFromCanvas(canvas);
-  }
-
-  function hachureImage() {
-    const canvas = requireCanvas(32, 32);
-    if (!canvas) return null;
-    const context = canvas.getContext('2d');
-    context.clearRect(0, 0, 32, 32);
-    context.strokeStyle = 'rgba(39, 61, 72, .62)';
-    context.lineWidth = 1.25;
-    context.lineCap = 'round';
-    context.beginPath();
-    context.moveTo(16, 3);
-    context.quadraticCurveTo(15, 14, 16, 27);
-    context.moveTo(12, 7);
-    context.quadraticCurveTo(11, 15, 12, 23);
-    context.moveTo(20, 8);
-    context.quadraticCurveTo(21, 14, 20, 21);
-    context.stroke();
-    return imageDataFromCanvas(canvas);
-  }
-
   function paperPatternImage() {
     const size = 128;
-    const canvas = requireCanvas(size, size);
+    const canvas = requireCanvas(size,size);
     if (!canvas) return null;
     const context = canvas.getContext('2d');
-    const random = mulberry32(702023);
-    context.clearRect(0, 0, size, size);
-    context.fillStyle = 'rgba(205, 183, 138, .13)';
-    context.fillRect(0, 0, size, size);
-    for (let index = 0; index < 1050; index += 1) {
-      const alpha = 0.018 + random() * 0.055;
-      const warm = random() > 0.42;
-      context.fillStyle = warm ? `rgba(91, 65, 38, ${alpha})` : `rgba(248, 236, 204, ${alpha})`;
-      const radius = 0.25 + random() * 1.1;
+    const random = mulberry32(8000);
+    context.clearRect(0,0,size,size);
+    context.fillStyle = 'rgba(205,183,138,.12)';
+    context.fillRect(0,0,size,size);
+    for (let index = 0; index < 900; index += 1) {
+      const alpha = 0.014 + random() * 0.042;
+      context.fillStyle = random() > 0.42 ? `rgba(91,65,38,${alpha})` : `rgba(248,236,204,${alpha})`;
       context.beginPath();
-      context.arc(random() * size, random() * size, radius, 0, Math.PI * 2);
+      context.arc(random()*size,random()*size,0.2+random()*0.9,0,Math.PI*2);
       context.fill();
     }
-    context.strokeStyle = 'rgba(88, 63, 40, .035)';
-    context.lineWidth = 0.7;
-    for (let index = 0; index < 34; index += 1) {
-      const y = random() * size;
-      context.beginPath();
-      context.moveTo(-8, y);
-      context.bezierCurveTo(size * 0.28, y + random() * 5 - 2.5, size * 0.72, y + random() * 5 - 2.5, size + 8, y);
-      context.stroke();
-    }
-    return imageDataFromCanvas(canvas);
+    return context.getImageData(0,0,size,size);
+  }
+
+  function imageDefinitions() {
+    return [
+      ...CATALOG.map((icon) => ({id:icon.id,url:`${ASSET_BASE_PATH}${icon.file}`,pixelRatio:IMAGE_PIXEL_RATIO})),
+      {id:'fantasy-elbrus',url:`${ASSET_BASE_PATH}${ELBRUS.file}`,pixelRatio:IMAGE_PIXEL_RATIO}
+    ];
+  }
+
+  function loadMapImage(map, url) {
+    try {
+      const result = map.loadImage(url);
+      if (result && typeof result.then === 'function') return result.then((value) => value?.data || value);
+    } catch (_) {}
+    return new Promise((resolve,reject) => {
+      map.loadImage(url,(error,image) => error ? reject(error) : resolve(image));
+    });
+  }
+
+  async function loadImages(map) {
+    const definitions = imageDefinitions();
+    await Promise.all(definitions.map(async (definition) => {
+      if (map.hasImage(definition.id)) return definition.id;
+      const url = new URL(definition.url,document.baseURI).href;
+      const image = await loadMapImage(map,url);
+      if (!map.hasImage(definition.id)) map.addImage(definition.id,image,{pixelRatio:definition.pixelRatio});
+      return definition.id;
+    }));
+    return definitions.map((definition) => definition.id);
   }
 
   function createImages() {
-    const images = {
-      'fantasy-paper-grain': paperPatternImage(),
-      'fantasy-hachure': hachureImage(),
-      'fantasy-elbrus': elbrusImage()
-    };
-    for (const ridgeClass of ['main', 'secondary', 'spur']) {
-      const variants = ridgeClass === 'main' ? 4 : ridgeClass === 'secondary' ? 3 : 2;
-      for (let variant = 0; variant < variants; variant += 1) {
-        images[`fantasy-mountain-${ridgeClass}-${variant}`] = mountainImage(ridgeClass, variant);
-      }
-    }
-    return images;
+    return {'fantasy-paper-grain':paperPatternImage()};
   }
 
   return {
-    version: VERSION,
+    version:VERSION,
+    referenceZoom:REFERENCE_ZOOM,
+    imagePixelRatio:IMAGE_PIXEL_RATIO,
+    catalog:CATALOG,
+    elbrus:ELBRUS,
     lineLengthKm,
+    metersPerPixel,
     flattenRidgeFeatures,
-    buildRidgeCollection,
+    profileForRidge,
+    stitchRidgeParts,
+    buildMountainPointCollection,
+    createLandmarkCollection,
+    imageDefinitions,
+    loadImages,
     createImages,
-    __test: {quantile, explicitClass, mulberry32}
+    __test:{hashString,mulberry32,pointAtDistance,iconSizeAtReferenceZoom,profileConfig:PROFILE_CONFIG,ridgeProfiles:RIDGE_PROFILE_BY_ID}
   };
 });

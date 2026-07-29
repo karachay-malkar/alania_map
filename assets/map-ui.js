@@ -6,8 +6,8 @@
 })(typeof self !== 'undefined' ? self : this, function (root) {
   'use strict';
 
-  const VERSION = '7.0.23';
-  const DEFAULT_STORAGE_KEY = 'alan-map-stage7.0.23-view';
+  const VERSION = '8.0';
+  const DEFAULT_STORAGE_KEY = 'alan-map-stage8.0-view';
   const STATE_SCHEMA_VERSION = 1;
   const STATE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
   const LEGACY_STORAGE_KEYS = [
@@ -244,16 +244,16 @@
 
   function markup() {
     return `
-      <div class="alan-map-canvas" data-role="map" aria-label="Интерактивная рельефная карта"></div>
-      <div class="alan-map-loading" data-role="loading"><div class="alan-map-loading-card"><div class="alan-map-spinner"></div><div class="alan-map-loading-title">Загрузка карты</div><div class="alan-map-loading-text" data-role="loading-text">Подготавливается рельеф и законченный картографический стиль.</div></div></div>
+      <div class="alan-map-canvas" data-role="map" aria-label="Интерактивная иллюстрированная карта"></div>
+      <div class="alan-map-loading" data-role="loading"><div class="alan-map-loading-card"><div class="alan-map-spinner"></div><div class="alan-map-loading-title">Загрузка карты</div><div class="alan-map-loading-text" data-role="loading-text">Подготавливаются плоская карта и непрерывные рисованные хребты.</div></div></div>
       <div class="alan-map-toolbar" data-role="toolbar">
-        <div class="alan-map-toolbar-head"><div class="alan-map-toolbar-titles"><div class="alan-map-title">Alan Map · 7.0.23</div><div class="alan-map-subtitle">Автономная карта · физически обрезанные DEM и векторные данные</div></div><button class="alan-map-collapse-button" data-action="toggle-toolbar" type="button" aria-expanded="true" aria-label="Скрыть панель">−</button></div>
+        <div class="alan-map-toolbar-head"><div class="alan-map-toolbar-titles"><div class="alan-map-title">Alan Map · 8.0</div><div class="alan-map-subtitle">Плоская иллюстрированная карта · автономные векторные данные</div></div><button class="alan-map-collapse-button" data-action="toggle-toolbar" type="button" aria-expanded="true" aria-label="Скрыть панель">−</button></div>
         <div class="alan-map-buttons alan-map-action-buttons"><button data-action="reset" type="button">Сброс</button><button class="alan-map-fullscreen-button" data-action="fullscreen" type="button" aria-pressed="false">На весь экран</button></div>
         <div class="alan-map-buttons alan-map-layer-buttons"><button data-toggle="roads" class="active" type="button">Дороги</button><button data-toggle="rivers" class="active" type="button">Вода</button><button data-toggle="regions" class="active" type="button">Районы</button><button data-toggle="labels" class="active" type="button">Подписи</button><button data-toggle="modern" type="button">Современные</button></div>
         <div class="alan-map-control-row"><label>Рельеф</label><input data-control="relief" type="range" min="1" max="4.2" step="0.05" value="2.55"><span data-value="relief" class="alan-map-value">2.6×</span></div>
         <div class="alan-map-control-row"><label>Реки</label><input data-control="rivers" type="range" min="0.7" max="2.2" step="0.05" value="1.25"><span data-value="rivers" class="alan-map-value">1.25×</span></div>
       </div>
-      <div class="alan-map-legend" data-role="legend"><div data-legend-item="settlements"><span class="alan-map-swatch legend-settlements"></span>населённые пункты</div><div data-legend-item="history"><span class="alan-map-swatch legend-history"></span>исторические объекты</div><div data-legend-item="mountains"><span class="alan-map-swatch legend-mountains"></span>горы и рельеф</div><div data-legend-item="water"><span class="alan-map-swatch legend-water"></span>вода</div><div data-legend-item="land"><span class="alan-map-swatch legend-land"></span>леса, снег и ледники</div></div>
+      <div class="alan-map-legend" data-role="legend"><div data-legend-item="settlements"><span class="alan-map-swatch legend-settlements"></span>населённые пункты</div><div data-legend-item="history"><span class="alan-map-swatch legend-history"></span>исторические объекты</div><div data-legend-item="mountains"><span class="alan-map-swatch legend-mountains"></span>горы и хребты</div><div data-legend-item="water"><span class="alan-map-swatch legend-water"></span>вода</div><div data-legend-item="land"><span class="alan-map-swatch legend-land"></span>леса, снег и ледники</div></div>
       <div class="alan-map-dpad" data-role="dpad" aria-label="Перемещение карты"><button class="up" data-pan="0,-120" type="button">▲</button><button class="left" data-pan="-120,0" type="button">◀</button><button class="home" data-action="north" title="Ориентация север–юг" type="button">N↓</button><button class="right" data-pan="120,0" type="button">▶</button><button class="down" data-pan="0,120" type="button">▼</button></div>
       <div class="alan-map-status" data-role="status">Подготовка интерактивной карты…</div>
       <div class="alan-map-fallback" data-role="fallback"><div class="alan-map-fallback-card"><h2>Карта не запустилась</h2><p data-role="fallback-message">Проверьте поддержку WebGL и доступ к интернету.</p></div></div>`;
@@ -305,7 +305,7 @@
       center: data.center,
       zoom: 7.0,
       bearing: 180,
-      pitch: 58,
+      pitch: 0,
       relief: 2.55,
       rivers: 1.25,
       roads: true,
@@ -397,11 +397,9 @@
         setStatus(`Карта работает. Ошибки сетевых источников: ${sources}.`, true);
         return;
       }
-      const demReady = sourceLoaded.has('terrain-dem');
       const vectorReady = !natureEnabled || sourceLoaded.has('openmaptiles');
-      if (demReady && vectorReady) setStatus(`Alan Map ${VERSION} готова · профиль ${qualityProfile.mode}.`);
-      else if (demReady) setStatus('Рельеф загружен; потоковые природные слои ещё загружаются.');
-      else setStatus('Базовая карта готова; рельеф ещё загружается.');
+      if (vectorReady) setStatus(`Alan Map ${VERSION} готова · профиль ${qualityProfile.mode}.`);
+      else setStatus('Базовая карта готова; локальные природные слои ещё загружаются.');
     }
 
     function showFallback(message) {
@@ -495,8 +493,8 @@
       const baseLayers = [
         {id:'background',type:'background',paint:{'background-color':'#25282a'}},
         {id:'focus-paper',type:'fill',source:'polygons',filter:sourceFilter('focus'),paint:{'fill-color':'#eadfc8','fill-opacity':0.98}},
-        {id:'terrain-hillshade',type:'hillshade',source:'terrain-dem',paint:{'hillshade-illumination-anchor':'viewport','hillshade-illumination-direction':315,'hillshade-exaggeration':0.62,'hillshade-shadow-color':'#294252','hillshade-highlight-color':'#f8efd9','hillshade-accent-color':'#806b50'}},
-        {id:'ridge-lines',type:'line',source:'lines',filter:['all',sourceFilter('ridges'),['==',['get','visible'],1]],paint:{'line-color':'#675f55','line-width':['interpolate',['linear'],['zoom'],6,0.48,10,1.12],'line-opacity':['interpolate',['linear'],['zoom'],6,0.24,10,0.40],'line-dasharray':[1.2,2.1]}}
+        {id:'terrain-hillshade',type:'hillshade',source:'terrain-dem',layout:{'visibility':'none'},paint:{'hillshade-illumination-anchor':'viewport','hillshade-illumination-direction':315,'hillshade-exaggeration':0.62,'hillshade-shadow-color':'#294252','hillshade-highlight-color':'#f8efd9','hillshade-accent-color':'#806b50'}},
+        {id:'ridge-lines',type:'line',source:'lines',layout:{'visibility':'none'},filter:['all',sourceFilter('ridges'),['==',['get','visible'],1]],paint:{'line-color':'#675f55','line-width':['interpolate',['linear'],['zoom'],6,0.48,10,1.12],'line-opacity':['interpolate',['linear'],['zoom'],6,0.24,10,0.40],'line-dasharray':[1.2,2.1]}}
       ];
 
       const natureLayers = [];
@@ -575,7 +573,6 @@
         version: 8,
         glyphs: glyphsTemplate,
         sources,
-        terrain: {source:'terrain-dem',exaggeration:state.relief},
         layers
       };
     }
@@ -681,8 +678,19 @@
       const numericValue = clamp(Number(value),1,4.2);
       reliefValue.textContent = `${numericValue.toFixed(1)}×`;
       if (!map || !map.isStyleLoaded()) return;
+      if (api?.isFantasyStyleEnabled?.()) {
+        try { map.setTerrain(null); } catch (_) {}
+        if (map.getLayer('terrain-hillshade')) map.setLayoutProperty('terrain-hillshade','visibility','none');
+        if (map.getLayer('ridge-lines')) map.setLayoutProperty('ridge-lines','visibility','none');
+        queueSave();
+        return;
+      }
       map.setTerrain({source:'terrain-dem',exaggeration:numericValue});
-      if (map.getLayer('terrain-hillshade')) map.setPaintProperty('terrain-hillshade','hillshade-exaggeration',Math.min(.82,.34+numericValue*.12));
+      if (map.getLayer('terrain-hillshade')) {
+        map.setLayoutProperty('terrain-hillshade','visibility','visible');
+        map.setPaintProperty('terrain-hillshade','hillshade-exaggeration',Math.min(.82,.34+numericValue*.12));
+      }
+      if (map.getLayer('ridge-lines')) map.setLayoutProperty('ridge-lines','visibility','visible');
       queueSave();
     }
 
@@ -719,8 +727,8 @@
     }
 
     function focusElbrus() {
-      map?.easeTo({center:data.elbrusFocus,zoom:10.15,bearing:180,pitch:60,duration:1400});
-      setStatus('Фокус на Минги тау. Наклон ограничен 60°.');
+      map?.easeTo({center:data.elbrusFocus,zoom:10.15,bearing:180,pitch:api?.isFantasyStyleEnabled?.()?0:60,duration:1400});
+      setStatus('Фокус на Минги тау.');
     }
 
     function queueMapResize() {
@@ -810,7 +818,7 @@
       on(element('[data-action="reset"]'),'click',resetView);
       on(fullscreenButton,'click',toggleFullscreen);
       on(collapseButton,'click',() => setToolbarCollapsed(!toolbarElement.classList.contains('collapsed')));
-      on(element('[data-action="north"]'),'click',() => map?.easeTo({bearing:180,pitch:58,duration:700}));
+      on(element('[data-action="north"]'),'click',() => map?.easeTo({bearing:180,pitch:api?.isFantasyStyleEnabled?.()?0:58,duration:700}));
       Object.entries(toggleButtons).forEach(([name,button]) => on(button,'click',() => toggleLayer(name)));
       on(reliefInput,'input',(event) => applyRelief(event.target.value));
       on(riverInput,'input',(event) => applyRivers(event.target.value));

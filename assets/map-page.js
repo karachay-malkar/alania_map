@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '7.0.23';
+  const VERSION = '8.0';
   const MANIFEST_PATH = 'data/shards-manifest.json';
   const MAX_CACHED_SHARDS = 16;
 
