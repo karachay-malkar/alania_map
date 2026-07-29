@@ -188,43 +188,57 @@ def prepare() -> None:
     )
 
 
-def endpoint_graph(segments: list[dict], tolerance: float):
-    node_points: list[tuple[float, float]] = []
-    buckets: dict[tuple[int, int], list[int]] = defaultdict(list)
-    segment_nodes: list[tuple[int, int]] = []
-    adjacency: dict[int, list[int]] = defaultdict(list)
+def segment_graph(segments: list[dict], tolerance: float) -> list[set[int]]:
+    from shapely.geometry import MultiPoint
+    from shapely.strtree import STRtree
 
-    def node_for(coordinate: tuple[float, float]) -> int:
-        x, y = coordinate
-        cell = (math.floor(x / tolerance), math.floor(y / tolerance))
-        best = None
-        best_distance = tolerance
-        for delta_x in (-1, 0, 1):
-            for delta_y in (-1, 0, 1):
-                for node_id in buckets.get((cell[0] + delta_x, cell[1] + delta_y), []):
-                    point = node_points[node_id]
-                    distance = math.hypot(point[0] - x, point[1] - y)
-                    if distance <= best_distance:
-                        best = node_id
-                        best_distance = distance
-        if best is not None:
-            return best
-        node_id = len(node_points)
-        node_points.append((x, y))
-        buckets[cell].append(node_id)
-        return node_id
+    geometries = [segment['geometry_metric'] for segment in segments]
+    endpoints = []
+    for geometry in geometries:
+        coordinates = list(geometry.coords)
+        endpoints.append(MultiPoint((coordinates[0], coordinates[-1])))
 
-    for segment_id, segment in enumerate(segments):
-        coordinates = list(segment['geometry_metric'].coords)
-        start = node_for(tuple(coordinates[0]))
-        end = node_for(tuple(coordinates[-1]))
-        segment_nodes.append((start, end))
-        adjacency[start].append(segment_id)
-        adjacency[end].append(segment_id)
-    return node_points, segment_nodes, adjacency
+    tree = STRtree(geometries)
+    neighbours = [set() for _ in segments]
+    for segment_id, endpoint_geometry in enumerate(endpoints):
+        for candidate_value in tree.query(
+            endpoint_geometry,
+            predicate='dwithin',
+            distance=tolerance
+        ):
+            candidate = int(candidate_value)
+            if candidate == segment_id:
+                continue
+            if (
+                endpoint_geometry.distance(geometries[candidate]) > tolerance
+                and endpoints[candidate].distance(geometries[segment_id]) > tolerance
+            ):
+                continue
+            neighbours[segment_id].add(candidate)
+            neighbours[candidate].add(segment_id)
+    return neighbours
 
 
-def selected_components(selected: set[int], segment_nodes, adjacency) -> list[set[int]]:
+def graph_component_ids(neighbours: list[set[int]]) -> list[int]:
+    component_ids = [-1] * len(neighbours)
+    next_component = 0
+    for first in range(len(neighbours)):
+        if component_ids[first] >= 0:
+            continue
+        component_ids[first] = next_component
+        queue = deque([first])
+        while queue:
+            segment_id = queue.popleft()
+            for neighbour in neighbours[segment_id]:
+                if component_ids[neighbour] >= 0:
+                    continue
+                component_ids[neighbour] = next_component
+                queue.append(neighbour)
+        next_component += 1
+    return component_ids
+
+
+def selected_components(selected: set[int], neighbours: list[set[int]]) -> list[set[int]]:
     remaining = set(selected)
     result: list[set[int]] = []
     while remaining:
@@ -233,12 +247,11 @@ def selected_components(selected: set[int], segment_nodes, adjacency) -> list[se
         queue = deque([first])
         while queue:
             segment_id = queue.popleft()
-            for node in segment_nodes[segment_id]:
-                for neighbour in adjacency.get(node, []):
-                    if neighbour in remaining:
-                        remaining.remove(neighbour)
-                        component.add(neighbour)
-                        queue.append(neighbour)
+            for neighbour in neighbours[segment_id]:
+                if neighbour in remaining:
+                    remaining.remove(neighbour)
+                    component.add(neighbour)
+                    queue.append(neighbour)
         result.append(component)
     return result
 
@@ -256,74 +269,62 @@ def connection_penalty(segment: dict, system_id: str) -> float:
 
 def shortest_connection(
     segments: list[dict],
-    segment_nodes,
-    adjacency,
+    neighbours: list[set[int]],
     selected: set[int],
     target_segment: int,
     system_id: str
 ) -> list[int]:
-    selected_nodes = {
-        node for segment_id in selected for node in segment_nodes[segment_id]
-    }
-    target_nodes = set(segment_nodes[target_segment])
-    if selected_nodes & target_nodes:
+    if target_segment in selected:
         return [target_segment]
 
     distances: dict[int, float] = {}
-    previous: dict[int, tuple[int, int]] = {}
+    previous: dict[int, int] = {}
     heap: list[tuple[float, int]] = []
-    for node in selected_nodes:
-        distances[node] = 0.0
-        heapq.heappush(heap, (0.0, node))
+    for segment_id in selected:
+        distances[segment_id] = 0.0
+        heapq.heappush(heap, (0.0, segment_id))
 
     destination = None
     while heap:
-        distance, node = heapq.heappop(heap)
-        if distance != distances.get(node):
+        distance, segment_id = heapq.heappop(heap)
+        if distance != distances.get(segment_id):
             continue
-        if node in target_nodes:
-            destination = node
+        if segment_id == target_segment:
+            destination = segment_id
             break
-        for segment_id in adjacency.get(node, []):
-            start, end = segment_nodes[segment_id]
-            next_node = end if start == node else start
-            segment = segments[segment_id]
+        for neighbour in neighbours[segment_id]:
+            segment = segments[neighbour]
             next_distance = distance + max(1.0, segment['length_m']) * connection_penalty(segment, system_id)
-            if next_distance >= distances.get(next_node, float('inf')):
+            if next_distance >= distances.get(neighbour, float('inf')):
                 continue
-            distances[next_node] = next_distance
-            previous[next_node] = (node, segment_id)
-            heapq.heappush(heap, (next_distance, next_node))
+            distances[neighbour] = next_distance
+            previous[neighbour] = segment_id
+            heapq.heappush(heap, (next_distance, neighbour))
 
     if destination is None:
         return [target_segment]
-    path = [target_segment]
-    node = destination
-    while node not in selected_nodes:
-        previous_node, segment_id = previous[node]
+    path = []
+    segment_id = destination
+    while segment_id not in selected:
         path.append(segment_id)
-        node = previous_node
+        segment_id = previous[segment_id]
     return path
 
 
 def extend_unambiguous(
     segments: list[dict],
-    segment_nodes,
-    adjacency,
+    neighbours: list[set[int]],
     selected: set[int],
     system_id: str
 ) -> set[int]:
     changed = True
     while changed:
         changed = False
-        boundary_nodes = {
-            node for segment_id in selected for node in segment_nodes[segment_id]
-        }
-        for node in boundary_nodes:
+        for segment_id in tuple(selected):
             candidates = [
-                segment_id for segment_id in adjacency.get(node, [])
-                if segment_id not in selected
-                and not ((segments[segment_id].get('assigned_systems') or set()) - {system_id})
+                neighbour for neighbour in neighbours[segment_id]
+                if neighbour not in selected
+                and not ((segments[neighbour].get('assigned_systems') or set()) - {system_id})
             ]
             if len(candidates) != 1:
                 continue
@@ -368,8 +369,8 @@ def component_gap_details(component_geometries: list, to_wgs84) -> list[dict]:
 def classify() -> None:
     import geopandas as gpd
     from pyproj import Transformer
-    from shapely.geometry import Point, mapping
-    from shapely.ops import linemerge, transform, unary_union
+    from shapely.geometry import LineString, Point, mapping
+    from shapely.ops import linemerge, nearest_points, transform, unary_union
 
     BUILD.mkdir(exist_ok=True)
     frame = valid_geometry(gpd.read_file(BUILD / 'map-frame.geojson').to_crs(4326).geometry.union_all())
@@ -477,7 +478,8 @@ def classify() -> None:
                     'geometry': clipped_part,
                     'geometry_metric': metric_geometry,
                     'length_m': float(metric_geometry.length),
-                    'assigned_systems': assigned
+                    'assigned_systems': assigned,
+                    'relation_systems': set()
                 })
 
     relation_geometries: dict[str, list] = defaultdict(list)
@@ -499,8 +501,10 @@ def classify() -> None:
         for segment in river_segments:
             if segment['geometry_metric'].intersection(relation_buffer).length >= segment['length_m'] * 0.6:
                 segment['assigned_systems'].add(system_id)
+                segment['relation_systems'].add(system_id)
 
-    node_points, segment_nodes, adjacency = endpoint_graph(river_segments, CONNECT_TOLERANCE_M)
+    neighbours = segment_graph(river_segments, CONNECT_TOLERANCE_M)
+    network_component_ids = graph_component_ids(neighbours)
     used_segments: set[int] = set()
     river_output_records: list[dict] = []
     report_systems: list[dict] = []
@@ -509,6 +513,19 @@ def classify() -> None:
         if not selected:
             return
         geometries_metric = [river_segments[index]['geometry_metric'] for index in sorted(selected)]
+        snap_bridges = []
+        for left in sorted(selected):
+            for right in sorted(neighbours[left] & selected):
+                if right <= left:
+                    continue
+                left_geometry = river_segments[left]['geometry_metric']
+                right_geometry = river_segments[right]['geometry_metric']
+                distance = left_geometry.distance(right_geometry)
+                if distance <= 0 or distance > CONNECT_TOLERANCE_M:
+                    continue
+                start, end = nearest_points(left_geometry, right_geometry)
+                snap_bridges.append(LineString((start, end)))
+        geometries_metric.extend(snap_bridges)
         unified_metric = unary_union(geometries_metric)
         merged_metric = (
             unified_metric
@@ -530,7 +547,8 @@ def classify() -> None:
             'name_ru': canonical_name,
             'name_alan_latin': aliases.get('name_alan_latin', ''),
             'osm_ids': ','.join(osm_ids),
-            'segment_count': len(selected)
+            'segment_count': len(selected),
+            'snap_bridge_count': len(snap_bridges)
         }
         add('waterway', merged_wgs, properties, 7 if tier == 1 else 8 if tier == 2 else 10)
         river_output_records.append({'system_id': system_id, 'selected': set(selected)})
@@ -554,17 +572,49 @@ def classify() -> None:
             })
             continue
 
+        seed_groups: dict[int, list[int]] = defaultdict(list)
+        for seed in seeds:
+            seed_groups[network_component_ids[seed]].append(seed)
+        ranked_seed_groups = sorted(
+            seed_groups.values(),
+            key=lambda group: (
+                sum(
+                    river_segments[index]['length_m'] * (
+                        4 if system_id in river_segments[index]['relation_systems'] else 1
+                    )
+                    for index in group
+                ),
+                sum(river_segments[index]['length_m'] for index in group)
+            ),
+            reverse=True
+        )
+        seeds = ranked_seed_groups[0]
+        excluded_seed_components = [
+            {
+                'segment_count': len(group),
+                'matched_length_m': round(
+                    sum(river_segments[index]['length_m'] for index in group),
+                    1
+                ),
+                'osm_ids': sorted({
+                    river_segments[index]['osm_id'] for index in group
+                    if river_segments[index]['osm_id']
+                })
+            }
+            for group in ranked_seed_groups[1:]
+        ]
+
         selected = {seeds[0]}
         for seed in seeds[1:]:
             if seed in selected:
                 continue
             selected.update(shortest_connection(
-                river_segments, segment_nodes, adjacency, selected, seed, system_id
+                river_segments, neighbours, selected, seed, system_id
             ))
         selected = extend_unambiguous(
-            river_segments, segment_nodes, adjacency, selected, system_id
+            river_segments, neighbours, selected, system_id
         )
-        components = selected_components(selected, segment_nodes, adjacency)
+        components = selected_components(selected, neighbours)
         component_geometries = [
             unary_union([river_segments[index]['geometry_metric'] for index in component])
             for component in components
@@ -589,6 +639,7 @@ def classify() -> None:
             'segment_count': len(selected),
             'component_count': len(components),
             'gaps': gaps,
+            'excluded_homonym_components': excluded_seed_components,
             'present': True
         })
 
@@ -620,7 +671,7 @@ def classify() -> None:
         index for index, segment in enumerate(river_segments)
         if index not in used_segments and segment['waterway'] == 'river'
     }
-    for component in selected_components(remaining_rivers, segment_nodes, adjacency):
+    for component in selected_components(remaining_rivers, neighbours):
         length = sum(river_segments[index]['length_m'] for index in component)
         if length < 5000:
             continue
