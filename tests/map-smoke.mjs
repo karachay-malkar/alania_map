@@ -51,6 +51,11 @@ await page.waitForFunction(
   null,
   {timeout: 120000}
 );
+await page.waitForFunction(
+  () => window.ALAN_MAP_INSTANCE?.getFantasyDiagnostics?.().installed === true,
+  null,
+  {timeout: 30000}
+);
 const firstUsefulFrameMs = Date.now() - startedAt;
 
 const checkpoints = [
@@ -115,13 +120,25 @@ const diagnostics = await page.evaluate(() => {
   const frame = instance.getFrameClipDiagnostics();
   const network = instance.getNetworkDiagnostics();
   const shard = window.ALAN_MAP_PMTILES_SHARD_DIAGNOSTICS?.() || null;
+  const fantasy = instance.getFantasyDiagnostics?.() || null;
   const requiredLayers = [
     'osm-glacier-fill', 'osm-snow-fill', 'osm-water-fill', 'osm-river-water-fill',
     'osm-river-halo', 'osm-river-line', 'osm-peak-points', 'osm-peak-labels'
   ];
+  const requiredFantasyLayers = [
+    'fantasy-paper-grain', 'fantasy-ridge-shadow', 'fantasy-slope-hachures',
+    'fantasy-mountains-main', 'fantasy-mountains-secondary', 'fantasy-mountains-spur'
+  ];
   return {
     version: instance.version,
     requiredLayers: Object.fromEntries(requiredLayers.map((id) => [id, Boolean(map.getLayer(id))])),
+    requiredFantasyLayers: Object.fromEntries(requiredFantasyLayers.map((id) => [id, Boolean(map.getLayer(id))])),
+    fantasy,
+    fantasyButton: {
+      present: Boolean(document.querySelector('[data-fantasy-toggle]')),
+      active: document.querySelector('[data-fantasy-toggle]')?.classList.contains('active') || false,
+      pressed: document.querySelector('[data-fantasy-toggle]')?.getAttribute('aria-pressed') || null
+    },
     style,
     frame,
     network,
@@ -162,6 +179,18 @@ if (diagnostics.version !== '7.0.23') {
 }
 for (const [layer, present] of Object.entries(diagnostics.requiredLayers)) {
   if (!present) throw new Error(`Required layer is missing: ${layer}`);
+}
+for (const [layer, present] of Object.entries(diagnostics.requiredFantasyLayers)) {
+  if (!present) throw new Error(`Required fantasy layer is missing: ${layer}`);
+}
+if (!diagnostics.fantasy?.installed || !diagnostics.fantasy?.enabled || !diagnostics.fantasy?.sourcePresent) {
+  throw new Error(`Fantasy controller regression: ${JSON.stringify(diagnostics.fantasy)}`);
+}
+if (!diagnostics.fantasyButton.present || !diagnostics.fantasyButton.active || diagnostics.fantasyButton.pressed !== 'true') {
+  throw new Error(`Fantasy toggle regression: ${JSON.stringify(diagnostics.fantasyButton)}`);
+}
+if (!diagnostics.fantasy?.ridge?.flattenedFeatureCount) {
+  throw new Error(`Fantasy ridge source is empty: ${JSON.stringify(diagnostics.fantasy)}`);
 }
 for (const [checkpoint, result] of Object.entries(checkpointResults)) {
   if (!result.matched) {
