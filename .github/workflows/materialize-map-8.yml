@@ -37,6 +37,7 @@ jobs:
           cat delivery/v8/patch-*.txt | base64 --decode | gzip --decompress > /tmp/alan-map-8.0.patch
           git apply --check /tmp/alan-map-8.0.patch
           git apply /tmp/alan-map-8.0.patch
+          git checkout -- .github/workflows/validate-fantasy-map.yml
 
       - uses: actions/setup-python@v5
         with:
@@ -50,8 +51,6 @@ jobs:
           test "$(find assets/mountains -maxdepth 1 -name 'mount-*.png' | wc -l)" -eq 30
           test -f assets/mountains/elbrus.png
           test -f assets/mountains/catalog.json
-          rm -rf delivery/v8
-          rm .github/workflows/materialize-map-8.yml
 
       - uses: actions/setup-node@v4
         with:
@@ -82,7 +81,7 @@ jobs:
 
           root = Path('.')
           output = Path('build/alan-map-8.0.zip')
-          excluded = {'.git', 'build', 'node_modules', 'playwright-report', 'test-results', '__pycache__'}
+          excluded = {'.git', 'build', 'node_modules', 'playwright-report', 'test-results', '__pycache__', 'delivery'}
           with ZipFile(output, 'w', ZIP_DEFLATED) as archive:
               for path in sorted(root.rglob('*')):
                   if not path.is_file() or any(part in excluded for part in path.parts):
@@ -111,8 +110,9 @@ jobs:
       - name: Commit Alan Map 8.0
         run: |
           git config user.name "github-actions[bot]"
-          git config user.email "41898218+github-actions[bot]@users.noreply.github.com"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
+          git reset -- .github/workflows delivery/v8
           git commit -m "Release Alan Map 8.0 illustrated mountain chains"
           git push origin HEAD:8.0
 
