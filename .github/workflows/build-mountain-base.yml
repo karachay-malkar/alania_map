@@ -32,8 +32,22 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Verify build bundle
+        run: echo "601f59f3003bca83c5819a9f3d50c19ca24a87f514ee4f99858721e4caf53127  staging/build-bundle.zip" | sha256sum -c -
+
       - name: Build flat mountain map
         run: python tools/build_mountain_base.py
+
+      - name: Record build metadata
+        run: |
+          mkdir -p .build
+          echo "${GITHUB_RUN_ID}" > .build/run-id.txt
+          find . -type f \
+            ! -path './.git/*' \
+            ! -path './.github/workflows/*' \
+            ! -path './tools/*' \
+            ! -path './.build/file-sizes.txt' \
+            -printf '%P\t%s\n' | sort > .build/file-sizes.txt
 
       - name: Commit generated project
         run: |
