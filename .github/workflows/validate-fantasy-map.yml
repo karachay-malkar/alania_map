@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - 7.0.23
+      - 9.0
     paths:
       - '.github/workflows/validate-fantasy-map.yml'
       - 'assets/bootstrap.js'
@@ -11,6 +12,7 @@ on:
       - 'assets/map-ui.js'
       - 'assets/fantasy-relief.js'
       - 'assets/fantasy-style.js'
+      - 'assets/mountains/**'
       - 'tests/**'
       - 'index.html'
       - 'README.md'
@@ -24,6 +26,7 @@ on:
       - 'assets/map-ui.js'
       - 'assets/fantasy-relief.js'
       - 'assets/fantasy-style.js'
+      - 'assets/mountains/**'
       - 'tests/**'
       - 'index.html'
       - 'README.md'
@@ -42,6 +45,24 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+
+      - name: Package approved mountain assets
+        run: |
+          test -f assets/mountains/catalog.json
+          test -f assets/mountains/elbrus.png
+          count=$(find assets/mountains -maxdepth 1 -type f -name 'mount-*.png' | wc -l)
+          test "$count" -eq 30
+          mkdir -p build/approved-mountains
+          cp -R assets/mountains/. build/approved-mountains/
+          printf '%s\n' "source_branch=${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" "source_commit=${GITHUB_SHA}" > build/approved-mountains/SOURCE.txt
+
+      - name: Upload approved mountain assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: alan-map-approved-mountain-assets
+          path: build/approved-mountains
+          if-no-files-found: error
+          retention-days: 7
 
       - uses: actions/setup-node@v4
         with:
