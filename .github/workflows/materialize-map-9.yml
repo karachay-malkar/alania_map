@@ -7,13 +7,19 @@ on:
     paths:
       - 'alan-map-9.0-materialize.zip'
       - '.github/workflows/materialize-map-9.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'alan-map-9.0-materialize.zip'
+      - '.github/workflows/materialize-map-9.yml'
   workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: materialize-alan-map-9.0
+  group: materialize-alan-map-9.0-${{ github.event_name }}
   cancel-in-progress: true
 
 jobs:
