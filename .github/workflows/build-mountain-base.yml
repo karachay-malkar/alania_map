@@ -54,11 +54,48 @@ jobs:
       - name: Generate flat mountain base
         run: python tools/build_mountain_base.py /tmp/all-peaks.geojson
 
+      - name: Finalize browser entrypoint
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          index_path = Path('index.html')
+          index = index_path.read_text(encoding='utf-8')
+          index = index.replace(
+              'src="assets/bootstrap.js"',
+              'src="assets/bootstrap.js?v=10.0.1"',
+          )
+          index_path.write_text(index, encoding='utf-8')
+
+          Path('assets/maplibre.css').write_text(
+              '.maplibregl-map{font:12px/20px "Helvetica Neue",Arial,sans-serif;overflow:hidden;position:relative;-webkit-tap-highlight-color:transparent}'
+              '.maplibregl-canvas{left:0;position:absolute;top:0}'
+              '.maplibregl-canvas-container.maplibregl-interactive{cursor:grab;user-select:none;-webkit-user-select:none}'
+              '.maplibregl-canvas-container.maplibregl-interactive:active{cursor:grabbing}'
+              '.maplibregl-ctrl-bottom-left,.maplibregl-ctrl-bottom-right,.maplibregl-ctrl-top-left,.maplibregl-ctrl-top-right{pointer-events:none;position:absolute;z-index:2}'
+              '.maplibregl-ctrl-top-left{left:0;top:0}.maplibregl-ctrl-top-right{right:0;top:0}'
+              '.maplibregl-ctrl-bottom-left{bottom:0;left:0}.maplibregl-ctrl-bottom-right{bottom:0;right:0}'
+              '.maplibregl-ctrl{clear:both;pointer-events:auto;transform:translate(0)}'
+              '.maplibregl-ctrl-top-right .maplibregl-ctrl{float:right;margin:10px 10px 0 0}'
+              '.maplibregl-ctrl-group{background:#fff;border-radius:4px;overflow:hidden}'
+              '.maplibregl-ctrl-group button{background:transparent;border:0;box-sizing:border-box;cursor:pointer;display:block;height:29px;outline:none;padding:0;width:29px}'
+              '.maplibregl-ctrl-group button+button{border-top:1px solid #ddd}'
+              '.maplibregl-ctrl-icon{align-items:center;display:flex;height:100%;justify-content:center;width:100%}'
+              '.maplibregl-ctrl-zoom-in .maplibregl-ctrl-icon:before{content:"+";font:26px/1 Arial,sans-serif}'
+              '.maplibregl-ctrl-zoom-out .maplibregl-ctrl-icon:before{content:"−";font:26px/1 Arial,sans-serif}'
+              '.maplibregl-ctrl-attrib{background:rgba(255,255,255,.7);margin:0;padding:0 5px}'
+              '.maplibregl-ctrl-attrib a{color:inherit;text-decoration:none}',
+              encoding='utf-8',
+          )
+          PY
+
       - name: Validate generated project
         run: |
           node --check assets/bootstrap.js
           node --check assets/map-ui.js
           node --check assets/map-page.js
+          test -s assets/maplibre.css
+          grep -q 'assets/bootstrap.js?v=10.0.1' index.html
           python - <<'PY'
           import csv
           import json
