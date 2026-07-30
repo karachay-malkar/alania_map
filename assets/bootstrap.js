@@ -1,32 +1,36 @@
 (() => {
-  'use strict';
-  const baseUrl = new URL('.', document.currentScript.src);
-  const fetchText = async (name) => {
-    const response = await fetch(new URL(name, baseUrl));
-    if (!response.ok) throw new Error('Alan Map: не загружен ' + name + ' (' + response.status + ').');
+  "use strict";
+  const base = new URL("../", document.currentScript.src);
+  const status = document.getElementById("map-status");
+  const setStatus = (text, failed = false) => {
+    if (!status) return;
+    status.textContent = text;
+    status.dataset.failed = failed ? "true" : "false";
+  };
+  const fetchText = async (path) => {
+    const response = await fetch(new URL(path, base), { cache: "no-store" });
+    if (!response.ok) throw new Error(`${path}: HTTP ${response.status}`);
     return response.text();
   };
-  const executeParts = async (names, sourceName) => {
-    const code = (await Promise.all(names.map(fetchText))).join('');
-    (0, eval)(code + '\n//# sourceURL=' + sourceName);
-  };
-  const loadScript = (name) => new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    script.src = new URL(name, baseUrl).href;
-    script.onload = resolve;
-    script.onerror = () => reject(new Error('Alan Map: не загружен ' + name + '.'));
+  const execute = (source, label) => {
+    const script = document.createElement("script");
+    script.textContent = `${source}
+//# sourceURL=${label}`;
     document.head.appendChild(script);
-  });
+    script.remove();
+  };
+  const executeParts = async (paths, label) => execute((await Promise.all(paths.map(fetchText))).join("
+"), label);
   (async () => {
-    await executeParts(["maplibre.part-000.js","maplibre.part-001.js"], 'maplibre.js');
-    await loadScript('pmtiles.js');
-    await executeParts(["map-data.part-000.js","map-data.part-001.js"], 'map-data.js');
-    await loadScript('map-core.js');
-    await loadScript('map-ui.js');
-    await loadScript('map-page.js');
-  })().catch((error) => {
-    console.error(error);
-    const root = document.getElementById('alan-map-root');
-    if (root) root.innerHTML = '<div style="padding:20px;color:#fff;background:#25282a">Карта не загрузилась: ' + String(error.message || error) + '</div>';
-  });
+    try {
+      setStatus("Загрузка локального картографического движка…");
+      await executeParts(["assets/maplibre.part-000.js", "assets/maplibre.part-001.js"], "maplibre.local.js");
+      for (const path of ["assets/map-data.js", "assets/mountain-config.js", "assets/mountain-engine.js", "assets/map-page.js"]) {
+        execute(await fetchText(path), path);
+      }
+    } catch (error) {
+      console.error(error);
+      setStatus(`Ошибка загрузки: ${error.message}`, true);
+    }
+  })();
 })();
