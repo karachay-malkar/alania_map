@@ -1,0 +1,60 @@
+name: Build mountain base 10.0
+
+on:
+  push:
+    paths:
+      - staging/build.trigger
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  build:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout requested branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Restore build bundle
+        run: |
+          cat staging/build-bundle.b64.part-* | base64 --decode > staging/build-bundle.zip
+          unzip -oq staging/build-bundle.zip -d .
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build flat mountain map
+        run: python tools/build_mountain_base.py
+
+      - name: Commit generated project
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Build Alan Map 10.0 mountain base [skip ci]"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+
+      - name: Package complete project
+        run: |
+          zip -qr Alan_Map_10.0_mountain_base.zip . \
+            -x '.git/*' '.github/workflows/*' 'tools/*'
+          sha256sum Alan_Map_10.0_mountain_base.zip > Alan_Map_10.0_mountain_base.sha256
+
+      - name: Upload complete archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: Alan_Map_10.0_mountain_base
+          path: |
+            Alan_Map_10.0_mountain_base.zip
+            Alan_Map_10.0_mountain_base.sha256
+          if-no-files-found: error
+          retention-days: 30
