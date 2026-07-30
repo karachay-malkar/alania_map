@@ -60,25 +60,52 @@ jobs:
           node --check assets/map-ui.js
           node --check assets/map-page.js
           python - <<'PY'
-          import csv, json
+          import csv
+          import json
+          import re
           from pathlib import Path
+
           validation = json.loads(Path('data/mountains/mountain_validation.json').read_text(encoding='utf-8'))
           assert validation['anchor_count'] >= 100
           assert validation['unnamed_anchor_count'] > 0
           assert validation['mount_1_present'] is False
           assert all(validation['checks'].values())
+
           with Path('data/mountains/mountain_points.csv').open(encoding='utf-8-sig', newline='') as handle:
               reader = csv.DictReader(handle)
               assert reader.fieldnames == ['id','latitude','longitude','elevation','name','category','ridge_id']
               rows = list(reader)
+
           assert len(rows) == validation['anchor_count']
           assert all(row['id'].split('-', 1)[0] in {'hill','mount','rock','peak'} for row in rows)
           assert all(row['category'] in {'regular','main'} for row in rows)
+
           manifest = json.loads(Path('data/mountains/mountain_icon_manifest.json').read_text(encoding='utf-8'))
           assert 'mount-1' in manifest['excluded']
           assert all(icon['id'] != 'mount-1' for icon in manifest['icons'])
+
+          excluded = {
+              'mountain_icon_manifest.json',
+              'mountain_validation.json',
+              'README.md',
+              'DATA-SOURCES-AND-LICENSES.md',
+          }
+          candidates = [Path('index.html')]
+          for suffix in ('*.js', '*.json', '*.csv', '*.geojson'):
+              candidates.extend(Path('assets').rglob(suffix))
+              candidates.extend(Path('data').rglob(suffix))
+
+          forbidden = re.compile(r'(?<![A-Za-z0-9_-])mount-1(?![0-9])')
+          violations = []
+          for path in candidates:
+              if path.name in excluded:
+                  continue
+              text = path.read_text(encoding='utf-8', errors='ignore')
+              if forbidden.search(text):
+                  violations.append(str(path))
+
+          assert not violations, f"Forbidden mount-1 references: {violations}"
           PY
-          ! grep -R --exclude='mountain_icon_manifest.json' --exclude='README.md' --exclude='DATA-SOURCES-AND-LICENSES.md' --exclude='mountain_validation.json' --exclude='build-mountain-base.yml' --exclude='build_mountain_base.py' 'mount-1' assets data index.html
 
       - name: Record build metadata and file sizes
         run: |
