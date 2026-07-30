@@ -1,4 +1,4 @@
-name: Inspect mountain source data
+name: Compare mountain source data
 
 on:
   pull_request:
@@ -25,110 +25,127 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.head_ref || github.ref_name }}
 
-      - name: Restore authoritative source data
-        run: |
-          git checkout origin/main -- assets/map-data.part-000.js assets/map-data.part-001.js
-
-      - name: Inspect all geographic collections
+      - name: Compare main and 7.0.23 sources
         run: |
           python - <<'PY'
           import json
           import re
+          import subprocess
           from collections import Counter
           from pathlib import Path
 
-          parts = sorted(Path('assets').glob('map-data.part-*.js'))
-          raw = ''.join(path.read_text(encoding='utf-8') for path in parts)
-          match = re.search(r'window\.ALAN_MAP_DATA\s*=\s*', raw)
-          if not match:
-              raise RuntimeError('window.ALAN_MAP_DATA assignment was not found')
-          payload = raw[match.end():].strip().rstrip(';')
-          data = json.loads(payload)
+          OUTPUT = Path('data')
+          OUTPUT.mkdir(exist_ok=True)
 
-          report = {
-              'top_level_keys': sorted(data.keys()),
-              'top_level': {},
-              'feature_collections': {},
-              'mountain_related': {},
-          }
+          def git(*args):
+              return subprocess.check_output(['git', *args], text=True)
 
-          def short(value, limit=6):
-              if isinstance(value, dict):
-                  return {k: short(v, limit) for k, v in list(value.items())[:limit]}
-              if isinstance(value, list):
-                  return [short(v, limit) for v in value[:limit]]
-              return value
+          def load_branch_data(branch):
+              names = git('ls-tree', '-r', '--name-only', f'origin/{branch}').splitlines()
+              paths = sorted(
+                  path for path in names
+                  if path.startswith('assets/map-data') and path.endswith('.js')
+              )
+              if not paths:
+                  raise RuntimeError(f'No map-data files found in {branch}')
+              raw = ''.join(git('show', f'origin/{branch}:{path}') for path in paths)
+              match = re.search(r'window\.ALAN_MAP_DATA\s*=\s*', raw)
+              if not match:
+                  raise RuntimeError(f'window.ALAN_MAP_DATA not found in {branch}')
+              payload = raw[match.end():].strip().rstrip(';')
+              return paths, json.loads(payload)
 
-          def inspect_feature_collection(path, collection):
-              features = collection.get('features') or []
-              geometry_types = Counter()
-              coordinate_lengths = Counter()
-              property_keys = Counter()
-              samples = []
-              for feature in features:
-                  geometry = feature.get('geometry') or {}
-                  props = feature.get('properties') or {}
-                  geometry_types[str(geometry.get('type'))] += 1
-                  coords = geometry.get('coordinates')
-                  if isinstance(coords, list):
-                      coordinate_lengths[str(len(coords))] += 1
-                  property_keys.update(props.keys())
-                  if len(samples) < 12:
-                      samples.append({
-                          'geometry': geometry,
-                          'properties': props,
-                      })
-              report['feature_collections'][path] = {
-                  'count': len(features),
-                  'geometry_types': dict(geometry_types),
-                  'coordinate_lengths': dict(coordinate_lengths),
-                  'property_keys': sorted(property_keys),
-                  'samples': samples,
+          def coordinate_shape(coords):
+              if not isinstance(coords, list):
+                  return None
+              if not coords:
+                  return [0]
+              if isinstance(coords[0], list):
+                  return [len(coords), coordinate_shape(coords[0])]
+              return [len(coords)]
+
+          def summarize(branch, paths, data):
+              summary = {
+                  'branch': branch,
+                  'source_files': paths,
+                  'top_level_keys': sorted(data.keys()),
+                  'collections': {},
+                  'other_values': {},
+              }
+              mountain_features = {
+                  'branch': branch,
+                  'collections': {},
               }
 
-          def walk(value, path='root', depth=0):
-              if depth > 5:
-                  return
-              path_lower = path.lower()
-              if isinstance(value, dict):
-                  if value.get('type') == 'FeatureCollection':
-                      inspect_feature_collection(path, value)
-                  if any(word in path_lower for word in ('mount', 'peak', 'ridge', 'summit', 'terrain', 'elev')):
-                      report['mountain_related'][path] = short(value, 12)
-                  for key, child in value.items():
-                      walk(child, f'{path}.{key}', depth + 1)
-              elif isinstance(value, list):
-                  if any(word in path_lower for word in ('mount', 'peak', 'ridge', 'summit', 'terrain', 'elev')):
-                      report['mountain_related'][path] = {
-                          'count': len(value),
-                          'sample': short(value, 12),
+              for key, value in data.items():
+                  if isinstance(value, dict) and value.get('type') == 'FeatureCollection':
+                      features = value.get('features') or []
+                      geometry_types = Counter()
+                      property_keys = Counter()
+                      coordinate_shapes = Counter()
+                      mountain_matches = []
+                      for feature in features:
+                          geometry = feature.get('geometry') or {}
+                          props = feature.get('properties') or {}
+                          geometry_types[str(geometry.get('type'))] += 1
+                          property_keys.update(props.keys())
+                          coordinate_shapes[str(coordinate_shape(geometry.get('coordinates')))] += 1
+                          text = ' '.join(str(v) for v in props.values()).lower()
+                          key_text = key.lower()
+                          if (
+                              any(word in key_text for word in ('peak', 'mount', 'ridge', 'summit', 'relief'))
+                              or any(word in text for word in ('peak', 'mountain', 'summit', 'вершин', 'гора', 'скал'))
+                          ):
+                              mountain_matches.append({
+                                  'geometry': geometry,
+                                  'properties': props,
+                              })
+                      summary['collections'][key] = {
+                          'count': len(features),
+                          'geometry_types': dict(geometry_types),
+                          'coordinate_shapes': dict(coordinate_shapes),
+                          'property_keys': sorted(property_keys),
+                          'mountain_match_count': len(mountain_matches),
                       }
-                  for index, child in enumerate(value[:20]):
-                      walk(child, f'{path}[{index}]', depth + 1)
+                      if mountain_matches or any(word in key.lower() for word in ('peak', 'mount', 'ridge', 'summit', 'relief')):
+                          mountain_features['collections'][key] = mountain_matches or [
+                              {'geometry': f.get('geometry'), 'properties': f.get('properties')}
+                              for f in features[:40]
+                          ]
+                  else:
+                      count = len(value) if isinstance(value, (dict, list, str)) else None
+                      item = {'type': type(value).__name__, 'count': count}
+                      if any(word in key.lower() for word in ('peak', 'mount', 'ridge', 'summit', 'elev', 'terrain', 'relief')):
+                          if isinstance(value, dict):
+                              item['sample'] = dict(list(value.items())[:30])
+                          elif isinstance(value, list):
+                              item['sample'] = value[:30]
+                          else:
+                              item['sample'] = value
+                      summary['other_values'][key] = item
 
-          for key, value in data.items():
-              report['top_level'][key] = {
-                  'type': type(value).__name__,
-                  'count': len(value) if isinstance(value, (dict, list, str)) else None,
-                  'sample': short(value, 4),
-              }
-          walk(data)
+              return summary, mountain_features
 
-          Path('data').mkdir(exist_ok=True)
-          Path('data/source-inspection.json').write_text(
-              json.dumps(report, ensure_ascii=False, indent=2),
-              encoding='utf-8',
-          )
+          for branch, suffix in [('main', 'main'), ('7.0.23', '7.0.23')]:
+              paths, data = load_branch_data(branch)
+              summary, mountain_features = summarize(branch, paths, data)
+              (OUTPUT / f'source-summary-{suffix}.json').write_text(
+                  json.dumps(summary, ensure_ascii=False, indent=2), encoding='utf-8'
+              )
+              (OUTPUT / f'mountain-features-{suffix}.json').write_text(
+                  json.dumps(mountain_features, ensure_ascii=False, indent=2), encoding='utf-8'
+              )
+
+          old = OUTPUT / 'source-inspection.json'
+          if old.exists():
+              old.unlink()
           PY
 
-      - name: Remove temporarily restored files
-        run: rm -f assets/map-data.part-000.js assets/map-data.part-001.js
-
-      - name: Commit inspection
+      - name: Commit compact inspection
         run: |
           TARGET_BRANCH="${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/source-inspection.json
-          git commit -m "Inspect authoritative mountain sources [skip ci]"
+          git add -A data
+          git commit -m "Compare current and 7.0.23 mountain sources [skip ci]"
           git push origin "HEAD:${TARGET_BRANCH}"
