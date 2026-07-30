@@ -1,470 +1,68 @@
 {
   "version": "10.0",
-  "source_version": "7.0.21",
-  "peak_source_key": "peaks",
-  "custom_mountain_source_key": null,
-  "anchor_count": 8,
-  "named_anchor_count": 8,
-  "unnamed_anchor_count": 0,
-  "main_count": 8,
-  "filler_count": 0,
-  "type_counts": {
-    "hill": 0,
-    "mount": 0,
-    "peak": 8,
-    "rock": 0
+  "source": {
+    "source": "data/alan-vector-7.0.23.pmtiles",
+    "source_layer": "peak",
+    "elevation_source": "data/alan-dem-7.0.21.pmtiles",
+    "elevation_encoding": "terrarium",
+    "zoom": 13,
+    "dem_zoom": 12,
+    "tiles_read": 2159,
+    "tiles_with_peaks": 1164,
+    "feature_count": 3799,
+    "elevations_sampled": 3799,
+    "elevations_missing": 0,
+    "dem_tiles_decoded": 363
   },
-  "rejected_count": 31,
-  "rejected_examples": [
+  "source_feature_count": 3799,
+  "anchor_count": 3797,
+  "named_anchor_count": 872,
+  "unnamed_anchor_count": 2925,
+  "main_count": 25,
+  "filler_count": 5,
+  "type_counts": {
+    "hill": 781,
+    "mount": 1945,
+    "peak": 154,
+    "rock": 917
+  },
+  "missing_elevation_count": 1,
+  "missing_elevation_examples": [
     {
-      "reason": "missing-coordinate-or-elevation",
-      "properties": {
-        "peak_id": "peak_katyn_tau",
-        "name_ru": "Катын-Тау",
-        "source_name": "კათინთაუ",
-        "visible": 1,
-        "name_map": "QATIN TAW",
-        "label_tier": "peak_close",
-        "name_alan_latin": "QATIN TAW",
-        "description_ru": "Катын-Тау — объект типа «peak» в редактируемом реестре Alan Map."
-      }
-    },
-    {
-      "reason": "missing-coordinate-or-elevation",
-      "properties": {
-        "peak_id": "peak_gestola",
-        "name_ru": "Гестола",
-        "source_name": "გისტოლა",
-        "visible": 1,
-        "name_map": "GESTOLA",
-        "label_tier": "peak_close",
-        "name_alan_latin": "GESTOLA",
-        "description_ru": "Гестола — объект типа «peak» в редактируемом реестре Alan Map."
-      }
-    },
-    {
-      "reason": "missing-coordinate-or-elevation",
-      "properties": {
-        "peak_id": "peak_lyalver",
-        "name_ru": "Ляльвер",
-        "source_name": "ლიალვერი",
-        "visible": 1,
-        "name_map": "LYALVER",
-        "label_tier": "peak_close",
-        "name_alan_latin": "LYALVER",
-        "description_ru": "Ляльвер — объект типа «peak» в редактируемом реестре Alan Map."
-      }
-    },
-    {
-      "reason": "missing-coordinate-or-elevation",
-      "properties": {
-        "peak_id": "peak_shota_rustaveli",
-        "name_ru": "Пик Шота Руставели",
-        "source_name": "მყინვარი შოთა რუსთაველი",
-        "visible": 1,
-        "name_map": "PIK ŞOTA RUSTAVELI",
-        "label_tier": "peak_close",
-        "name_alan_latin": "PIK ŞOTA RUSTAVELI",
-        "description_ru": "Пик Шота Руставели — объект типа «peak» в редактируемом реестре Alan Map."
-      }
-    },
-    {
-      "reason": "missing-coordinate-or-elevation",
-      "properties": {
-        "peak_id": "peak_dombai_ulgen",
-        "name_ru": "Домбай-Ульген",
-        "source_name": "Домбай-Ульген главная",
-        "visible": 1,
-        "name_map": "DOMMAY ÖLGEN",
-        "label_tier": "peak_close",
-        "name_alan_latin": "DOMMAY ÖLGEN",
-        "description_ru": "Домбай-Ульген — объект типа «peak» в редактируемом реестре Alan Map."
-      }
-    },
-    {
-      "reason": "missing-coordinate-or-elevation",
-      "properties": {
-        "peak_id": "peak_donguz_orun",
-        "name_ru": "Донгуз-Орун",
-        "source_name": "Донгуз-Орун Главный / ბაბისმთა",
-        "visible": 1,
-        "name_map": "TOÑUZ ORUN",
-        "label_tier": "peak_close",
-        "name_alan_latin": "TOÑUZ ORUN",
-        "description_ru": "Донгуз-Орун — объект типа «peak» в редактируемом реестре Alan Map."
-      }
-    },
-    {
-      "reason": "missing-coordinate-or-elevation",
-      "properties": {
-        "peak_id": "peak_tikhtengen",
-        "name_ru": "Тихтенген",
-        "source_name": "ტიხტენგენი",
-        "visible": 1,
-        "name_map": "TIXTENGEN",
-        "label_tier": "peak_close",
-        "name_alan_latin": "TIXTENGEN",
-        "description_ru": "Тихтенген — объект типа «peak» в редактируемом реестре Alan Map."
-      }
-    },
-    {
-      "reason": "missing-coordinate-or-elevation",
-      "properties": {
-        "peak_id": "peak_ailama",
-        "name_ru": "Айлама",
-        "source_name": "აილამა / Айлама",
-        "visible": 1,
-        "name_map": "AYLAMA",
-        "label_tier": "peak_close",
-        "name_alan_latin": "AYLAMA",
-        "description_ru": "Айлама — объект типа «peak» в редактируемом реестре Alan Map."
-      }
-    },
-    {
-      "reason": "missing-coordinate-or-elevation",
-      "properties": {
-        "peak_id": "peak_gvandra",
-        "name_ru": "Гвандра",
-        "source_name": "გვანდრა - Гвандра",
-        "visible": 1,
-        "name_map": "GWANDRA",
-        "label_tier": "peak_close",
-        "name_alan_latin": "GWANDRA",
-        "description_ru": "Гвандра — объект типа «peak» в редактируемом реестре Alan Map."
-      }
-    },
-    {
-      "reason": "missing-coordinate-or-elevation",
-      "properties": {
-        "peak_id": "peak_bzhedukh",
-        "name_ru": "Бжедух",
-        "source_name": "Бжедух / ბჟედუხი",
-        "visible": 1,
-        "name_map": "BJEDUX",
-        "label_tier": "peak_close",
-        "name_alan_latin": "BJEDUX",
-        "description_ru": "Бжедух — объект типа «peak» в редактируемом реестре Alan Map."
-      }
-    },
-    {
-      "reason": "missing-coordinate-or-elevation",
-      "properties": {
-        "peak_id": "peak_gumachi",
-        "name_ru": "Гумачи",
-        "source_name": "Гумачи / გუმაჩი",
-        "visible": 1,
-        "name_map": "GUMAÇI",
-        "label_tier": "peak_close",
-        "name_alan_latin": "GUMAÇI",
-        "description_ru": "Гумачи — объект типа «peak» в редактируемом реестре Alan Map."
-      }
-    },
-    {
-      "reason": "missing-coordinate-or-elevation",
-      "properties": {
-        "peak_id": "peak_dzhantugan",
-        "name_ru": "Джантуган",
-        "source_name": "Джантуган / ჯანთუგანი",
-        "visible": 1,
-        "name_map": "CANTUGAN",
-        "label_tier": "peak_close",
-        "name_alan_latin": "CANTUGAN",
-        "description_ru": "Джантуган — объект типа «peak» в редактируемом реестре Alan Map."
-      }
-    },
-    {
-      "reason": "missing-coordinate-or-elevation",
-      "properties": {
-        "peak_id": "peak_kukurtli_kolbashi",
-        "name_ru": "Кукуртли-Колбаши",
-        "source_name": "Кукуртли-Колбаши",
-        "visible": 1,
-        "name_map": "KUKURTLI-KOLBAŞI",
-        "label_tier": "peak_close",
-        "name_alan_latin": "KUKURTLI-KOLBAŞI",
-        "description_ru": "Кукуртли-Колбаши — объект типа «peak» в редактируемом реестре Alan Map."
-      }
-    },
-    {
-      "reason": "missing-coordinate-or-elevation",
-      "properties": {
-        "peak_id": "peak_bashiltau",
-        "name_ru": "Башильтау",
-        "source_name": "Башильтау / ბაშილთაუ",
-        "visible": 1,
-        "name_map": "BAŞILTAU",
-        "label_tier": "peak_close",
-        "name_alan_latin": "BAŞILTAU",
-        "description_ru": "Башильтау — объект типа «peak» в редактируемом реестре Alan Map."
-      }
-    },
-    {
-      "reason": "missing-coordinate-or-elevation",
-      "properties": {
-        "peak_id": "peak_ullutau_chana",
-        "name_ru": "Уллутау-Чана",
-        "source_name": "Уллутау-Чана / ულუთაუ-ჩანა",
-        "visible": 1,
-        "name_map": "ULLUTAU-ÇANA",
-        "label_tier": "peak_close",
-        "name_alan_latin": "ULLUTAU-ÇANA",
-        "description_ru": "Уллутау-Чана — объект типа «peak» в редактируемом реестре Alan Map."
-      }
-    },
-    {
-      "reason": "missing-coordinate-or-elevation",
-      "properties": {
-        "peak_id": "peak_east_mizhirgi",
-        "name_ru": "Восточный Мижирги",
-        "source_name": "Восточный Мижирги",
-        "visible": 1,
-        "name_map": "MIJERGI ÇIĞIŞ",
-        "label_tier": "peak_close",
-        "name_alan_latin": "MIJERGI ÇIĞIŞ",
-        "description_ru": "Восточный Мижирги — объект типа «peak» в редактируемом реестре Alan Map."
-      }
-    },
-    {
-      "reason": "missing-coordinate-or-elevation",
-      "properties": {
-        "peak_id": "peak_krumkol",
-        "name_ru": "Крумкол",
-        "source_name": "Крумкол",
-        "visible": 1,
-        "name_map": "KRUMKOL",
-        "label_tier": "peak_close",
-        "name_alan_latin": "KRUMKOL",
-        "description_ru": "Крумкол — объект типа «peak» в редактируемом реестре Alan Map."
-      }
-    },
-    {
-      "reason": "missing-coordinate-or-elevation",
-      "properties": {
-        "peak_id": "peak_dykhniaushbashi",
-        "name_ru": "Дыхниаушбаши",
-        "source_name": "Дыхниаушбаши",
-        "visible": 1,
-        "name_map": "DIXNIAUŞBAŞI",
-        "label_tier": "peak_close",
-        "name_alan_latin": "DIXNIAUŞBAŞI",
-        "description_ru": "Дыхниаушбаши — объект типа «peak» в редактируемом реестре Alan Map."
-      }
-    },
-    {
-      "reason": "missing-coordinate-or-elevation",
-      "properties": {
-        "peak_id": "peak_belalakaia",
-        "name_ru": "Белала-Кая",
-        "source_name": "Белала-Кая",
-        "visible": 1,
-        "name_map": "BELİ ALA QAYA",
-        "label_tier": "peak_close",
-        "name_alan_latin": "BELİ ALA QAYA",
-        "description_ru": "Белала-Кая — объект типа «peak» в редактируемом реестре Alan Map."
-      }
-    },
-    {
-      "reason": "missing-coordinate-or-elevation",
-      "properties": {
-        "peak_id": "peak_mussa_achitara",
-        "name_ru": "Мусса-Ачитара",
-        "source_name": "Мусса-Ачитара",
-        "visible": 1,
-        "name_map": "MUSSA-AÇITARA",
-        "label_tier": "peak_close",
-        "name_alan_latin": "MUSSA-AÇITARA",
-        "description_ru": "Мусса-Ачитара — объект типа «peak» в редактируемом реестре Alan Map."
-      }
-    },
-    {
-      "reason": "missing-coordinate-or-elevation",
-      "properties": {
-        "peak_id": "peak_sofia",
-        "name_ru": "София",
-        "source_name": "София",
-        "visible": 1,
-        "name_map": "TOPAL QAYA",
-        "label_tier": "peak_close",
-        "name_alan_latin": "TOPAL QAYA",
-        "description_ru": "София — объект типа «peak» в редактируемом реестре Alan Map."
-      }
-    },
-    {
-      "reason": "missing-coordinate-or-elevation",
-      "properties": {
-        "peak_id": "peak_alibekbashi",
-        "name_ru": "Алибекбаши",
-        "source_name": "Алибекбаши",
-        "visible": 1,
-        "name_map": "ALIBEKBAŞI",
-        "label_tier": "peak_close",
-        "name_alan_latin": "ALIBEKBAŞI",
-        "description_ru": "Алибекбаши — объект типа «peak» в редактируемом реестре Alan Map."
-      }
-    },
-    {
-      "reason": "missing-coordinate-or-elevation",
-      "properties": {
-        "peak_id": "peak_sulakhat",
-        "name_ru": "Сулахат",
-        "source_name": "Сулахат",
-        "visible": 1,
-        "name_map": "SULAXAT",
-        "label_tier": "peak_close",
-        "name_alan_latin": "SULAXAT",
-        "description_ru": "Сулахат — объект типа «peak» в редактируемом реестре Alan Map."
-      }
-    },
-    {
-      "reason": "missing-coordinate-or-elevation",
-      "properties": {
-        "peak_id": "peak_semenov_bashi",
-        "name_ru": "Семенов-Баши",
-        "source_name": "Семенов-Баши",
-        "visible": 1,
-        "name_map": "SEMENOV-BAŞI",
-        "label_tier": "peak_close",
-        "name_alan_latin": "SEMENOV-BAŞI",
-        "description_ru": "Семенов-Баши — объект типа «peak» в редактируемом реестре Alan Map."
-      }
-    },
-    {
-      "reason": "missing-coordinate-or-elevation",
-      "properties": {
-        "peak_id": "peak_dzhuguturlyuchat",
-        "name_ru": "Джугутурлючат",
-        "source_name": "Джугутурлючат",
-        "visible": 1,
-        "name_map": "CUĞUTURLU ÇAT BAŞI",
-        "label_tier": "peak_close",
-        "name_alan_latin": "CUĞUTURLU ÇAT BAŞI",
-        "description_ru": "Джугутурлючат — объект типа «peak» в редактируемом реестре Alan Map."
-      }
-    },
-    {
-      "reason": "missing-coordinate-or-elevation",
-      "properties": {
-        "peak_id": "peak_main_shkhelda",
-        "name_ru": "Главная Шхельда",
-        "source_name": "Главная Шхельда / შხელდა",
-        "visible": 1,
-        "name_map": "GLAVNAYA ŞXELDA",
-        "label_tier": "peak_close",
-        "name_alan_latin": "GLAVNAYA ŞXELDA",
-        "description_ru": "Главная Шхельда — объект типа «peak» в редактируемом реестре Alan Map."
-      }
-    },
-    {
-      "reason": "missing-coordinate-or-elevation",
-      "properties": {
-        "peak_id": "peak_nakratau",
-        "name_ru": "Накратау",
-        "source_name": "Накратау / ნაკრატაუ",
-        "visible": 1,
-        "name_map": "NAKRATAU",
-        "label_tier": "peak_close",
-        "name_alan_latin": "NAKRATAU",
-        "description_ru": "Накратау — объект типа «peak» в редактируемом реестре Alan Map."
-      }
-    },
-    {
-      "reason": "missing-coordinate-or-elevation",
-      "properties": {
-        "peak_id": "peak_tyutyubashi",
-        "name_ru": "Тютюбаши",
-        "source_name": "Тютюбаши главная",
-        "visible": 1,
-        "name_map": "TÜTÜBAŞI",
-        "label_tier": "peak_close",
-        "name_alan_latin": "TÜTÜBAŞI",
-        "description_ru": "Тютюбаши — объект типа «peak» в редактируемом реестре Alan Map."
-      }
-    },
-    {
-      "reason": "missing-coordinate-or-elevation",
-      "properties": {
-        "peak_id": "peak_dzhailik",
-        "name_ru": "Джайлык",
-        "source_name": "Джайлык",
-        "visible": 1,
-        "name_map": "CAYLIK",
-        "label_tier": "peak_close",
-        "name_alan_latin": "CAYLIK",
-        "description_ru": "Джайлык — объект типа «peak» в редактируемом реестре Alan Map."
-      }
-    },
-    {
-      "reason": "missing-coordinate-or-elevation",
-      "properties": {
-        "peak_id": "peak_big_bermamyt",
-        "name_ru": "Большой Бермамыт",
-        "source_name": "Большой Бермамыт",
-        "visible": 1,
-        "name_map": "BOLŞOY BERMAMIT",
-        "label_tier": "peak_close",
-        "name_alan_latin": "BOLŞOY BERMAMIT",
-        "description_ru": "Большой Бермамыт — объект типа «peak» в редактируемом реестре Alan Map."
-      }
-    },
-    {
-      "reason": "missing-coordinate-or-elevation",
-      "properties": {
-        "peak_id": "peak_small_bermamyt",
-        "name_ru": "Малый Бермамыт",
-        "source_name": "Малый Бермамыт",
-        "visible": 1,
-        "name_map": "MALIY BERMAMIT",
-        "label_tier": "peak_close",
-        "name_alan_latin": "MALIY BERMAMIT",
-        "description_ru": "Малый Бермамыт — объект типа «peak» в редактируемом реестре Alan Map."
-      }
+      "source_id": "4670931422",
+      "longitude": 41.7409873008728,
+      "latitude": 43.16433225559959,
+      "name": "Хита",
+      "reason": "missing_elevation"
     }
   ],
-  "ridge": {
-    "ridge_source": "anchor-components",
-    "ridge_count": 2,
-    "custom_candidate_count": 0,
-    "filler_count": 0
-  },
-  "icons_used": [
-    5,
-    12,
-    15,
-    16,
-    19,
-    21,
-    27
-  ],
-  "icons_unused": [
-    2,
-    3,
-    4,
-    6,
-    7,
-    8,
-    9,
-    10,
-    11,
-    13,
-    14,
-    17,
-    18,
-    20,
-    22,
-    23,
-    24,
-    25,
-    26,
-    28,
-    29,
-    30
-  ],
   "mount_1_present": false,
-  "mount_11_usage": [],
+  "mount_11_usage": [
+    "peak-00003",
+    "peak-00008",
+    "peak-00014",
+    "peak-00036",
+    "peak-00038",
+    "peak-00043",
+    "peak-00045",
+    "peak-00052",
+    "peak-00074",
+    "peak-00079",
+    "peak-00081",
+    "peak-00104",
+    "peak-00105",
+    "peak-00129",
+    "peak-00133",
+    "peak-00134",
+    "peak-00146",
+    "peak-00151"
+  ],
   "checks": {
-    "all_anchor_names_optional": true,
-    "all_anchors_have_elevation": true,
-    "all_anchors_have_ridge": true,
-    "mount_11_only_high_peaks": true
+    "all_ids_typed": true,
+    "all_categories_valid": true,
+    "all_have_elevation": true,
+    "all_have_ridge_id": true,
+    "mount_1_excluded": true,
+    "mount_11_high_only": true
   }
 }

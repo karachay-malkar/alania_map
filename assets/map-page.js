@@ -1,8 +1,1 @@
-(() => {
-  "use strict";
-  window.AlanMountainMap.createMap().then(map => { window.alanMap = map; }).catch(error => {
-    console.error(error);
-    const status = document.getElementById("map-status");
-    if (status) { status.textContent = `Ошибка запуска карты: ${error.message}`; status.dataset.failed = "true"; }
-  });
-})();
+(() => {"use strict";const start=async()=>{const script=document.createElement("script");script.src="assets/map-config.js";await new Promise((resolve,reject)=>{script.onload=resolve;script.onerror=reject;document.head.appendChild(script)});window.ALAN_MAP_INSTANCE=await window.AlanMountainMap.createMap()};start().catch(error=>{console.error(error);const status=document.getElementById("map-status");if(status){status.textContent=`Ошибка запуска карты: ${error.message}`;status.dataset.failed="true"}})})();
