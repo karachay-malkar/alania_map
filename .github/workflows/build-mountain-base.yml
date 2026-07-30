@@ -29,9 +29,11 @@ jobs:
       - name: Restore authoritative source files
         run: |
           git checkout origin/main -- assets/map-data.part-000.js assets/map-data.part-001.js
-          git checkout origin/7.0.23 -- data/shards-manifest.json data/shards/vector-7.0.23
+          git checkout origin/7.0.23 -- data/shards-manifest.json data/shards/vector-7.0.23 data/shards/dem-7.0.21
           cat data/shards/vector-7.0.23/part-*.bin > /tmp/alan-vector-7.0.23.pmtiles
+          cat data/shards/dem-7.0.21/part-*.bin > /tmp/alan-dem-7.0.21.pmtiles
           test "$(stat -c%s /tmp/alan-vector-7.0.23.pmtiles)" = "13956788"
+          test "$(stat -c%s /tmp/alan-dem-7.0.21.pmtiles)" = "34261814"
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -39,10 +41,10 @@ jobs:
           node-version: "22"
 
       - name: Install pinned extraction dependencies
-        run: npm install --no-save --ignore-scripts pmtiles@4.3.0 @mapbox/vector-tile@2.0.4 pbf@4.0.1
+        run: npm install --no-save pmtiles@4.3.0 @mapbox/vector-tile@2.0.4 pbf@4.0.1 sharp@0.34.3
 
-      - name: Extract every point from the peak layer
-        run: node tools/extract-peaks.mjs /tmp/alan-vector-7.0.23.pmtiles /tmp/all-peaks.geojson
+      - name: Extract peaks and sample real elevations
+        run: node tools/extract-peaks.mjs /tmp/alan-vector-7.0.23.pmtiles /tmp/alan-dem-7.0.21.pmtiles /tmp/all-peaks.geojson
 
       - name: Set up Python
         uses: actions/setup-python@v5
