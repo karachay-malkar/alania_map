@@ -1,9 +1,6 @@
-name: Build mountain base 10.0
+name: Inspect mountain source data
 
 on:
-  push:
-    paths:
-      - staging/build.trigger
   pull_request:
     types: [opened, synchronize, reopened]
     paths:
@@ -18,7 +15,7 @@ env:
   PYTHONUNBUFFERED: "1"
 
 jobs:
-  build:
+  inspect:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
@@ -28,54 +25,107 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.head_ref || github.ref_name }}
 
-      - name: Restore build bundle
+      - name: Restore authoritative source data
         run: |
-          cat staging/build-bundle.b64.part-* | base64 --decode > staging/build-bundle.zip
-          unzip -oq staging/build-bundle.zip -d .
+          git checkout origin/main -- assets/map-data.part-000.js assets/map-data.part-001.js
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Verify build bundle
-        run: echo "601f59f3003bca83c5819a9f3d50c19ca24a87f514ee4f99858721e4caf53127  staging/build-bundle.zip" | sha256sum -c -
-
-      - name: Build flat mountain map
-        run: python tools/build_mountain_base.py
-
-      - name: Record build metadata
+      - name: Inspect all geographic collections
         run: |
-          mkdir -p .build
-          echo "${GITHUB_RUN_ID}" > .build/run-id.txt
-          find . -type f \
-            ! -path './.git/*' \
-            ! -path './.github/workflows/*' \
-            ! -path './tools/*' \
-            ! -path './.build/file-sizes.txt' \
-            -printf '%P\t%s\n' | sort > .build/file-sizes.txt
+          python - <<'PY'
+          import json
+          from collections import Counter
+          from pathlib import Path
 
-      - name: Commit generated project
+          parts = sorted(Path('assets').glob('map-data.part-*.js'))
+          raw = ''.join(path.read_text(encoding='utf-8') for path in parts)
+          marker = 'window.ALAN_MAP_DATA='
+          payload = raw.split(marker, 1)[1].strip().rstrip(';')
+          data = json.loads(payload)
+
+          report = {
+              'top_level_keys': sorted(data.keys()),
+              'top_level': {},
+              'feature_collections': {},
+              'mountain_related': {},
+          }
+
+          def short(value, limit=6):
+              if isinstance(value, dict):
+                  return {k: short(v, limit) for k, v in list(value.items())[:limit]}
+              if isinstance(value, list):
+                  return [short(v, limit) for v in value[:limit]]
+              return value
+
+          def inspect_feature_collection(path, collection):
+              features = collection.get('features') or []
+              geometry_types = Counter()
+              coordinate_lengths = Counter()
+              property_keys = Counter()
+              samples = []
+              for feature in features:
+                  geometry = feature.get('geometry') or {}
+                  props = feature.get('properties') or {}
+                  geometry_types[str(geometry.get('type'))] += 1
+                  coords = geometry.get('coordinates')
+                  if isinstance(coords, list):
+                      coordinate_lengths[str(len(coords))] += 1
+                  property_keys.update(props.keys())
+                  if len(samples) < 12:
+                      samples.append({
+                          'geometry': geometry,
+                          'properties': props,
+                      })
+              report['feature_collections'][path] = {
+                  'count': len(features),
+                  'geometry_types': dict(geometry_types),
+                  'coordinate_lengths': dict(coordinate_lengths),
+                  'property_keys': sorted(property_keys),
+                  'samples': samples,
+              }
+
+          def walk(value, path='root', depth=0):
+              if depth > 5:
+                  return
+              path_lower = path.lower()
+              if isinstance(value, dict):
+                  if value.get('type') == 'FeatureCollection':
+                      inspect_feature_collection(path, value)
+                  if any(word in path_lower for word in ('mount', 'peak', 'ridge', 'summit', 'terrain', 'elev')):
+                      report['mountain_related'][path] = short(value, 12)
+                  for key, child in value.items():
+                      walk(child, f'{path}.{key}', depth + 1)
+              elif isinstance(value, list):
+                  if any(word in path_lower for word in ('mount', 'peak', 'ridge', 'summit', 'terrain', 'elev')):
+                      report['mountain_related'][path] = {
+                          'count': len(value),
+                          'sample': short(value, 12),
+                      }
+                  for index, child in enumerate(value[:20]):
+                      walk(child, f'{path}[{index}]', depth + 1)
+
+          for key, value in data.items():
+              report['top_level'][key] = {
+                  'type': type(value).__name__,
+                  'count': len(value) if isinstance(value, (dict, list, str)) else None,
+                  'sample': short(value, 4),
+              }
+          walk(data)
+
+          Path('data').mkdir(exist_ok=True)
+          Path('data/source-inspection.json').write_text(
+              json.dumps(report, ensure_ascii=False, indent=2),
+              encoding='utf-8',
+          )
+          PY
+
+      - name: Remove temporarily restored files
+        run: rm -f assets/map-data.part-000.js assets/map-data.part-001.js
+
+      - name: Commit inspection
         run: |
           TARGET_BRANCH="${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "Build Alan Map 10.0 mountain base [skip ci]"
+          git add data/source-inspection.json
+          git commit -m "Inspect authoritative mountain sources [skip ci]"
           git push origin "HEAD:${TARGET_BRANCH}"
-
-      - name: Package complete project
-        run: |
-          zip -qr Alan_Map_10.0_mountain_base.zip . \
-            -x '.git/*' '.github/workflows/*' 'tools/*'
-          sha256sum Alan_Map_10.0_mountain_base.zip > Alan_Map_10.0_mountain_base.sha256
-
-      - name: Upload complete archive
-        uses: actions/upload-artifact@v4
-        with:
-          name: Alan_Map_10.0_mountain_base
-          path: |
-            Alan_Map_10.0_mountain_base.zip
-            Alan_Map_10.0_mountain_base.sha256
-          if-no-files-found: error
-          retention-days: 30
