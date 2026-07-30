@@ -1,0 +1,35 @@
+name: Export approved mountain assets
+
+on:
+  push:
+    branches:
+      - 'work/export-approved-mountain-assets'
+    paths:
+      - '.github/workflows/export-approved-mountain-assets.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate approved asset library
+        run: |
+          test -f assets/mountains/catalog.json
+          test -f assets/mountains/elbrus.png
+          count=$(find assets/mountains -maxdepth 1 -type f -name 'mount-*.png' | wc -l)
+          test "$count" -eq 30
+      - name: Package approved assets
+        run: |
+          mkdir -p delivery
+          cp -R assets/mountains delivery/approved-mountains
+          printf '%s\n' "source_branch=9.0" "source_commit=${GITHUB_SHA}" > delivery/approved-mountains/SOURCE.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: alan-map-approved-mountain-assets
+          path: delivery/approved-mountains
+          if-no-files-found: error
+          retention-days: 7
