@@ -23,6 +23,6 @@ data/mountains/mountain_points.geojson	1465069
 data/mountains/mountain_render.geojson	1467167
 data/mountains/mountain_validation.json	1506
 data/shards-manifest.json	11034
-index.html	685
+index.html	676
 tools/build_mountain_base.py	28087
 tools/extract-peaks.mjs	5819
