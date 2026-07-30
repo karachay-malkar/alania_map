@@ -33,13 +33,16 @@ jobs:
         run: |
           python - <<'PY'
           import json
+          import re
           from collections import Counter
           from pathlib import Path
 
           parts = sorted(Path('assets').glob('map-data.part-*.js'))
           raw = ''.join(path.read_text(encoding='utf-8') for path in parts)
-          marker = 'window.ALAN_MAP_DATA='
-          payload = raw.split(marker, 1)[1].strip().rstrip(';')
+          match = re.search(r'window\.ALAN_MAP_DATA\s*=\s*', raw)
+          if not match:
+              raise RuntimeError('window.ALAN_MAP_DATA assignment was not found')
+          payload = raw[match.end():].strip().rstrip(';')
           data = json.loads(payload)
 
           report = {
