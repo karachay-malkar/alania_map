@@ -6,6 +6,11 @@ on:
       - 'work/export-approved-mountain-assets'
     paths:
       - '.github/workflows/export-approved-mountain-assets.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/export-approved-mountain-assets.yml'
   workflow_dispatch:
 
 permissions:
