@@ -1,11 +1,12 @@
-name: Inspect mountain source assets
+name: Build Alan Map 10.0 mountain base
 
 on:
   pull_request:
     types: [opened, synchronize, reopened]
     paths:
-      - staging/build.trigger
+      - tools/**
       - .github/workflows/build-mountain-base.yml
+      - staging/build.trigger
   workflow_dispatch:
 
 permissions:
@@ -15,84 +16,97 @@ env:
   PYTHONUNBUFFERED: "1"
 
 jobs:
-  inspect:
+  build:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout requested branch
+      - name: Checkout working branch
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: ${{ github.head_ref || github.ref_name }}
 
-      - name: Inspect source assets and peak registry
+      - name: Restore authoritative source files
         run: |
+          git checkout origin/main -- assets/map-data.part-000.js assets/map-data.part-001.js
+          git checkout origin/7.0.23 -- data/shards-manifest.json data/shards/vector-7.0.23
+          cat data/shards/vector-7.0.23/part-*.bin > /tmp/alan-vector-7.0.23.pmtiles
+          test "$(stat -c%s /tmp/alan-vector-7.0.23.pmtiles)" = "13956788"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install pinned extraction dependencies
+        run: npm install --no-save --ignore-scripts pmtiles@4.3.0 @mapbox/vector-tile@2.0.4 pbf@4.0.1
+
+      - name: Extract every point from the peak layer
+        run: node tools/extract-peaks.mjs /tmp/alan-vector-7.0.23.pmtiles /tmp/all-peaks.geojson
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Generate flat mountain base
+        run: python tools/build_mountain_base.py /tmp/all-peaks.geojson
+
+      - name: Validate generated project
+        run: |
+          node --check assets/bootstrap.js
+          node --check assets/map-ui.js
+          node --check assets/map-page.js
           python - <<'PY'
-          import json
-          import re
-          import subprocess
+          import csv, json
           from pathlib import Path
-
-          OUTPUT = Path('data')
-          OUTPUT.mkdir(exist_ok=True)
-
-          def git(*args):
-              return subprocess.check_output(['git', *args], text=True)
-
-          def branch_tree(branch):
-              return git('ls-tree', '-r', '--name-only', f'origin/{branch}').splitlines()
-
-          def load_data(branch, names):
-              paths = sorted(path for path in names if path.startswith('assets/map-data') and path.endswith('.js'))
-              raw = ''.join(git('show', f'origin/{branch}:{path}') for path in paths)
-              match = re.search(r'window\.ALAN_MAP_DATA\s*=\s*', raw)
-              if not match:
-                  raise RuntimeError(f'window.ALAN_MAP_DATA not found in {branch}')
-              return json.loads(raw[match.end():].strip().rstrip(';'))
-
-          asset_report = {}
-          for branch in ('main', '7.0.23', '8.0', '9.0'):
-              names = branch_tree(branch)
-              data = load_data(branch, names)
-              related = [
-                  path for path in names
-                  if any(word in path.lower() for word in ('mount', 'peak', 'ridge', 'terrain', 'dem', 'elev'))
-              ]
-              asset_report[branch] = {
-                  'regionalDem': data.get('regionalDem'),
-                  'regionalVector': data.get('regionalVector'),
-                  'related_files': related,
-                  'peaks_count': len((data.get('peaks') or {}).get('features') or []),
-                  'highPeaks_count': len((data.get('highPeaks') or {}).get('features') or []),
-                  'ridges_count': len((data.get('ridges') or {}).get('features') or []),
-              }
-
-          main_names = branch_tree('main')
-          main_data = load_data('main', main_names)
-          peaks = []
-          for feature in (main_data.get('peaks') or {}).get('features') or []:
-              props = feature.get('properties') or {}
-              peaks.append({
-                  'id': props.get('peak_id'),
-                  'name': props.get('name_ru') or props.get('source_name') or '',
-                  'coordinates': (feature.get('geometry') or {}).get('coordinates'),
-                  'elevation_m': props.get('elevation_m'),
-                  'label_tier': props.get('label_tier'),
-              })
-
-          (OUTPUT / 'source-assets.json').write_text(
-              json.dumps(asset_report, ensure_ascii=False, indent=2), encoding='utf-8'
-          )
-          (OUTPUT / 'peaks-main-compact.json').write_text(
-              json.dumps(peaks, ensure_ascii=False, indent=2), encoding='utf-8'
-          )
+          validation = json.loads(Path('data/mountains/mountain_validation.json').read_text(encoding='utf-8'))
+          assert validation['anchor_count'] >= 100
+          assert validation['unnamed_anchor_count'] > 0
+          assert validation['mount_1_present'] is False
+          assert all(validation['checks'].values())
+          with Path('data/mountains/mountain_points.csv').open(encoding='utf-8-sig', newline='') as handle:
+              reader = csv.DictReader(handle)
+              assert reader.fieldnames == ['id','latitude','longitude','elevation','name','category','ridge_id']
+              rows = list(reader)
+          assert len(rows) == validation['anchor_count']
+          assert all(row['id'].split('-', 1)[0] in {'hill','mount','rock','peak'} for row in rows)
+          assert all(row['category'] in {'regular','main'} for row in rows)
+          manifest = json.loads(Path('data/mountains/mountain_icon_manifest.json').read_text(encoding='utf-8'))
+          assert 'mount-1' in manifest['excluded']
+          assert all(icon['id'] != 'mount-1' for icon in manifest['icons'])
           PY
+          ! grep -R --exclude='mountain_icon_manifest.json' --exclude='README.md' --exclude='DATA-SOURCES-AND-LICENSES.md' --exclude='mountain_validation.json' --exclude='build-mountain-base.yml' --exclude='build_mountain_base.py' 'mount-1' assets data index.html
 
-      - name: Commit compact asset inspection
+      - name: Record build metadata and file sizes
+        run: |
+          rm -rf node_modules package.json package-lock.json
+          mkdir -p .build
+          printf '%s\n' "${GITHUB_RUN_ID}" > .build/run-id.txt
+          printf '%s\n' "${GITHUB_SHA}" > .build/source-commit.txt
+          find . -type f ! -path './.git/*' ! -path './.build/file-sizes.txt' -printf '%P\t%s\n' | sort > .build/file-sizes.txt
+
+      - name: Commit complete generated project
         run: |
           TARGET_BRANCH="${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/source-assets.json data/peaks-main-compact.json
-          git commit -m "Inspect DEM and mountain source assets [skip ci]"
+          git add -A
+          git commit -m "Build Alan Map 10.0 mountain base [skip ci]"
           git push origin "HEAD:${TARGET_BRANCH}"
+
+      - name: Package complete project
+        run: |
+          zip -qr Alan_Map_10.0_mountain_base.zip . -x '.git/*' 'node_modules/*'
+          sha256sum Alan_Map_10.0_mountain_base.zip > Alan_Map_10.0_mountain_base.sha256
+
+      - name: Upload complete archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: Alan_Map_10.0_mountain_base
+          path: |
+            Alan_Map_10.0_mountain_base.zip
+            Alan_Map_10.0_mountain_base.sha256
+            .build/file-sizes.txt
+          if-no-files-found: error
+          retention-days: 30
