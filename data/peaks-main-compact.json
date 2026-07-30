@@ -1,0 +1,392 @@
+[
+  {
+    "id": "peak_elbrus_west",
+    "name": "Эльбрус — западная вершина",
+    "coordinates": [
+      42.437843,
+      43.35241
+    ],
+    "elevation_m": 5642,
+    "label_tier": "elbrus_hero"
+  },
+  {
+    "id": "peak_elbrus_east",
+    "name": "Эльбрус — восточная вершина",
+    "coordinates": [
+      42.453904,
+      43.346794
+    ],
+    "elevation_m": 5621,
+    "label_tier": "elbrus_hero"
+  },
+  {
+    "id": "peak_dykhtau",
+    "name": "Дыхтау",
+    "coordinates": [
+      43.133183,
+      43.052216
+    ],
+    "elevation_m": 5204,
+    "label_tier": "five_thousander"
+  },
+  {
+    "id": "peak_shkhara",
+    "name": "Шхара",
+    "coordinates": [
+      43.113133,
+      42.999316
+    ],
+    "elevation_m": 5068,
+    "label_tier": "five_thousander"
+  },
+  {
+    "id": "peak_koshtantau",
+    "name": "Коштантау",
+    "coordinates": [
+      43.213472,
+      43.050028
+    ],
+    "elevation_m": 5151,
+    "label_tier": "five_thousander"
+  },
+  {
+    "id": "peak_dzhanga",
+    "name": "Джангитау",
+    "coordinates": [
+      43.05748,
+      43.018317
+    ],
+    "elevation_m": 5085,
+    "label_tier": "five_thousander"
+  },
+  {
+    "id": "peak_katyn_tau",
+    "name": "Катын-Тау",
+    "coordinates": [
+      43.036344,
+      43.029604
+    ],
+    "elevation_m": null,
+    "label_tier": "peak_close"
+  },
+  {
+    "id": "peak_gestola",
+    "name": "Гестола",
+    "coordinates": [
+      43.025768,
+      43.048008
+    ],
+    "elevation_m": null,
+    "label_tier": "peak_close"
+  },
+  {
+    "id": "peak_lyalver",
+    "name": "Ляльвер",
+    "coordinates": [
+      43.015619,
+      43.071149
+    ],
+    "elevation_m": null,
+    "label_tier": "peak_close"
+  },
+  {
+    "id": "peak_shota_rustaveli",
+    "name": "Пик Шота Руставели",
+    "coordinates": [
+      43.071697,
+      43.007798
+    ],
+    "elevation_m": null,
+    "label_tier": "peak_close"
+  },
+  {
+    "id": "peak_dombai_ulgen",
+    "name": "Домбай-Ульген",
+    "coordinates": [
+      41.725773,
+      43.243901
+    ],
+    "elevation_m": null,
+    "label_tier": "peak_close"
+  },
+  {
+    "id": "peak_donguz_orun",
+    "name": "Донгуз-Орун",
+    "coordinates": [
+      42.514552,
+      43.194812
+    ],
+    "elevation_m": null,
+    "label_tier": "peak_close"
+  },
+  {
+    "id": "peak_tikhtengen",
+    "name": "Тихтенген",
+    "coordinates": [
+      42.990075,
+      43.119118
+    ],
+    "elevation_m": null,
+    "label_tier": "peak_close"
+  },
+  {
+    "id": "peak_ailama",
+    "name": "Айлама",
+    "coordinates": [
+      43.179411,
+      42.957321
+    ],
+    "elevation_m": null,
+    "label_tier": "peak_close"
+  },
+  {
+    "id": "peak_gvandra",
+    "name": "Гвандра",
+    "coordinates": [
+      42.080694,
+      43.204692
+    ],
+    "elevation_m": null,
+    "label_tier": "peak_close"
+  },
+  {
+    "id": "peak_bzhedukh",
+    "name": "Бжедух",
+    "coordinates": [
+      42.68565,
+      43.17451
+    ],
+    "elevation_m": null,
+    "label_tier": "peak_close"
+  },
+  {
+    "id": "peak_gumachi",
+    "name": "Гумачи",
+    "coordinates": [
+      42.775099,
+      43.188746
+    ],
+    "elevation_m": null,
+    "label_tier": "peak_close"
+  },
+  {
+    "id": "peak_dzhantugan",
+    "name": "Джантуган",
+    "coordinates": [
+      42.747811,
+      43.185918
+    ],
+    "elevation_m": null,
+    "label_tier": "peak_close"
+  },
+  {
+    "id": "peak_kukurtli_kolbashi",
+    "name": "Кукуртли-Колбаши",
+    "coordinates": [
+      42.391624,
+      43.337321
+    ],
+    "elevation_m": null,
+    "label_tier": "peak_close"
+  },
+  {
+    "id": "peak_bashiltau",
+    "name": "Башильтау",
+    "coordinates": [
+      42.88111,
+      43.153537
+    ],
+    "elevation_m": null,
+    "label_tier": "peak_close"
+  },
+  {
+    "id": "peak_ullutau_chana",
+    "name": "Уллутау-Чана",
+    "coordinates": [
+      42.824596,
+      43.173472
+    ],
+    "elevation_m": null,
+    "label_tier": "peak_close"
+  },
+  {
+    "id": "peak_mizhirgi",
+    "name": "Мижирги",
+    "coordinates": [
+      43.150292,
+      43.044922
+    ],
+    "elevation_m": 5025,
+    "label_tier": "five_thousander"
+  },
+  {
+    "id": "peak_east_mizhirgi",
+    "name": "Восточный Мижирги",
+    "coordinates": [
+      43.154189,
+      43.0445
+    ],
+    "elevation_m": null,
+    "label_tier": "peak_close"
+  },
+  {
+    "id": "peak_krumkol",
+    "name": "Крумкол",
+    "coordinates": [
+      43.187454,
+      43.041231
+    ],
+    "elevation_m": null,
+    "label_tier": "peak_close"
+  },
+  {
+    "id": "peak_dykhniaushbashi",
+    "name": "Дыхниаушбаши",
+    "coordinates": [
+      43.143009,
+      43.018787
+    ],
+    "elevation_m": null,
+    "label_tier": "peak_close"
+  },
+  {
+    "id": "peak_belalakaia",
+    "name": "Белала-Кая",
+    "coordinates": [
+      41.582447,
+      43.264847
+    ],
+    "elevation_m": null,
+    "label_tier": "peak_close"
+  },
+  {
+    "id": "peak_mussa_achitara",
+    "name": "Мусса-Ачитара",
+    "coordinates": [
+      41.672044,
+      43.293988
+    ],
+    "elevation_m": null,
+    "label_tier": "peak_close"
+  },
+  {
+    "id": "peak_sofia",
+    "name": "София",
+    "coordinates": [
+      41.269395,
+      43.421467
+    ],
+    "elevation_m": null,
+    "label_tier": "peak_close"
+  },
+  {
+    "id": "peak_alibekbashi",
+    "name": "Алибекбаши",
+    "coordinates": [
+      41.526705,
+      43.271003
+    ],
+    "elevation_m": null,
+    "label_tier": "peak_close"
+  },
+  {
+    "id": "peak_sulakhat",
+    "name": "Сулахат",
+    "coordinates": [
+      41.521133,
+      43.318064
+    ],
+    "elevation_m": null,
+    "label_tier": "peak_close"
+  },
+  {
+    "id": "peak_semenov_bashi",
+    "name": "Семенов-Баши",
+    "coordinates": [
+      41.583863,
+      43.327377
+    ],
+    "elevation_m": null,
+    "label_tier": "peak_close"
+  },
+  {
+    "id": "peak_dzhuguturlyuchat",
+    "name": "Джугутурлючат",
+    "coordinates": [
+      41.658805,
+      43.238224
+    ],
+    "elevation_m": null,
+    "label_tier": "peak_close"
+  },
+  {
+    "id": "peak_main_shkhelda",
+    "name": "Главная Шхельда",
+    "coordinates": [
+      42.645149,
+      43.148503
+    ],
+    "elevation_m": null,
+    "label_tier": "peak_close"
+  },
+  {
+    "id": "peak_nakratau",
+    "name": "Накратау",
+    "coordinates": [
+      42.494995,
+      43.200099
+    ],
+    "elevation_m": null,
+    "label_tier": "peak_close"
+  },
+  {
+    "id": "peak_tyutyubashi",
+    "name": "Тютюбаши",
+    "coordinates": [
+      42.871045,
+      43.252297
+    ],
+    "elevation_m": null,
+    "label_tier": "peak_close"
+  },
+  {
+    "id": "peak_dzhailik",
+    "name": "Джайлык",
+    "coordinates": [
+      42.885917,
+      43.241404
+    ],
+    "elevation_m": null,
+    "label_tier": "peak_close"
+  },
+  {
+    "id": "peak_big_bermamyt",
+    "name": "Большой Бермамыт",
+    "coordinates": [
+      42.44116,
+      43.704794
+    ],
+    "elevation_m": null,
+    "label_tier": "peak_close"
+  },
+  {
+    "id": "peak_small_bermamyt",
+    "name": "Малый Бермамыт",
+    "coordinates": [
+      42.454068,
+      43.686996
+    ],
+    "elevation_m": null,
+    "label_tier": "peak_close"
+  },
+  {
+    "id": "peak_pushkin",
+    "name": "Пик Пушкина",
+    "coordinates": [
+      43.139691,
+      43.048677
+    ],
+    "elevation_m": 5100,
+    "label_tier": "five_thousander"
+  }
+]
