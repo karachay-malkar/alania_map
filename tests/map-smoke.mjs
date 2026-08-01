@@ -1,233 +1,33 @@
-import { chromium } from 'playwright';
+import {chromium} from 'playwright';
 import fs from 'node:fs';
+import {assertReport} from './map-smoke-assertions.mjs';
+import {runCheckpoints,collectReport} from './map-smoke-browser.mjs';
 
-const browser = await chromium.launch({
-  headless: true,
-  args: ['--use-angle=swiftshader', '--enable-webgl', '--ignore-gpu-blocklist']
-});
-const page = await browser.newPage({
-  viewport: {width: 1440, height: 1000},
-  deviceScaleFactor: 1
-});
+const browser=await chromium.launch({headless:true,args:['--use-angle=swiftshader','--enable-webgl','--ignore-gpu-blocklist']});
+const page=await browser.newPage({viewport:{width:1440,height:1000},deviceScaleFactor:1});
 page.setDefaultTimeout(120000);
-page.setDefaultNavigationTimeout(120000);
-
-const consoleErrors = [];
-const requests = [];
-page.on('console', (message) => {
-  if (message.type() === 'error') consoleErrors.push(message.text());
-});
-page.on('pageerror', (error) => consoleErrors.push(String(error)));
-page.on('request', (request) => requests.push(request.url()));
-
-async function saveViewportScreenshot(path) {
-  await page.screenshot({path, fullPage: false, animations: 'disabled', timeout: 120000});
-}
-
-const startedAt = Date.now();
-await page.goto('http://127.0.0.1:8000/index.html', {
-  waitUntil: 'domcontentloaded',
-  timeout: 120000
-});
-try {
-  await page.waitForFunction(
-    () => window.ALAN_MAP_INSTANCE?.map?.isStyleLoaded?.(),
-    null,
-    {timeout: 120000}
-  );
-  await page.waitForFunction(
-    () => window.ALAN_SLIPPY_HYBRID_DIAGNOSTICS?.().layerIds?.every((id) => window.ALAN_MAP_INSTANCE?.map?.getLayer?.(id)),
-    null,
-    {timeout: 120000}
-  );
-} catch (error) {
-  const startupDiagnostics = await page.evaluate(() => ({
-    fatalError: document.querySelector('.alan-map-fatal-error')?.textContent || '',
-    rootText: document.getElementById('alan-map-root')?.textContent?.slice(0, 1000) || '',
-    hasInstance: Boolean(window.ALAN_MAP_INSTANCE),
-    hasSlippyDiagnostics: Boolean(window.ALAN_SLIPPY_HYBRID_DIAGNOSTICS),
-    slippy: window.ALAN_SLIPPY_HYBRID_DIAGNOSTICS?.() || null,
-    shard: window.ALAN_MAP_PMTILES_SHARD_DIAGNOSTICS?.() || null,
-    readyState: document.readyState
-  }));
-  fs.mkdirSync('build', {recursive: true});
-  fs.writeFileSync(
-    'build/browser-diagnostics.json',
-    JSON.stringify({startupDiagnostics, consoleErrors, requests}, null, 2)
-  );
-  await saveViewportScreenshot('build/map-smoke.png');
-  console.error(JSON.stringify({startupDiagnostics, consoleErrors}, null, 2));
+const errors=[]; const requests=[];
+page.on('console',m=>{if(m.type()==='error') errors.push(m.text());});
+page.on('pageerror',e=>errors.push(String(e)));
+page.on('request',r=>requests.push(r.url()));
+fs.mkdirSync('build',{recursive:true});
+try{
+  await page.goto('http://127.0.0.1:8000/index.html',{waitUntil:'domcontentloaded'});
+  await page.waitForFunction(()=>window.ALAN_MAP_INSTANCE?.map?.isStyleLoaded?.());
+  await page.waitForFunction(()=>{const d=window.ALAN_SLIPPY_HYBRID_DIAGNOSTICS?.();return d&&Object.values(d.layerPresence||{}).every(Boolean)&&d.mountainLayersBelowPoints;});
+  await page.waitForFunction(()=>document.querySelector('.alan-map-loading')?.classList.contains('hidden'));
+  const checkpoints=await runCheckpoints(page);
+  const report=await collectReport(page);
+  report.checkpoints=checkpoints;
+  report.externalRequests=requests.filter(url=>!url.startsWith('http://127.0.0.1:8000/')&&!url.startsWith('blob:http://127.0.0.1:8000/'));
+  report.consoleErrors=errors.filter(x=>!/favicon|WebGL performance caveat/i.test(x));
+  assertReport(report);
+  fs.writeFileSync('build/browser-diagnostics.json',JSON.stringify(report,null,2));
+  await page.screenshot({path:'build/map-smoke.png',animations:'disabled'});
+  console.log(JSON.stringify(report,null,2));
+}catch(error){
+  const diagnostics=await page.evaluate(()=>({root:document.getElementById('alan-map-root')?.textContent?.slice(0,1200)||'',slippy:window.ALAN_SLIPPY_HYBRID_DIAGNOSTICS?.()||null})).catch(()=>null);
+  fs.writeFileSync('build/browser-diagnostics.json',JSON.stringify({error:String(error),diagnostics,errors,requests},null,2));
+  await page.screenshot({path:'build/map-smoke.png',animations:'disabled'}).catch(()=>{});
   throw error;
-}
-await page.waitForFunction(
-  () => document.querySelector('.alan-map-loading')?.classList.contains('hidden'),
-  null,
-  {timeout: 120000}
-);
-const firstUsefulFrameMs = Date.now() - startedAt;
-
-const checkpoints = [
-  {id: 'babugent', center: [43.55, 43.28], zoom: 10.8, layer: 'waterway', property: 'system_id', expected: 'cherek-balkarsky'},
-  {id: 'nalchik', center: [43.62, 43.48], zoom: 10.8, layer: 'waterway', property: 'system_id', expected: 'nalchik'},
-  {id: 'baksan', center: [43.54, 43.69], zoom: 10.5, layer: 'waterway', property: 'system_id', expected: 'baksan'},
-  {id: 'teberda', center: [41.74, 43.44], zoom: 10.5, layer: 'waterway', property: 'system_id', expected: 'teberda'},
-  {id: 'kuban', center: [41.91, 43.77], zoom: 10.2, layer: 'waterway', property: 'system_id', expected: 'kuban'},
-  {id: 'blue-lakes', center: [43.538, 43.234], zoom: 12, layer: 'water', property: 'class', expected: 'lake'}
-];
-
-const checkpointResults = {};
-for (const checkpoint of checkpoints) {
-  checkpointResults[checkpoint.id] = await page.evaluate(async (current) => {
-    const map = window.ALAN_MAP_INSTANCE.map;
-    map.stop();
-    map.jumpTo({center: current.center, zoom: current.zoom, pitch: 0, bearing: 0});
-    const deadline = performance.now() + 30000;
-    let sourceFeatures = [];
-    let values = [];
-    do {
-      await new Promise((resolve) => setTimeout(resolve, 250));
-      sourceFeatures = map.querySourceFeatures('openmaptiles', {sourceLayer: current.layer});
-      values = [...new Set(sourceFeatures.map((feature) => feature.properties?.[current.property]).filter(Boolean))];
-      if (values.includes(current.expected)) break;
-    } while (performance.now() < deadline);
-    return {
-      featureCount: sourceFeatures.length,
-      values,
-      matched: values.includes(current.expected)
-    };
-  }, checkpoint);
-}
-
-const performanceSample = await page.evaluate(async () => {
-  const map = window.ALAN_MAP_INSTANCE.map;
-  let frameCount = 0;
-  const start = performance.now();
-  const sample = () => { frameCount += 1; };
-  map.on('render', sample);
-  map.easeTo({center: [42.35, 43.55], zoom: 8.5, pitch: 0, bearing: 0, duration: 1200});
-  await new Promise((resolve) => setTimeout(resolve, 1400));
-  map.stop();
-  map.off('render', sample);
-  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-  const elapsed = performance.now() - start;
-  return {
-    elapsedMs: Math.round(elapsed),
-    frameCount,
-    approximateFps: Number((frameCount / (elapsed / 1000)).toFixed(1)),
-    visibilityState: document.visibilityState
-  };
-});
-
-const diagnostics = await page.evaluate(() => {
-  const instance = window.ALAN_MAP_INSTANCE;
-  const map = instance.map;
-  const style = instance.getStyleDiagnostics();
-  const frame = instance.getFrameClipDiagnostics();
-  const network = instance.getNetworkDiagnostics();
-  const shard = window.ALAN_MAP_PMTILES_SHARD_DIAGNOSTICS?.() || null;
-  const slippy = window.ALAN_SLIPPY_HYBRID_DIAGNOSTICS?.() || null;
-  const requiredLayers = [
-    'terrain-hillshade', 'osm-glacier-fill', 'osm-snow-fill', 'osm-water-fill', 'osm-river-water-fill',
-    'osm-river-halo', 'osm-river-line', 'osm-peak-points', 'osm-peak-labels'
-  ];
-  const requiredMountainLayers = [
-    'alan-mountain-icons-standard',
-    'alan-mountain-icons-high',
-    'alan-mountain-icons-five-thousanders'
-  ];
-  const layerOrder = map.getStyle().layers.map((layer) => layer.id);
-  const firstPointIndex = ['settlement-current-points', 'mountain-object-points', 'mountain-passes', 'osm-peak-points']
-    .map((id) => layerOrder.indexOf(id))
-    .filter((index) => index >= 0)
-    .sort((a, b) => a - b)[0];
-  const mountainIndexes = requiredMountainLayers.map((id) => layerOrder.indexOf(id));
-  return {
-    version: instance.version,
-    requiredLayers: Object.fromEntries(requiredLayers.map((id) => [id, Boolean(map.getLayer(id))])),
-    requiredMountainLayers: Object.fromEntries(requiredMountainLayers.map((id) => [id, Boolean(map.getLayer(id))])),
-    mountainLayersBelowPoints: mountainIndexes.every((index) => index >= 0 && index < firstPointIndex),
-    slippy,
-    camera: {
-      bearing: map.getBearing(),
-      pitch: map.getPitch(),
-      maxPitch: map.getMaxPitch(),
-      terrain: map.getTerrain()
-    },
-    style,
-    frame,
-    network,
-    shard,
-    quality: instance.getQualityProfile(),
-    title: document.title,
-    status: document.querySelector('[data-role="status"]')?.textContent || ''
-  };
-});
-
-const localOrigin = 'http://127.0.0.1:8000/';
-const localBlobOrigin = `blob:${localOrigin}`;
-const externalRequests = requests.filter((url) =>
-  !url.startsWith(localOrigin) && !url.startsWith(localBlobOrigin)
-);
-const unversionedShardRequests = requests.filter((url) =>
-  /\/data\/shards\/(?:vector|dem)\/part-\d+\.bin(?:\?|$)/.test(url)
-);
-
-const report = {
-  ...diagnostics,
-  firstUsefulFrameMs,
-  performanceSample,
-  checkpoints: checkpointResults,
-  requestCount: requests.length,
-  externalRequests,
-  unversionedShardRequests,
-  consoleErrors
-};
-
-fs.mkdirSync('build', {recursive: true});
-fs.writeFileSync('build/browser-diagnostics.json', JSON.stringify(report, null, 2));
-await saveViewportScreenshot('build/map-smoke.png');
-await browser.close();
-
-if (diagnostics.version !== '7.0.23') {
-  throw new Error(`Unexpected runtime version: ${diagnostics.version}`);
-}
-for (const [layer, present] of Object.entries(diagnostics.requiredLayers)) {
-  if (!present) throw new Error(`Required layer is missing: ${layer}`);
-}
-for (const [layer, present] of Object.entries(diagnostics.requiredMountainLayers)) {
-  if (!present) throw new Error(`Required mountain layer is missing: ${layer}`);
-}
-if (!diagnostics.slippy?.flat || diagnostics.camera.bearing !== 0 || diagnostics.camera.pitch !== 0 || diagnostics.camera.maxPitch !== 0 || diagnostics.camera.terrain) {
-  throw new Error(`Slippy camera regression: ${JSON.stringify({slippy: diagnostics.slippy, camera: diagnostics.camera})}`);
-}
-if (!diagnostics.mountainLayersBelowPoints) {
-  throw new Error('Mountain icon layers are not below the point layers.');
-}
-if (diagnostics.slippy?.mount1Loaded) {
-  throw new Error('mount-1 must not be loaded.');
-}
-for (const [checkpoint, result] of Object.entries(checkpointResults)) {
-  if (!result.matched) {
-    throw new Error(`Real feature missing at ${checkpoint}: ${JSON.stringify(result)}`);
-  }
-}
-if (!diagnostics.frame.strictDataClip || diagnostics.frame.cssClipPath || diagnostics.frame.runtimeMask) {
-  throw new Error(`Frame clipping regression: ${JSON.stringify(diagnostics.frame)}`);
-}
-if (diagnostics.network.errors && Object.keys(diagnostics.network.errors).length) {
-  throw new Error(`Source errors remain after successful loads: ${JSON.stringify(diagnostics.network.errors)}`);
-}
-if (!diagnostics.shard || diagnostics.shard.cache.entries > 16) {
-  throw new Error(`Shard LRU regression: ${JSON.stringify(diagnostics.shard)}`);
-}
-if (externalRequests.length) {
-  throw new Error(`External cartographic requests detected: ${externalRequests.join('\n')}`);
-}
-if (unversionedShardRequests.length) {
-  throw new Error(`Unversioned shard requests detected: ${unversionedShardRequests.join('\n')}`);
-}
-const relevantErrors = consoleErrors.filter((message) => !/favicon|WebGL performance caveat/i.test(message));
-if (relevantErrors.length) {
-  throw new Error(`Browser errors:\n${relevantErrors.join('\n')}`);
-}
-console.log(JSON.stringify(report, null, 2));
+}finally{await browser.close();}
