@@ -21,20 +21,23 @@ try {
   await page.goto('http://127.0.0.1:8000/index.html', {waitUntil: 'domcontentloaded'});
   await page.waitForFunction(() => window.ALAN_12_1_INSTANCE?.map?.isStyleLoaded?.());
   await page.waitForFunction(() => document.getElementById('loading')?.hasAttribute('hidden'));
+  await page.waitForFunction(() => window.ALAN_12_1_INSTANCE?.diagnostics?.().registeredImages === 29);
 
   const diagnostics = await page.evaluate(() => {
     const instance = window.ALAN_12_1_INSTANCE;
     const result = instance.diagnostics();
-    const sourceFeatures = instance.map.querySourceFeatures('mountain-points');
-    const renderedPropertyKeys = [...new Set(sourceFeatures.flatMap((feature) => Object.keys(feature.properties || {})))].sort();
-    const dataPropertyKeys = [...new Set(instance.data.mountains.features.flatMap((feature) => Object.keys(feature.properties || {})))].sort();
+    const pointFeatures = instance.map.querySourceFeatures('mountain-points');
+    const iconLayers = ['mountain-icons-primary', 'mountain-icons-high', 'mountain-icons-medium', 'mountain-icons-detail'];
+    const visibleIconFeatures = instance.map.queryRenderedFeatures({layers: iconLayers});
     return {
       ...result,
       loadingHidden: document.getElementById('loading')?.hasAttribute('hidden') || false,
       status: document.getElementById('map-status')?.textContent || '',
-      renderedSourceFeatureCount: sourceFeatures.length,
-      renderedPropertyKeys,
-      dataPropertyKeys,
+      pointSourceFeatureCount: pointFeatures.length,
+      iconDataFeatureCount: instance.data.icons.features.length,
+      visibleIconFeatureCount: visibleIconFeatures.length,
+      dataPropertyKeys: [...new Set(instance.data.mountains.features.flatMap((feature) => Object.keys(feature.properties || {})))].sort(),
+      bindingPropertyKeys: [...new Set(instance.data.iconBindings.flatMap((binding) => Object.keys(binding || {})))].sort(),
       canvasWidth: instance.map.getCanvas().width,
       canvasHeight: instance.map.getCanvas().height
     };
@@ -46,26 +49,36 @@ try {
   );
   const relevantErrors = errors.filter((message) => !/favicon|WebGL performance caveat/i.test(message));
 
-  assert.equal(diagnostics.version, '12.1.0');
+  assert.equal(diagnostics.version, '12.1.1');
   assert.equal(diagnostics.flat, true);
   assert.equal(diagnostics.pitch, 0);
   assert.equal(diagnostics.bearing, 0);
   assert.equal(diagnostics.maxPitch, 0);
-  assert.deepEqual(diagnostics.sourceIds.sort(), ['boundary', 'mountain-points']);
-  assert.ok(diagnostics.pointCount > 0);
-  assert.ok(diagnostics.renderedSourceFeatureCount > 0);
+  assert.deepEqual(diagnostics.sourceIds.sort(), ['boundary', 'mountain-icons', 'mountain-points']);
+  assert.equal(diagnostics.pointCount, 1000);
+  assert.equal(diagnostics.iconBindingCount, 300);
+  assert.equal(diagnostics.registeredImages, 29);
+  assert.equal(diagnostics.layerIds.filter((id) => id.startsWith('mountain-icons-')).length, 4);
+  assert.ok(diagnostics.pointSourceFeatureCount > 0);
+  assert.equal(diagnostics.iconDataFeatureCount, 300);
+  assert.ok(diagnostics.visibleIconFeatureCount > 0, 'no mountain icons are visible at the fitted overview');
   assert.deepEqual(diagnostics.dataPropertyKeys, ['elevation_m', 'id', 'latitude', 'longitude', 'name', 'type']);
-  for (const required of ['id', 'latitude', 'longitude', 'name', 'type']) {
-    assert.ok(diagnostics.renderedPropertyKeys.includes(required), `rendered property is missing: ${required}`);
-  }
+  assert.deepEqual(diagnostics.bindingPropertyKeys, ['icon_id', 'icon_scale', 'min_zoom', 'point_id', 'priority']);
   assert.equal(diagnostics.loadingHidden, true);
+  assert.equal(diagnostics.status, '1000 точек · 300 фигурок');
   assert.ok(diagnostics.canvasWidth > 0 && diagnostics.canvasHeight > 0);
   assert.equal(externalRequests.length, 0, `external requests: ${externalRequests.join(', ')}`);
   assert.equal(relevantErrors.length, 0, `browser errors: ${relevantErrors.join('\n')}`);
 
+  await page.evaluate(() => window.ALAN_12_1_INSTANCE.map.setZoom(9.8));
+  await page.waitForTimeout(300);
+  const visibleIcons = await page.evaluate(() => window.ALAN_12_1_INSTANCE.map.queryRenderedFeatures({layers: ['mountain-icons-primary', 'mountain-icons-high', 'mountain-icons-medium']}).length);
+  assert.ok(visibleIcons > 0, 'no mountain icons are visible at zoom 9.8');
+
   const report = {
     firstUsefulFrameMs: Date.now() - startedAt,
     diagnostics,
+    visibleIconsAtZoom9_8: visibleIcons,
     externalRequests,
     browserErrors: relevantErrors,
     requestCount: requests.length
