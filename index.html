@@ -1,2 +1,53 @@
 <!doctype html>
-<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"><meta name="theme-color" content="#c9b991"><title>Alan Map 10.0 — горная основа</title><link rel="stylesheet" href="assets/maplibre.css"><link rel="stylesheet" href="assets/map.css"></head><body><main id="alan-map-root"><div id="map" aria-label="Плоская интерактивная карта гор"></div><div id="map-status" role="status" aria-live="polite">Подготавливается горная основа…</div></main><script src="assets/bootstrap.js?v=10.0.1"></script></body></html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="theme-color" content="#d8c8a8">
+  <title>Alan Map 12.1 — 2D основа и горные точки</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main id="map-shell" class="map-shell">
+    <div id="map" class="map" aria-label="Плоская интерактивная карта горных точек"></div>
+
+    <div class="topbar">
+      <section class="title-card" aria-label="Информация о карте">
+        <h1 class="map-title">Alan Map · 12.1</h1>
+        <p class="map-subtitle">Чистая 2D-основа · утверждённая граница · все горные объекты точками</p>
+        <p id="map-status" class="map-status" role="status" aria-live="polite">Загрузка данных…</p>
+      </section>
+      <nav class="map-controls" aria-label="Управление масштабом">
+        <button type="button" data-action="zoom-in" aria-label="Приблизить">+</button>
+        <button type="button" data-action="zoom-out" aria-label="Отдалить">−</button>
+        <button type="button" data-action="reset" aria-label="Показать всю территорию">⌂</button>
+      </nav>
+    </div>
+
+    <section class="legend" aria-label="Категории горных объектов">
+      <div class="legend-title"><span>Горные точки</span><span data-total-points>0</span></div>
+      <div class="legend-grid">
+        <div class="legend-item"><span class="legend-dot" style="--dot:#66584b"></span><span>Горы</span><span class="legend-count" data-count="mountain">0</span></div>
+        <div class="legend-item"><span class="legend-dot" style="--dot:#4e5053"></span><span>Скалы</span><span class="legend-count" data-count="rock">0</span></div>
+        <div class="legend-item"><span class="legend-dot" style="--dot:#7b6754"></span><span>Хребты</span><span class="legend-count" data-count="ridge">0</span></div>
+        <div class="legend-item"><span class="legend-dot" style="--dot:#81785f"></span><span>Холмы</span><span class="legend-count" data-count="hill">0</span></div>
+        <div class="legend-item"><span class="legend-dot" style="--dot:#59483b"></span><span>Основные</span><span class="legend-count" data-count="main_mountain">0</span></div>
+        <div class="legend-item"><span class="legend-dot" style="--dot:#342f2c"></span><span>5000+</span><span class="legend-count" data-count="five_thousander">0</span></div>
+      </div>
+    </section>
+
+    <aside id="feature-card" class="feature-card" hidden aria-live="polite">
+      <div class="feature-card-head"><span>Горный объект</span><button type="button" class="close-card" data-action="close-card" aria-label="Закрыть">×</button></div>
+      <div id="feature-card-body" class="feature-card-body"></div>
+    </aside>
+
+    <div id="loading" class="loading" role="status" aria-live="polite">
+      <div class="loading-card">
+        <div class="loading-title">Alan Map 12.1</div>
+        <div class="loading-text">Подготавливаются граница и горные точки.</div>
+      </div>
+    </div>
+  </main>
+  <script src="assets/bootstrap.js?v=12.1.0"></script>
+</body>
+</html>
