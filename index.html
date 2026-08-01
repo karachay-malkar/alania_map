@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
   <meta name="theme-color" content="#d8c8a8">
-  <title>Alan Map 12.1 — 1000 горных точек и фигурки</title>
+  <title>Alan Map 12.1 — масштабируемая рисованная карта</title>
   <link rel="stylesheet" href="assets/maplibre.css">
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -15,7 +15,7 @@
     <div class="topbar">
       <section class="title-card" aria-label="Информация о карте">
         <h1 class="map-title">Alan Map · 12.1</h1>
-        <p class="map-subtitle">Чистая 2D-основа · 1000 равномерно отобранных точек · выборочные фигурки</p>
+        <p class="map-subtitle">Плоская Slippy Map · 1000 точек · 300 масштабируемых фигурок</p>
         <p id="map-status" class="map-status" role="status" aria-live="polite">Загрузка данных…</p>
       </section>
       <nav class="map-controls" aria-label="Управление масштабом">
@@ -28,10 +28,10 @@
     <section class="legend" aria-label="Категории горных объектов">
       <div class="legend-title"><span>Точки / фигурки</span><span><span data-total-points>0</span> / <span data-total-icons>0</span></span></div>
       <div class="legend-grid">
-        <div class="legend-item"><span class="legend-dot" style="--dot:#66584b"></span><span>Горы</span><span class="legend-count" data-count="mountain">0</span></div>
-        <div class="legend-item"><span class="legend-dot" style="--dot:#4e5053"></span><span>Скалы</span><span class="legend-count" data-count="rock">0</span></div>
-        <div class="legend-item"><span class="legend-dot" style="--dot:#7b6754"></span><span>Хребты</span><span class="legend-count" data-count="ridge">0</span></div>
-        <div class="legend-item"><span class="legend-dot" style="--dot:#81785f"></span><span>Холмы</span><span class="legend-count" data-count="hill">0</span></div>
+        <div class="legend-item"><span class="legend-dot" style="--dot:#7a7a78"></span><span>Горы</span><span class="legend-count" data-count="mountain">0</span></div>
+        <div class="legend-item"><span class="legend-dot" style="--dot:#7a7a78"></span><span>Скалы</span><span class="legend-count" data-count="rock">0</span></div>
+        <div class="legend-item"><span class="legend-dot" style="--dot:#7a7a78"></span><span>Хребты</span><span class="legend-count" data-count="ridge">0</span></div>
+        <div class="legend-item"><span class="legend-dot" style="--dot:#7a7a78"></span><span>Холмы</span><span class="legend-count" data-count="hill">0</span></div>
         <div class="legend-item"><span class="legend-dot" style="--dot:#59483b"></span><span>Основные</span><span class="legend-count" data-count="main_mountain">0</span></div>
         <div class="legend-item"><span class="legend-dot" style="--dot:#342f2c"></span><span>5000+</span><span class="legend-count" data-count="five_thousander">0</span></div>
       </div>
@@ -45,10 +45,10 @@
     <div id="loading" class="loading" role="status" aria-live="polite">
       <div class="loading-card">
         <div class="loading-title">Alan Map 12.1</div>
-        <div class="loading-text">Подготавливаются 1000 точек и фигурки гор.</div>
+        <div class="loading-text">Подготавливаются 1000 точек и единый слой фигурок гор.</div>
       </div>
     </div>
   </main>
-  <script src="assets/bootstrap.js?v=12.1.1"></script>
+  <script src="assets/bootstrap.js?v=12.1.2"></script>
 </body>
 </html>

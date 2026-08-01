@@ -47,9 +47,9 @@ jobs:
         uses: actions/upload-artifact@v4
         if: success()
         with:
-          name: alan-map-12.1-1000-points-icons
+          name: alan-map-12.1-geographic-mountains
           path: |
-            build/alan-map-12.1-1000-points-icons.zip
+            build/alan-map-12.1-geographic-mountains.zip
             build/12.1-file-sizes.txt
           if-no-files-found: error
           retention-days: 7
