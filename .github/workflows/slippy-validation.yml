@@ -1,0 +1,68 @@
+name: Slippy Validation
+
+on:
+  pull_request:
+    branches:
+      - 7.0.23
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Validate static contract
+        run: node tests/runtime-contract.mjs
+
+      - name: Install browser runtime
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Run browser smoke test
+        shell: bash
+        run: |
+          mkdir -p build
+          python3 -m http.server 8000 > build/http-server.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID || true' EXIT
+          node tests/map-smoke.mjs
+
+      - name: Package full project
+        shell: bash
+        run: |
+          zip -r build/alan-map-7.0.23-slippy-hybrid-icons.zip . \
+            -x '.git/*' \
+            -x 'node_modules/*' \
+            -x 'build/*' \
+            -x '.github/workflows/slippy-validation.yml'
+
+      - name: Upload validation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: alan-map-7.0.23-slippy-validation
+          path: |
+            build/map-smoke.png
+            build/browser-diagnostics.json
+            build/http-server.log
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Upload full project archive
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: alan-map-7.0.23-slippy-hybrid-icons-final
+          path: build/alan-map-7.0.23-slippy-hybrid-icons.zip
+          if-no-files-found: error
+          retention-days: 7
