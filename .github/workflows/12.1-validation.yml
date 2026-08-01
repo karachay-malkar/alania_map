@@ -1,9 +1,8 @@
 name: Alan Map 12.1 Validation
 
 on:
-  push:
-    branches:
-      - 12.1
+  pull_request:
+    types: [opened, synchronize, reopened]
   workflow_dispatch:
 
 permissions:
@@ -11,6 +10,7 @@ permissions:
 
 jobs:
   validate:
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
