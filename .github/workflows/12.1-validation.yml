@@ -28,10 +28,16 @@ jobs:
       - name: Apply source update
         shell: bash
         run: |
-          if [ -f tools/update_payload.tar.gz ]; then
-            tar -xzf tools/update_payload.tar.gz
+          if [ -f tools/update_payload.part-000 ]; then
+            cat tools/update_payload.part-000 \
+                tools/update_payload.part-001 \
+                tools/update_payload.part-002 \
+                tools/update_payload.part-003 \
+                tools/update_payload.part-004 \
+              | tr -d '\n\r' | base64 --decode > /tmp/update_payload.tar.gz
+            echo "01a5082c491938b30eb99fc10b22e9b502e15eb2e8850cba09b7650528beaacd  /tmp/update_payload.tar.gz" | sha256sum --check
+            tar -xzf /tmp/update_payload.tar.gz
             chmod +x tools/build_stage_12_1.py
-            rm tools/update_payload.tar.gz
           fi
 
       - name: Restore project mountain atlas
@@ -81,6 +87,12 @@ jobs:
       - name: Commit complete 12.1 update
         shell: bash
         run: |
+          rm -f tools/update_payload.tar.gz \
+            tools/update_payload.part-000 \
+            tools/update_payload.part-001 \
+            tools/update_payload.part-002 \
+            tools/update_payload.part-003 \
+            tools/update_payload.part-004
           git add -A -- \
             README.md \
             index.html \
@@ -91,6 +103,11 @@ jobs:
             tests/12.1-smoke.mjs \
             tools/build_stage_12_1.py \
             tools/update_payload.tar.gz \
+            tools/update_payload.part-000 \
+            tools/update_payload.part-001 \
+            tools/update_payload.part-002 \
+            tools/update_payload.part-003 \
+            tools/update_payload.part-004 \
             assets/mountains/mountain-atlas.png \
             data/archive/mountain_points_full.geojson \
             data/mountains/mountain_points.geojson \
