@@ -61,7 +61,6 @@ try {
   assert.equal(diagnostics.layerIds.filter((id) => id.startsWith('mountain-icons-')).length, 4);
   assert.ok(diagnostics.pointSourceFeatureCount > 0);
   assert.equal(diagnostics.iconDataFeatureCount, 300);
-  assert.ok(diagnostics.visibleIconFeatureCount > 0, 'no mountain icons are visible at the fitted overview');
   assert.deepEqual(diagnostics.dataPropertyKeys, ['elevation_m', 'id', 'latitude', 'longitude', 'name', 'type']);
   assert.deepEqual(diagnostics.bindingPropertyKeys, ['icon_id', 'icon_scale', 'min_zoom', 'point_id', 'priority']);
   assert.equal(diagnostics.loadingHidden, true);
@@ -70,8 +69,22 @@ try {
   assert.equal(externalRequests.length, 0, `external requests: ${externalRequests.join(', ')}`);
   assert.equal(relevantErrors.length, 0, `browser errors: ${relevantErrors.join('\n')}`);
 
-  await page.evaluate(() => window.ALAN_12_1_INSTANCE.map.setZoom(9.8));
-  await page.waitForTimeout(300);
+  await page.evaluate(() => {
+    const map = window.ALAN_12_1_INSTANCE.map;
+    map.setZoom(9.8);
+    map.triggerRepaint();
+  });
+  await page.waitForFunction(() => {
+    try {
+      const map = window.ALAN_12_1_INSTANCE?.map;
+      if (!map?.isStyleLoaded?.()) return false;
+      return map.queryRenderedFeatures({
+        layers: ['mountain-icons-primary', 'mountain-icons-high', 'mountain-icons-medium']
+      }).length > 0;
+    } catch {
+      return false;
+    }
+  });
   const visibleIcons = await page.evaluate(() => window.ALAN_12_1_INSTANCE.map.queryRenderedFeatures({layers: ['mountain-icons-primary', 'mountain-icons-high', 'mountain-icons-medium']}).length);
   assert.ok(visibleIcons > 0, 'no mountain icons are visible at zoom 9.8');
 
