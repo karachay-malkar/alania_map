@@ -147,7 +147,13 @@
         return;
       }
       const properties = feature.properties || {};
-      const elevation = numberOrNull(properties.elevation_m, properties.ele, properties.height_m, properties.height);
+      const elevation = numberOrNull(
+        properties.elevation_m,
+        properties.elevation,
+        properties.ele,
+        properties.height_m,
+        properties.height
+      );
       const type = classify(properties, elevation);
       prepared.push({
         sourceIndex,
@@ -201,7 +207,8 @@
         counts,
         invalid,
         outside,
-        named: features.filter((feature) => Boolean(feature.properties.name)).length
+        named: features.filter((feature) => Boolean(feature.properties.name)).length,
+        withElevation: features.filter((feature) => feature.properties.elevation_m !== null).length
       }
     };
   }
