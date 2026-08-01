@@ -26,7 +26,10 @@
     await executeParts([
       "slippy-hybrid.part-000.js",
       "slippy-hybrid.part-001.js",
-      "slippy-hybrid.part-002.js"
+      "slippy-hybrid.part-002.js",
+      "slippy-hybrid.part-003.js",
+      "slippy-hybrid.part-004.js",
+      "slippy-hybrid.part-005.js"
     ], 'slippy-hybrid.js');
     await loadScript('map-page.js');
   })().catch((error) => {
