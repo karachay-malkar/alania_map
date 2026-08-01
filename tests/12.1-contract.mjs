@@ -69,9 +69,9 @@ const combinedRuntime = `${mapSource}\n${appSource}\n${bootstrapSource}`;
 for (const forbidden of ['PMTiles', 'raster-dem', 'setTerrain(', 'localStorage', 'fantasy-relief', 'map-ui.js', 'map-page.js']) {
   assert.equal(combinedRuntime.includes(forbidden), false, `legacy runtime remains active: ${forbidden}`);
 }
+assert.ok(indexSource.includes('assets/maplibre.css'));
 assert.ok(indexSource.includes('styles.css'));
 assert.equal(indexSource.includes('assets/map.css'), false);
-assert.equal(indexSource.includes('assets/maplibre.css'), false);
 
 console.log(JSON.stringify({
   version: config.version,
