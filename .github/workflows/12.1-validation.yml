@@ -1,0 +1,77 @@
+name: Alan Map 12.1 Validation
+
+on:
+  pull_request:
+    branches:
+      - 10.0-mountain-base
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Validate 2D architecture and point schema
+        run: node tests/12.1-contract.mjs
+
+      - name: Install Chromium
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Run browser smoke test
+        shell: bash
+        run: |
+          mkdir -p build
+          python3 -m http.server 8000 > build/http-server.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID || true' EXIT
+          node tests/12.1-smoke.mjs
+
+      - name: Package clean project
+        shell: bash
+        run: |
+          mkdir -p build/package/assets build/package/src build/package/data/mountains build/package/tests
+          cp index.html styles.css README.md build/package/
+          cp assets/bootstrap.js assets/maplibre.css assets/maplibre.part-000.js assets/maplibre.part-001.js build/package/assets/
+          cp src/config.js src/data.js src/map.js src/app.js build/package/src/
+          cp data/map-frame.geojson build/package/data/
+          cp data/mountains/mountain_points.geojson build/package/data/mountains/
+          cp tests/12.1-contract.mjs tests/12.1-smoke.mjs build/package/tests/
+          (cd build/package && zip -r ../alan-map-12.1-stage-1.zip .)
+          find build/package -type f -printf '%P\t%s bytes\n' | sort > build/12.1-file-sizes.txt
+
+      - name: Upload validation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: alan-map-12.1-validation
+          path: |
+            build/12.1-map.png
+            build/12.1-map-failed.png
+            build/12.1-browser-diagnostics.json
+            build/12.1-browser-errors.json
+            build/http-server.log
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Upload clean project archive
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: alan-map-12.1-stage-1
+          path: |
+            build/alan-map-12.1-stage-1.zip
+            build/12.1-file-sizes.txt
+          if-no-files-found: error
+          retention-days: 7
