@@ -29,6 +29,7 @@
     await loadScript('../src/config.js');
     await loadScript('../src/data.js');
     await loadScript('../src/map.js');
+    await loadScript('../src/map-compat.js');
     await loadScript('../src/app.js');
   })().catch((error) => {
     console.error(error);
