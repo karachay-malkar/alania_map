@@ -26,13 +26,15 @@ try {
     const instance = window.ALAN_12_1_INSTANCE;
     const result = instance.diagnostics();
     const sourceFeatures = instance.map.querySourceFeatures('mountain-points');
-    const propertyKeys = [...new Set(sourceFeatures.flatMap((feature) => Object.keys(feature.properties || {})))].sort();
+    const renderedPropertyKeys = [...new Set(sourceFeatures.flatMap((feature) => Object.keys(feature.properties || {})))].sort();
+    const dataPropertyKeys = [...new Set(instance.data.mountains.features.flatMap((feature) => Object.keys(feature.properties || {})))].sort();
     return {
       ...result,
       loadingHidden: document.getElementById('loading')?.hasAttribute('hidden') || false,
       status: document.getElementById('map-status')?.textContent || '',
       renderedSourceFeatureCount: sourceFeatures.length,
-      propertyKeys,
+      renderedPropertyKeys,
+      dataPropertyKeys,
       canvasWidth: instance.map.getCanvas().width,
       canvasHeight: instance.map.getCanvas().height
     };
@@ -52,7 +54,10 @@ try {
   assert.deepEqual(diagnostics.sourceIds.sort(), ['boundary', 'mountain-points']);
   assert.ok(diagnostics.pointCount > 0);
   assert.ok(diagnostics.renderedSourceFeatureCount > 0);
-  assert.deepEqual(diagnostics.propertyKeys, ['elevation_m', 'id', 'latitude', 'longitude', 'name', 'type']);
+  assert.deepEqual(diagnostics.dataPropertyKeys, ['elevation_m', 'id', 'latitude', 'longitude', 'name', 'type']);
+  for (const required of ['id', 'latitude', 'longitude', 'name', 'type']) {
+    assert.ok(diagnostics.renderedPropertyKeys.includes(required), `rendered property is missing: ${required}`);
+  }
   assert.equal(diagnostics.loadingHidden, true);
   assert.ok(diagnostics.canvasWidth > 0 && diagnostics.canvasHeight > 0);
   assert.equal(externalRequests.length, 0, `external requests: ${externalRequests.join(', ')}`);
