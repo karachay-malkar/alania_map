@@ -15,7 +15,7 @@ try{
  await page.waitForFunction(()=>window.ALAN_12_1_INSTANCE?.map?.isStyleLoaded?.());
  await page.waitForFunction(()=>document.getElementById('loading')?.hasAttribute('hidden'));
  await page.waitForFunction(()=>window.ALAN_12_1_INSTANCE?.diagnostics?.().imageDrawCalls>0);
- const diagnostics=await page.evaluate(()=>{const i=window.ALAN_12_1_INSTANCE;const d=i.diagnostics();const r=i.map.__mountainImageLayer;const id=i.data.iconBindings[0].point_id;return{...d,status:document.getElementById('map-status')?.textContent||'',bindingPropertyKeys:[...new Set(i.data.iconBindings.flatMap(b=>Object.keys(b||{})))].sort(),widthAt8:r.measureWidth(id,8),widthAt9:r.measureWidth(id,9),canvasWidth:i.map.getCanvas().width,canvasHeight:i.map.getCanvas().height};});
+ const diagnostics=await page.evaluate(()=>{const i=window.ALAN_12_1_INSTANCE;const d=i.diagnostics();const r=i.map.__mountainImageLayer;const id=i.data.iconBindings[0].point_id;return{...d,status:document.getElementById('map-status')?.textContent||'',bindingPropertyKeys:[...new Set(i.data.iconBindings.flatMap(b=>Object.keys(b||{})))].sort(),widthAt8:r.measureWidth(id,8),widthAt9:r.measureWidth(id,9),canvasWidth:i.map.getCanvas().width,canvasHeight:i.map.getCanvas().height,imageLayerRegistered:Boolean(i.map.getLayer('mountain-images'))};});
  const external=requests.filter(u=>!u.startsWith('http://127.0.0.1:8000/')&&!u.startsWith('blob:http://127.0.0.1:8000/'));
  const relevant=errors.filter(m=>!/favicon|WebGL performance caveat/i.test(m));
  assert.equal(diagnostics.version,'12.1.2');
@@ -26,7 +26,7 @@ try{
  assert.equal(diagnostics.imageLayerCount,300);
  assert.equal(diagnostics.imageVertexCount,1800);
  assert.ok(diagnostics.imageDrawCalls>0);
- assert.equal(diagnostics.layerIds.filter(id=>id==='mountain-images').length,1);
+ assert.equal(diagnostics.imageLayerRegistered,true);
  assert.equal(diagnostics.layerIds.some(id=>id.startsWith('mountain-icons-')),false);
  assert.deepEqual(diagnostics.bindingPropertyKeys,['icon_id','icon_scale','min_zoom','point_id','priority']);
  assert.equal(diagnostics.status,'1000 точек · 300 фигурок');
