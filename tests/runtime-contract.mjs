@@ -1,11 +1,10 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import vm from 'node:vm';
 import {createRequire} from 'node:module';
 
 const require = createRequire(import.meta.url);
 const AlanMap = require('../assets/map-ui.js');
-const FantasyRelief = require('../assets/fantasy-relief.js');
-const FantasyStyle = require('../assets/fantasy-style.js');
 const test = AlanMap.__test;
 
 assert.equal(AlanMap.version, '7.0.23');
@@ -48,35 +47,82 @@ assert.equal(
   false
 );
 
-assert.equal(FantasyRelief.version, '1.1.0');
-assert.equal(FantasyStyle.version, '1.1.1');
-const fantasyRidges = FantasyRelief.buildRidgeCollection({
-  type: 'FeatureCollection',
-  features: [
-    {type:'Feature',properties:{tier:1},geometry:{type:'LineString',coordinates:[[41.2,43.1],[42.2,43.6]]}},
-    {type:'Feature',properties:{},geometry:{type:'LineString',coordinates:[[42.0,43.1],[42.45,43.28]]}},
-    {type:'Feature',properties:{},geometry:{type:'LineString',coordinates:[[42.2,43.2],[42.25,43.23]]}}
-  ]
+const adapterParts = Array.from({length: 6}, (_, index) =>
+  fs.readFileSync(new URL(`../assets/slippy-hybrid.part-${String(index).padStart(3, '0')}.js`, import.meta.url), 'utf8')
+);
+const adapterSource = adapterParts.join('');
+const sandbox = {
+  console,
+  URL,
+  Object,
+  Array,
+  Number,
+  String,
+  Math,
+  Promise,
+  Map,
+  Set,
+  Proxy,
+  Reflect,
+  AlanMap: {mount() { return {}; }}
+};
+sandbox.self = sandbox;
+vm.createContext(sandbox);
+new vm.Script(adapterSource, {filename: 'slippy-hybrid.js'}).runInContext(sandbox);
+const SlippyHybrid = sandbox.AlanSlippyHybrid;
+assert.ok(SlippyHybrid);
+assert.equal(SlippyHybrid.version, '7.0.23-slippy-hybrid-icons');
+
+const point = (coordinates, properties = {}) => ({
+  type: 'Feature',
+  properties,
+  geometry: {type: 'Point', coordinates}
 });
-assert.equal(fantasyRidges.features.length, 3);
-assert.deepEqual(
-  new Set(fantasyRidges.features.map((feature) => feature.properties.fantasy_class)),
-  new Set(['main','secondary','spur'])
+const mountains = SlippyHybrid.buildMountainCollection({
+  highPeaks: {
+    type: 'FeatureCollection',
+    features: [
+      point([42.10, 43.10], {name_ru: 'Пятитысячник', ele: 5100, peak_level: 1}),
+      point([42.20, 43.20], {name_ru: 'Высокая', ele: 4500, peak_level: 1})
+    ]
+  },
+  peaks: {
+    type: 'FeatureCollection',
+    features: [
+      point([42.10, 43.10], {name_ru: 'Дубликат', ele: 3000}),
+      point([42.30, 43.30], {name_ru: 'Обычная', ele: 3300})
+    ]
+  },
+  objects: {
+    type: 'FeatureCollection',
+    features: [
+      point([42.40, 43.40], {name_ru: 'Горный объект', object_type: 'mountain', elevation_m: 3600}),
+      point([42.50, 43.50], {name_ru: 'Не гора', object_type: 'water'})
+    ]
+  }
+});
+assert.equal(mountains.features.length, 4, 'mountain points must be deduplicated and non-mountain objects excluded');
+const fiveThousander = mountains.features.find((feature) => feature.properties.source_name === 'Пятитысячник');
+assert.equal(fiveThousander.properties.mountain_category, 'five_thousander');
+assert.equal(fiveThousander.properties.mountain_icon, 'mount-11');
+for (const feature of mountains.features) {
+  assert.notEqual(feature.properties.mountain_icon, 'mount-1');
+  if (feature.properties.mountain_icon === 'mount-11') {
+    assert.ok(feature.properties.elevation_m >= 5000, 'mount-11 must be restricted to real five-thousanders');
+  }
+}
+assert.equal(
+  mountains.features.filter((feature) => feature.properties.mountain_icon === 'mount-11').length,
+  1
 );
-assert.ok(fantasyRidges.features.every((feature) => /^fantasy-mountain-(main|secondary|spur)-\d$/.test(feature.properties.fantasy_icon)));
-assert.deepEqual(
-  FantasyStyle.createFantasyLayers().map((layer) => layer.id),
-  FantasyStyle.layerIds
+assert.equal(
+  mountains.features.find((feature) => feature.properties.source_name === 'Высокая').properties.mountain_category,
+  'high'
 );
-assert.ok(FantasyStyle.layerIds.includes('fantasy-paper-grain'));
-assert.ok(FantasyStyle.layerIds.includes('fantasy-mountains-main'));
-assert.ok(FantasyStyle.layerIds.includes('fantasy-slope-hachures'));
-assert.ok(FantasyStyle.layerIds.includes('fantasy-elbrus-massif'));
-const landmark = FantasyStyle.createLandmarkCollection({elbrusFocus:[42.44,43.35]});
-assert.equal(landmark.features.length, 1);
-assert.equal(landmark.features[0].properties.fantasy_landmark, 'elbrus');
-assert.deepEqual(landmark.features[0].geometry.coordinates, [42.44,43.35]);
-assert.equal(FantasyStyle.createLandmarkCollection({elbrusFocus:null}).features.length, 0);
+assert.equal(
+  mountains.features.find((feature) => feature.properties.source_name === 'Обычная').properties.mountain_category,
+  'standard'
+);
 
 const mapUi = fs.readFileSync(new URL('../assets/map-ui.js', import.meta.url), 'utf8');
 for (const obsolete of [
@@ -97,32 +143,45 @@ assert.ok(pageLoader.includes('shards-manifest.json'));
 
 const bootstrap = fs.readFileSync(new URL('../assets/bootstrap.js', import.meta.url), 'utf8');
 assert.equal(bootstrap.includes('map-natural.js'), false);
+assert.equal(bootstrap.includes("loadScript('fantasy-relief.js')"), false);
+assert.equal(bootstrap.includes("loadScript('fantasy-style.js')"), false);
 const mapUiPosition = bootstrap.indexOf("loadScript('map-ui.js')");
-const reliefPosition = bootstrap.indexOf("loadScript('fantasy-relief.js')");
-const stylePosition = bootstrap.indexOf("loadScript('fantasy-style.js')");
+const adapterPosition = bootstrap.indexOf('slippy-hybrid.part-000.js');
 const pagePosition = bootstrap.indexOf("loadScript('map-page.js')");
-assert.ok(mapUiPosition >= 0 && reliefPosition > mapUiPosition && stylePosition > reliefPosition && pagePosition > stylePosition);
-
-for (const file of ['../assets/fantasy-relief.js','../assets/fantasy-style.js']) {
-  const content = fs.readFileSync(new URL(file, import.meta.url), 'utf8');
-  assert.equal(/https?:\/\//.test(content), false, `external dependency in ${file}`);
+assert.ok(mapUiPosition >= 0 && adapterPosition > mapUiPosition && pagePosition > adapterPosition);
+for (let index = 0; index < 6; index += 1) {
+  assert.ok(bootstrap.includes(`slippy-hybrid.part-${String(index).padStart(3, '0')}.js`));
 }
-const reliefSource = fs.readFileSync(new URL('../assets/fantasy-relief.js', import.meta.url), 'utf8');
-assert.ok(reliefSource.includes('bezierCurveTo'));
-assert.ok(reliefSource.includes('quadraticCurveTo'));
-assert.ok(reliefSource.includes("'fantasy-elbrus'"));
-assert.ok(reliefSource.includes('rgba(39, 61, 72'));
-const styleSource = fs.readFileSync(new URL('../assets/fantasy-style.js', import.meta.url), 'utf8');
-assert.ok(styleSource.includes("instance.map.once('idle', ensureController)"));
-assert.ok(styleSource.includes('idleRetryScheduled'));
+
+assert.equal(/https?:\/\//.test(adapterSource), false, 'Slippy adapter must not use external resources');
+assert.ok(adapterSource.includes("bearing: 0"));
+assert.ok(adapterSource.includes("pitch: 0"));
+assert.ok(adapterSource.includes("maxPitch: 0"));
+assert.ok(adapterSource.includes("dragRotate: false"));
+assert.ok(adapterSource.includes("delete next.style.terrain"));
+assert.ok(adapterSource.includes("'settlement-current-points'"));
+assert.ok(adapterSource.includes("'osm-peak-points'"));
+assert.ok(adapterSource.includes("map.addLayer(layer, beforeId)"));
+
+const mountainDirectory = new URL('../assets/mountains/', import.meta.url);
+const mountainFiles = fs.readdirSync(mountainDirectory).filter((name) => /^mount-\d+\.png$/.test(name)).sort();
+assert.equal(mountainFiles.length, 29);
+assert.equal(mountainFiles.includes('mount-1.png'), false);
+for (let index = 2; index <= 30; index += 1) {
+  assert.ok(mountainFiles.includes(`mount-${index}.png`), `missing mount-${index}.png`);
+}
 
 console.log(JSON.stringify({
   version: AlanMap.version,
   balanced,
-  fantasy: {
-    reliefVersion: FantasyRelief.version,
-    styleVersion: FantasyStyle.version,
-    ridgeDiagnostics: fantasyRidges.diagnostics,
-    layerIds: FantasyStyle.layerIds
+  slippy: {
+    version: SlippyHybrid.version,
+    mountainCount: mountains.features.length,
+    mountainFiles: mountainFiles.length,
+    categories: mountains.features.reduce((result, feature) => {
+      const category = feature.properties.mountain_category;
+      result[category] = (result[category] || 0) + 1;
+      return result;
+    }, {})
   }
 }, null, 2));
