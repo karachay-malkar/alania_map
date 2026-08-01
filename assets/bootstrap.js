@@ -23,8 +23,11 @@
     await executeParts(["map-data.part-000.js","map-data.part-001.js"], 'map-data.js');
     await loadScript('map-core.js');
     await loadScript('map-ui.js');
-    await loadScript('fantasy-relief.js');
-    await loadScript('fantasy-style.js');
+    await executeParts([
+      "slippy-hybrid.part-000.js",
+      "slippy-hybrid.part-001.js",
+      "slippy-hybrid.part-002.js"
+    ], 'slippy-hybrid.js');
     await loadScript('map-page.js');
   })().catch((error) => {
     console.error(error);
