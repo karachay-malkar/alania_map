@@ -1,78 +1,86 @@
- function collectionFeatures(collection) {
-    return Array.isArray(collection && collection.features) ? collection.features : [];
-  }
+setTerrain === 'function' ? map.setTerrain.bind(map) : null;
+    map.setTerrain = function (terrain) {
+      if (terrain == null && originalSetTerrain) return originalSetTerrain(null);
+      return map;
+    };
 
-  function buildMountainCollection(data) {
-    const candidates = [];
-    for (const feature of collectionFeatures(data && data.highPeaks)) {
-      candidates.push({feature, source: 'highPeaks'});
+    if (map.dragRotate) {
+      map.dragRotate.disable();
+      map.dragRotate.enable = function () { map.dragRotate.disable(); return map.dragRotate; };
     }
-    for (const feature of collectionFeatures(data && data.peaks)) {
-      candidates.push({feature, source: 'peaks'});
-    }
-    for (const feature of collectionFeatures(data && data.objects)) {
-      const properties = feature.properties || {};
-      if (properties.object_type === 'mountain') candidates.push({feature, source: 'objects'});
-    }
-
-    const deduplicated = new Map();
-    for (const candidate of candidates) {
-      const coordinates = pointCoordinates(candidate.feature);
-      if (!coordinates) continue;
-      const key = `${coordinates[0].toFixed(5)}:${coordinates[1].toFixed(5)}`;
-      const existing = deduplicated.get(key);
-      const candidateElevation = elevationOf(candidate.feature) || -Infinity;
-      const existingElevation = existing ? (elevationOf(existing.feature) || -Infinity) : -Infinity;
-      if (!existing || candidate.source === 'highPeaks' || candidateElevation > existingElevation) {
-        deduplicated.set(key, candidate);
+    if (map.touchZoomRotate) {
+      const originalEnable = typeof map.touchZoomRotate.enable === 'function'
+        ? map.touchZoomRotate.enable.bind(map.touchZoomRotate)
+        : null;
+      if (originalEnable) {
+        map.touchZoomRotate.enable = function () {
+          const result = originalEnable();
+          if (typeof map.touchZoomRotate.disableRotation === 'function') map.touchZoomRotate.disableRotation();
+          return result;
+        };
       }
+      if (typeof map.touchZoomRotate.disableRotation === 'function') map.touchZoomRotate.disableRotation();
     }
+    if (map.touchPitch && typeof map.touchPitch.disable === 'function') map.touchPitch.disable();
 
-    const features = [];
-    for (const candidate of deduplicated.values()) {
-      const feature = candidate.feature;
-      const coordinates = pointCoordinates(feature);
-      const properties = feature.properties || {};
-      const elevation = elevationOf(feature);
-      const isFiveThousander = elevation !== null && elevation >= 5000;
-      const isHigh = !isFiveThousander && (
-        candidate.source === 'highPeaks' ||
-        (elevation !== null && elevation >= 4200) ||
-        Number(properties.peak_level) === 1
-      );
-      const category = isFiveThousander ? 'five_thousander' : isHigh ? 'high' : 'standard';
-      const key = featureKey(feature, coordinates);
-      features.push({
-        type: 'Feature',
-        geometry: {type: 'Point', coordinates},
-        properties: {
-          mountain_icon: chooseIcon(category, key),
-          mountain_category: category,
-          mountain_priority: category === 'five_thousander' ? 1 : category === 'high' ? 10 : 20,
-          elevation_m: elevation,
-          source_collection: candidate.source,
-          source_name: properties.name_alan_latin || properties.name_ru || properties.name_map || properties.name || ''
-        }
-      });
-    }
-
-    return {type: 'FeatureCollection', features};
+    const clearTerrain = () => {
+      try {
+        if (map.getTerrain && map.getTerrain() && originalSetTerrain) originalSetTerrain(null);
+      } catch (_) {}
+      try { map.jumpTo({bearing: 0, pitch: 0}); } catch (_) {}
+    };
+    map.on('load', clearTerrain);
+    map.on('styledata', clearTerrain);
+    return map;
   }
 
-  function forceFlatOptions(options) {
-    const next = Object.assign({}, options || {}, {
-      bearing: 0,
-      pitch: 0,
-      maxPitch: 0,
-      dragRotate: false,
-      pitchWithRotate: false,
-      touchPitch: false
+  function wrapMapConstructor() {
+    const maplibregl = root.maplibregl;
+    const OriginalMap = maplibregl && maplibregl.Map;
+    if (!OriginalMap || OriginalMap.__alanSlippyWrapped) return;
+    const WrappedMap = new Proxy(OriginalMap, {
+      construct(Target, args) {
+        const nextArgs = Array.from(args || []);
+        nextArgs[0] = forceFlatOptions(nextArgs[0]);
+        const map = Reflect.construct(Target, nextArgs, Target);
+        return installFlatGuards(map);
+      }
     });
-    if (next.style && typeof next.style === 'object') {
-      delete next.style.terrain;
-    }
-    return next;
+    Object.defineProperty(WrappedMap, '__alanSlippyWrapped', {value: true});
+    maplibregl.Map = WrappedMap;
   }
 
-  function installFlatGuards(map) {
-    if (!map || map.__al
+  function loadImage(map, id, uri) {
+    return new Promise((resolve, reject) => {
+      if (map.hasImage(id)) { resolve(); return; }
+      const image = new Image();
+      image.onload = () => {
+        try {
+          if (!map.hasImage(id)) map.addImage(id, image, {pixelRatio: 4});
+          resolve();
+        } catch (error) {
+          reject(error);
+        }
+      };
+      image.onerror = () => reject(new Error(`Не загружена иконка ${id}.`));
+      image.src = uri;
+    });
+  }
+
+  function moduloIconExpression(pool) {
+    const expression = ['match', ['%', ['to-number', ['get', 'osm_id'], 0], pool.length]];
+    pool.forEach((icon, index) => expression.push(index, icon));
+    expression.push(pool[0]);
+    return expression;
+  }
+
+  function elevationExpression() {
+    return ['to-number', ['get', 'ele'], 0];
+  }
+
+  function visiblePeakFilter() {
+    return ['!=', ['get', 'hidden'], 1];
+  }
+
+  function iconSizeExpression(low, medium, high) {
+    return ['interpolate', ['linear'], 

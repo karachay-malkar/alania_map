@@ -1,90 +1,67 @@
-); return; }
-      const image = new Image();
-      image.onload = () => {
-        try {
-          if (!map.hasImage(id)) map.addImage(id, image, {pixelRatio: 4});
-          resolve();
-        } catch (error) {
-          reject(error);
-        }
-      };
-      image.onerror = () => reject(new Error(`Не загружена иконка ${id}.`));
-      image.src = uri;
-    });
-  }
-
-  function iconSizeExpression(low, medium, high) {
-    return ['interpolate', ['linear'], ['zoom'], 7, low, 10, medium, 14.3, high];
-  }
-
-  function mountainLayers() {
-    const baseLayout = {
-      'icon-image': ['get', 'mountain_icon'],
-      'icon-anchor': 'top',
-      'icon-rotation-alignment': 'viewport',
-      'icon-pitch-alignment': 'viewport',
-      'icon-keep-upright': true,
-      'icon-ignore-placement': true,
-      'icon-padding': 2,
-      'symbol-z-order': 'source',
-      'symbol-sort-key': ['get', 'mountain_priority']
+id)]));
+    return {
+      version: VERSION,
+      flat: Boolean(map && map.getPitch() === 0 && map.getBearing() === 0 && !map.getTerrain()),
+      sourceId: VECTOR_SOURCE_ID,
+      sourceLayer: VECTOR_SOURCE_LAYER,
+      layerIds: LAYER_IDS.slice(),
+      layerPresence: Object.fromEntries(LAYER_IDS.map((id) => [id, Boolean(map?.getLayer?.(id))])),
+      layerIndexes,
+      firstPointIndex,
+      mountainLayersBelowPoints: firstPointIndex >= 0 && Object.values(layerIndexes).every((index) => index >= 0 && index < firstPointIndex),
+      spriteCount: AVAILABLE_ICONS.length,
+      mount1Loaded: Boolean(map?.hasImage?.('mount-1')),
+      mount11Loaded: Boolean(map?.hasImage?.('mount-11'))
     };
-    return [
-      {
-        id: 'alan-mountain-icons-standard',
-        type: 'symbol',
-        source: SOURCE_ID,
-        minzoom: 8.6,
-        maxzoom: 14.31,
-        filter: ['==', ['get', 'mountain_category'], 'standard'],
-        layout: Object.assign({}, baseLayout, {
-          'icon-size': iconSizeExpression(0.75, 1.0, 1.25),
-          'icon-allow-overlap': false
-        }),
-        paint: {'icon-opacity': ['interpolate', ['linear'], ['zoom'], 8.6, 0, 9.0, 0.9, 14.3, 0.96]}
-      },
-      {
-        id: 'alan-mountain-icons-high',
-        type: 'symbol',
-        source: SOURCE_ID,
-        minzoom: 7.6,
-        maxzoom: 14.31,
-        filter: ['==', ['get', 'mountain_category'], 'high'],
-        layout: Object.assign({}, baseLayout, {
-          'icon-size': iconSizeExpression(0.90, 1.20, 1.50),
-          'icon-allow-overlap': false
-        }),
-        paint: {'icon-opacity': ['interpolate', ['linear'], ['zoom'], 7.6, 0.72, 9.0, 0.94, 14.3, 0.98]}
-      },
-      {
-        id: 'alan-mountain-icons-five-thousanders',
-        type: 'symbol',
-        source: SOURCE_ID,
-        minzoom: 7,
-        maxzoom: 14.31,
-        filter: ['==', ['get', 'mountain_category'], 'five_thousander'],
-        layout: Object.assign({}, baseLayout, {
-          'icon-size': iconSizeExpression(1.20, 1.55, 2.00),
-          'icon-allow-overlap': true,
-          'icon-padding': 1
-        }),
-        paint: {'icon-opacity': 0.98}
-      }
-    ];
   }
 
-  async function installMountainLayer(map, data) {
-    if (!map || !data || map.__alanMountainIconsInstalled) return;
-    map.__alanMountainIconsInstalled = true;
-    const spriteIds = AVAILABLE_ICONS.slice();
-    await Promise.all(spriteIds.map((id) => loadImage(
-      map,
-      id,
-      new URL(`assets/mountains/${id}.png`, document.baseURI).href
-    )));
+  async function installMountainLayers(map) {
+    if (!map) return;
+    if (!map.__alanMountainIconsPromise) {
+      map.__alanMountainIconsPromise = Promise.all(AVAILABLE_ICONS.map((id) => loadImage(
+        map,
+        id,
+        new URL(`assets/mountains/${id}.png`, document.baseURI).href
+      ))).then(() => {
+        const ensure = () => {
+          try { ensureMountainLayers(map); } catch (error) { console.error('Alan Slippy mountain layers:', error); }
+        };
+        ensure();
+        map.on('styledata', ensure);
+        map.on('idle', ensure);
+        return true;
+      });
+    }
+    await map.__alanMountainIconsPromise;
+    root.ALAN_SLIPPY_HYBRID_DIAGNOSTICS = () => diagnosticsFor(map);
+  }
 
-    const collection = buildMountainCollection(data);
-    if (!map.getSource(SOURCE_ID)) map.addSource(SOURCE_ID, {type: 'geojson', data: collection, maxzoom: 14, tolerance: 0.1, buffer: 256});
-    const beforeId = [
-      'settlement-current-points',
-      '
+  function updateUi(host) {
+    if (!host) return;
+    host.dataset.slippyMode = 'hybrid';
+    const title = host.querySelector('.alan-map-title');
+    const subtitle = host.querySelector('.alan-map-subtitle');
+    const reliefLabel = host.querySelector('[data-control="relief"]')?.closest('.alan-map-control-row')?.querySelector('label');
+    const north = host.querySelector('[data-action="north"]');
+    if (title) title.textContent = 'Alan Map · 7.0.23 Slippy';
+    if (subtitle) subtitle.textContent = 'Гибридная Slippy Map · плоская raster-dem основа + векторные слои и PNG-горы';
+    if (reliefLabel) reliefLabel.textContent = 'Тени';
+    if (north) { north.textContent = 'N'; north.title = 'Север сверху'; }
+  }
+
+  function wrapAlanMapMount() {
+    const AlanMap = root.AlanMap;
+    if (!AlanMap || typeof AlanMap.mount !== 'function' || AlanMap.__alanSlippyWrapped) return;
+    const originalMount = AlanMap.mount.bind(AlanMap);
+    AlanMap.mount = function (target, options) {
+      const host = typeof target === 'string' ? document.querySelector(target) : target;
+      const originalOnReady = options && options.onReady;
+      const nextOptions = Object.assign({}, options || {}, {
+        regionalLabels3D: {},
+        onReady(api) {
+          const map = api && api.map;
+          installMountainLayers(map).catch((error) => {
+            console.error('Alan Slippy Hybrid:', error);
+            const status = host && host.querySelector('[data-role="status"]');
+            if (status) {
+              st
