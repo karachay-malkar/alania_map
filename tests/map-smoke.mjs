@@ -13,9 +13,8 @@ page.on('request',r=>requests.push(r.url()));
 fs.mkdirSync('build',{recursive:true});
 try{
   await page.goto('http://127.0.0.1:8000/index.html',{waitUntil:'domcontentloaded'});
-  await page.waitForFunction(()=>window.ALAN_MAP_INSTANCE?.map?.isStyleLoaded?.());
+  await page.waitForFunction(()=>window.ALAN_MAP_INSTANCE?.map&&window.ALAN_SLIPPY_HYBRID_DIAGNOSTICS);
   await page.waitForFunction(()=>{const d=window.ALAN_SLIPPY_HYBRID_DIAGNOSTICS?.();return d&&Object.values(d.layerPresence||{}).every(Boolean)&&d.mountainLayersBelowPoints;});
-  await page.waitForFunction(()=>document.querySelector('.alan-map-loading')?.classList.contains('hidden'));
   const checkpoints=await runCheckpoints(page);
   const report=await collectReport(page);
   report.checkpoints=checkpoints;
