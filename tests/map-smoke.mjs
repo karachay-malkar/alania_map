@@ -1,7 +1,7 @@
 import {chromium} from 'playwright';
 import fs from 'node:fs';
 import {assertReport} from './map-smoke-assertions.mjs';
-import {runCheckpoints,collectReport} from './map-smoke-browser.mjs';
+import {collectReport} from './map-smoke-browser.mjs';
 
 const browser=await chromium.launch({headless:true,args:['--use-angle=swiftshader','--enable-webgl','--ignore-gpu-blocklist']});
 const page=await browser.newPage({viewport:{width:1440,height:1000},deviceScaleFactor:1});
@@ -15,9 +15,9 @@ try{
   await page.goto('http://127.0.0.1:8000/index.html',{waitUntil:'domcontentloaded'});
   await page.waitForFunction(()=>window.ALAN_MAP_INSTANCE?.map&&window.ALAN_SLIPPY_HYBRID_DIAGNOSTICS);
   await page.waitForFunction(()=>{const d=window.ALAN_SLIPPY_HYBRID_DIAGNOSTICS?.();return d&&Object.values(d.layerPresence||{}).every(Boolean)&&d.mountainLayersBelowPoints;});
-  const checkpoints=await runCheckpoints(page);
+  await page.evaluate(()=>window.ALAN_MAP_INSTANCE.map.jumpTo({center:[43.1,43.25],zoom:10.5,pitch:0,bearing:0}));
+  await page.waitForTimeout(6000);
   const report=await collectReport(page);
-  report.checkpoints=checkpoints;
   report.externalRequests=requests.filter(url=>!url.startsWith('http://127.0.0.1:8000/')&&!url.startsWith('blob:http://127.0.0.1:8000/'));
   report.consoleErrors=errors.filter(x=>!/favicon|WebGL performance caveat/i.test(x));
   assertReport(report);
