@@ -1,0 +1,2102 @@
+[
+  {
+    "point_id": "hill-0001",
+    "icon_id": "mount-28",
+    "min_zoom": 8.2,
+    "icon_scale": 0.4735,
+    "priority": 624
+  },
+  {
+    "point_id": "hill-0003",
+    "icon_id": "mount-10",
+    "min_zoom": 8.2,
+    "icon_scale": 0.4735,
+    "priority": 617
+  },
+  {
+    "point_id": "hill-0007",
+    "icon_id": "mount-10",
+    "min_zoom": 9.6,
+    "icon_scale": 0.4841,
+    "priority": 585
+  },
+  {
+    "point_id": "hill-0009",
+    "icon_id": "mount-8",
+    "min_zoom": 8.2,
+    "icon_scale": 0.465,
+    "priority": 616
+  },
+  {
+    "point_id": "hill-0010",
+    "icon_id": "mount-28",
+    "min_zoom": 8.2,
+    "icon_scale": 0.4571,
+    "priority": 615
+  },
+  {
+    "point_id": "hill-0012",
+    "icon_id": "mount-8",
+    "min_zoom": 11.0,
+    "icon_scale": 0.4514,
+    "priority": 552
+  },
+  {
+    "point_id": "hill-0028",
+    "icon_id": "mount-10",
+    "min_zoom": 8.2,
+    "icon_scale": 0.4312,
+    "priority": 614
+  },
+  {
+    "point_id": "hill-0040",
+    "icon_id": "mount-8",
+    "min_zoom": 11.0,
+    "icon_scale": 0.4466,
+    "priority": 550
+  },
+  {
+    "point_id": "hill-0059",
+    "icon_id": "mount-10",
+    "min_zoom": 8.2,
+    "icon_scale": 0.4433,
+    "priority": 618
+  },
+  {
+    "point_id": "hill-0066",
+    "icon_id": "mount-28",
+    "min_zoom": 11.0,
+    "icon_scale": 0.4458,
+    "priority": 552
+  },
+  {
+    "point_id": "hill-0128",
+    "icon_id": "mount-8",
+    "min_zoom": 8.2,
+    "icon_scale": 0.4287,
+    "priority": 614
+  },
+  {
+    "point_id": "hill-0133",
+    "icon_id": "mount-8",
+    "min_zoom": 11.0,
+    "icon_scale": 0.4389,
+    "priority": 553
+  },
+  {
+    "point_id": "hill-0160",
+    "icon_id": "mount-8",
+    "min_zoom": 9.6,
+    "icon_scale": 0.4674,
+    "priority": 583
+  },
+  {
+    "point_id": "hill-0165",
+    "icon_id": "mount-10",
+    "min_zoom": 8.2,
+    "icon_scale": 0.4902,
+    "priority": 631
+  },
+  {
+    "point_id": "hill-0171",
+    "icon_id": "mount-10",
+    "min_zoom": 8.2,
+    "icon_scale": 0.4322,
+    "priority": 615
+  },
+  {
+    "point_id": "hill-0194",
+    "icon_id": "mount-28",
+    "min_zoom": 8.2,
+    "icon_scale": 0.4358,
+    "priority": 616
+  },
+  {
+    "point_id": "hill-0212",
+    "icon_id": "mount-10",
+    "min_zoom": 8.2,
+    "icon_scale": 0.4434,
+    "priority": 618
+  },
+  {
+    "point_id": "hill-0214",
+    "icon_id": "mount-28",
+    "min_zoom": 8.2,
+    "icon_scale": 0.4449,
+    "priority": 617
+  },
+  {
+    "point_id": "hill-0253",
+    "icon_id": "mount-8",
+    "min_zoom": 8.2,
+    "icon_scale": 0.4331,
+    "priority": 615
+  },
+  {
+    "point_id": "hill-0331",
+    "icon_id": "mount-10",
+    "min_zoom": 8.2,
+    "icon_scale": 0.4617,
+    "priority": 621
+  },
+  {
+    "point_id": "hill-0335",
+    "icon_id": "mount-8",
+    "min_zoom": 8.2,
+    "icon_scale": 0.4697,
+    "priority": 625
+  },
+  {
+    "point_id": "hill-0349",
+    "icon_id": "mount-28",
+    "min_zoom": 8.2,
+    "icon_scale": 0.4896,
+    "priority": 617
+  },
+  {
+    "point_id": "hill-0374",
+    "icon_id": "mount-10",
+    "min_zoom": 8.2,
+    "icon_scale": 0.4508,
+    "priority": 620
+  },
+  {
+    "point_id": "hill-0407",
+    "icon_id": "mount-8",
+    "min_zoom": 8.2,
+    "icon_scale": 0.4958,
+    "priority": 621
+  },
+  {
+    "point_id": "hill-0409",
+    "icon_id": "mount-10",
+    "min_zoom": 9.6,
+    "icon_scale": 0.4995,
+    "priority": 584
+  },
+  {
+    "point_id": "hill-0416",
+    "icon_id": "mount-28",
+    "min_zoom": 8.2,
+    "icon_scale": 0.4934,
+    "priority": 618
+  },
+  {
+    "point_id": "hill-0425",
+    "icon_id": "mount-28",
+    "min_zoom": 8.2,
+    "icon_scale": 0.4565,
+    "priority": 621
+  },
+  {
+    "point_id": "hill-0439",
+    "icon_id": "mount-10",
+    "min_zoom": 11.0,
+    "icon_scale": 0.4365,
+    "priority": 552
+  },
+  {
+    "point_id": "hill-0440",
+    "icon_id": "mount-8",
+    "min_zoom": 8.2,
+    "icon_scale": 0.48,
+    "priority": 618
+  },
+  {
+    "point_id": "hill-0444",
+    "icon_id": "mount-10",
+    "min_zoom": 11.0,
+    "icon_scale": 0.4029,
+    "priority": 550
+  },
+  {
+    "point_id": "hill-0446",
+    "icon_id": "mount-28",
+    "min_zoom": 8.2,
+    "icon_scale": 0.4348,
+    "priority": 615
+  },
+  {
+    "point_id": "hill-0448",
+    "icon_id": "mount-10",
+    "min_zoom": 8.2,
+    "icon_scale": 0.4682,
+    "priority": 622
+  },
+  {
+    "point_id": "hill-0454",
+    "icon_id": "mount-28",
+    "min_zoom": 11.0,
+    "icon_scale": 0.4218,
+    "priority": 550
+  },
+  {
+    "point_id": "hill-0456",
+    "icon_id": "mount-10",
+    "min_zoom": 11.0,
+    "icon_scale": 0.4403,
+    "priority": 549
+  },
+  {
+    "point_id": "hill-0457",
+    "icon_id": "mount-8",
+    "min_zoom": 8.2,
+    "icon_scale": 0.473,
+    "priority": 622
+  },
+  {
+    "point_id": "hill-0481",
+    "icon_id": "mount-8",
+    "min_zoom": 8.2,
+    "icon_scale": 0.4908,
+    "priority": 618
+  },
+  {
+    "point_id": "hill-0483",
+    "icon_id": "mount-8",
+    "min_zoom": 11.0,
+    "icon_scale": 0.4,
+    "priority": 550
+  },
+  {
+    "point_id": "hill-0484",
+    "icon_id": "mount-10",
+    "min_zoom": 8.2,
+    "icon_scale": 0.4313,
+    "priority": 614
+  },
+  {
+    "point_id": "hill-0487",
+    "icon_id": "mount-8",
+    "min_zoom": 8.2,
+    "icon_scale": 0.4733,
+    "priority": 613
+  },
+  {
+    "point_id": "hill-0554",
+    "icon_id": "mount-8",
+    "min_zoom": 8.2,
+    "icon_scale": 0.4698,
+    "priority": 615
+  },
+  {
+    "point_id": "hill-0566",
+    "icon_id": "mount-10",
+    "min_zoom": 9.6,
+    "icon_scale": 0.4266,
+    "priority": 585
+  },
+  {
+    "point_id": "hill-0581",
+    "icon_id": "mount-10",
+    "min_zoom": 9.6,
+    "icon_scale": 0.4441,
+    "priority": 584
+  },
+  {
+    "point_id": "hill-0613",
+    "icon_id": "mount-28",
+    "min_zoom": 8.2,
+    "icon_scale": 0.4281,
+    "priority": 613
+  },
+  {
+    "point_id": "hill-0631",
+    "icon_id": "mount-28",
+    "min_zoom": 11.0,
+    "icon_scale": 0.4021,
+    "priority": 550
+  },
+  {
+    "point_id": "hill-0677",
+    "icon_id": "mount-28",
+    "min_zoom": 8.2,
+    "icon_scale": 0.4783,
+    "priority": 623
+  },
+  {
+    "point_id": "hill-0682",
+    "icon_id": "mount-28",
+    "min_zoom": 11.0,
+    "icon_scale": 0.4543,
+    "priority": 552
+  },
+  {
+    "point_id": "hill-0689",
+    "icon_id": "mount-28",
+    "min_zoom": 9.6,
+    "icon_scale": 0.4931,
+    "priority": 582
+  },
+  {
+    "point_id": "hill-0699",
+    "icon_id": "mount-8",
+    "min_zoom": 9.6,
+    "icon_scale": 0.4256,
+    "priority": 585
+  },
+  {
+    "point_id": "hill-0704",
+    "icon_id": "mount-10",
+    "min_zoom": 8.2,
+    "icon_scale": 0.4845,
+    "priority": 623
+  },
+  {
+    "point_id": "hill-0722",
+    "icon_id": "mount-28",
+    "min_zoom": 8.2,
+    "icon_scale": 0.4523,
+    "priority": 620
+  },
+  {
+    "point_id": "hill-0724",
+    "icon_id": "mount-8",
+    "min_zoom": 8.2,
+    "icon_scale": 0.4515,
+    "priority": 620
+  },
+  {
+    "point_id": "hill-0726",
+    "icon_id": "mount-8",
+    "min_zoom": 8.2,
+    "icon_scale": 0.4948,
+    "priority": 624
+  },
+  {
+    "point_id": "hill-0734",
+    "icon_id": "mount-8",
+    "min_zoom": 8.2,
+    "icon_scale": 0.462,
+    "priority": 616
+  },
+  {
+    "point_id": "hill-0753",
+    "icon_id": "mount-28",
+    "min_zoom": 9.6,
+    "icon_scale": 0.4143,
+    "priority": 581
+  },
+  {
+    "point_id": "hill-0775",
+    "icon_id": "mount-28",
+    "min_zoom": 8.2,
+    "icon_scale": 0.4923,
+    "priority": 618
+  },
+  {
+    "point_id": "hill-0780",
+    "icon_id": "mount-28",
+    "min_zoom": 8.2,
+    "icon_scale": 0.4832,
+    "priority": 624
+  },
+  {
+    "point_id": "mount-0022",
+    "icon_id": "mount-30",
+    "min_zoom": 9.6,
+    "icon_scale": 0.6145,
+    "priority": 582
+  },
+  {
+    "point_id": "mount-0038",
+    "icon_id": "mount-18",
+    "min_zoom": 9.6,
+    "icon_scale": 0.5934,
+    "priority": 581
+  },
+  {
+    "point_id": "mount-0040",
+    "icon_id": "mount-18",
+    "min_zoom": 9.6,
+    "icon_scale": 0.6061,
+    "priority": 585
+  },
+  {
+    "point_id": "mount-0056",
+    "icon_id": "mount-9",
+    "min_zoom": 9.6,
+    "icon_scale": 0.5975,
+    "priority": 582
+  },
+  {
+    "point_id": "mount-0057",
+    "icon_id": "mount-18",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5802,
+    "priority": 550
+  },
+  {
+    "point_id": "mount-0067",
+    "icon_id": "mount-27",
+    "min_zoom": 8.2,
+    "icon_scale": 0.6229,
+    "priority": 616
+  },
+  {
+    "point_id": "mount-0084",
+    "icon_id": "mount-30",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5946,
+    "priority": 552
+  },
+  {
+    "point_id": "mount-0092",
+    "icon_id": "mount-4",
+    "min_zoom": 8.2,
+    "icon_scale": 0.6181,
+    "priority": 616
+  },
+  {
+    "point_id": "mount-0096",
+    "icon_id": "mount-27",
+    "min_zoom": 11.0,
+    "icon_scale": 0.6157,
+    "priority": 550
+  },
+  {
+    "point_id": "mount-0125",
+    "icon_id": "mount-6",
+    "min_zoom": 8.2,
+    "icon_scale": 0.6191,
+    "priority": 616
+  },
+  {
+    "point_id": "mount-0132",
+    "icon_id": "mount-18",
+    "min_zoom": 9.6,
+    "icon_scale": 0.6052,
+    "priority": 583
+  },
+  {
+    "point_id": "mount-0135",
+    "icon_id": "mount-30",
+    "min_zoom": 9.6,
+    "icon_scale": 0.609,
+    "priority": 583
+  },
+  {
+    "point_id": "mount-0139",
+    "icon_id": "mount-6",
+    "min_zoom": 9.6,
+    "icon_scale": 0.6092,
+    "priority": 585
+  },
+  {
+    "point_id": "mount-0178",
+    "icon_id": "mount-30",
+    "min_zoom": 9.6,
+    "icon_scale": 0.6173,
+    "priority": 582
+  },
+  {
+    "point_id": "mount-0179",
+    "icon_id": "mount-30",
+    "min_zoom": 9.6,
+    "icon_scale": 0.6189,
+    "priority": 581
+  },
+  {
+    "point_id": "mount-0189",
+    "icon_id": "mount-9",
+    "min_zoom": 9.6,
+    "icon_scale": 0.6123,
+    "priority": 582
+  },
+  {
+    "point_id": "mount-0199",
+    "icon_id": "mount-27",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5912,
+    "priority": 553
+  },
+  {
+    "point_id": "mount-0209",
+    "icon_id": "mount-18",
+    "min_zoom": 9.6,
+    "icon_scale": 0.6117,
+    "priority": 581
+  },
+  {
+    "point_id": "mount-0220",
+    "icon_id": "mount-6",
+    "min_zoom": 9.6,
+    "icon_scale": 0.6172,
+    "priority": 582
+  },
+  {
+    "point_id": "mount-0238",
+    "icon_id": "mount-9",
+    "min_zoom": 11.0,
+    "icon_scale": 0.6172,
+    "priority": 551
+  },
+  {
+    "point_id": "mount-0257",
+    "icon_id": "mount-27",
+    "min_zoom": 9.6,
+    "icon_scale": 0.6067,
+    "priority": 585
+  },
+  {
+    "point_id": "mount-0268",
+    "icon_id": "mount-27",
+    "min_zoom": 9.6,
+    "icon_scale": 0.6195,
+    "priority": 584
+  },
+  {
+    "point_id": "mount-0278",
+    "icon_id": "mount-9",
+    "min_zoom": 9.6,
+    "icon_scale": 0.594,
+    "priority": 581
+  },
+  {
+    "point_id": "mount-0320",
+    "icon_id": "mount-30",
+    "min_zoom": 9.6,
+    "icon_scale": 0.604,
+    "priority": 584
+  },
+  {
+    "point_id": "mount-0326",
+    "icon_id": "mount-4",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5897,
+    "priority": 551
+  },
+  {
+    "point_id": "mount-0338",
+    "icon_id": "mount-30",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5899,
+    "priority": 552
+  },
+  {
+    "point_id": "mount-0349",
+    "icon_id": "mount-18",
+    "min_zoom": 11.0,
+    "icon_scale": 0.585,
+    "priority": 551
+  },
+  {
+    "point_id": "mount-0367",
+    "icon_id": "mount-4",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5802,
+    "priority": 550
+  },
+  {
+    "point_id": "mount-0373",
+    "icon_id": "mount-27",
+    "min_zoom": 11.0,
+    "icon_scale": 0.587,
+    "priority": 551
+  },
+  {
+    "point_id": "mount-0375",
+    "icon_id": "mount-18",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5892,
+    "priority": 552
+  },
+  {
+    "point_id": "mount-0377",
+    "icon_id": "mount-4",
+    "min_zoom": 9.6,
+    "icon_scale": 0.5933,
+    "priority": 581
+  },
+  {
+    "point_id": "mount-0412",
+    "icon_id": "mount-9",
+    "min_zoom": 9.6,
+    "icon_scale": 0.6089,
+    "priority": 584
+  },
+  {
+    "point_id": "mount-0414",
+    "icon_id": "mount-27",
+    "min_zoom": 9.6,
+    "icon_scale": 0.5936,
+    "priority": 581
+  },
+  {
+    "point_id": "mount-0418",
+    "icon_id": "mount-6",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5994,
+    "priority": 553
+  },
+  {
+    "point_id": "mount-0425",
+    "icon_id": "mount-6",
+    "min_zoom": 11.0,
+    "icon_scale": 0.6036,
+    "priority": 553
+  },
+  {
+    "point_id": "mount-0475",
+    "icon_id": "mount-9",
+    "min_zoom": 9.6,
+    "icon_scale": 0.5952,
+    "priority": 582
+  },
+  {
+    "point_id": "mount-0488",
+    "icon_id": "mount-18",
+    "min_zoom": 9.6,
+    "icon_scale": 0.6063,
+    "priority": 581
+  },
+  {
+    "point_id": "mount-0509",
+    "icon_id": "mount-18",
+    "min_zoom": 9.6,
+    "icon_scale": 0.612,
+    "priority": 583
+  },
+  {
+    "point_id": "mount-0520",
+    "icon_id": "mount-18",
+    "min_zoom": 11.0,
+    "icon_scale": 0.594,
+    "priority": 553
+  },
+  {
+    "point_id": "mount-0534",
+    "icon_id": "mount-27",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5922,
+    "priority": 550
+  },
+  {
+    "point_id": "mount-0537",
+    "icon_id": "mount-4",
+    "min_zoom": 9.6,
+    "icon_scale": 0.6038,
+    "priority": 584
+  },
+  {
+    "point_id": "mount-0554",
+    "icon_id": "mount-27",
+    "min_zoom": 9.6,
+    "icon_scale": 0.617,
+    "priority": 583
+  },
+  {
+    "point_id": "mount-0565",
+    "icon_id": "mount-18",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5913,
+    "priority": 553
+  },
+  {
+    "point_id": "mount-0602",
+    "icon_id": "mount-30",
+    "min_zoom": 9.6,
+    "icon_scale": 0.604,
+    "priority": 581
+  },
+  {
+    "point_id": "mount-0628",
+    "icon_id": "mount-4",
+    "min_zoom": 11.0,
+    "icon_scale": 0.6153,
+    "priority": 553
+  },
+  {
+    "point_id": "mount-0637",
+    "icon_id": "mount-9",
+    "min_zoom": 11.0,
+    "icon_scale": 0.6089,
+    "priority": 551
+  },
+  {
+    "point_id": "mount-0640",
+    "icon_id": "mount-30",
+    "min_zoom": 9.6,
+    "icon_scale": 0.6215,
+    "priority": 582
+  },
+  {
+    "point_id": "mount-0710",
+    "icon_id": "mount-27",
+    "min_zoom": 9.6,
+    "icon_scale": 0.6005,
+    "priority": 581
+  },
+  {
+    "point_id": "mount-0736",
+    "icon_id": "mount-18",
+    "min_zoom": 9.6,
+    "icon_scale": 0.6135,
+    "priority": 585
+  },
+  {
+    "point_id": "mount-0793",
+    "icon_id": "mount-27",
+    "min_zoom": 9.6,
+    "icon_scale": 0.6171,
+    "priority": 581
+  },
+  {
+    "point_id": "mount-0803",
+    "icon_id": "mount-30",
+    "min_zoom": 8.2,
+    "icon_scale": 0.624,
+    "priority": 618
+  },
+  {
+    "point_id": "mount-0807",
+    "icon_id": "mount-30",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5804,
+    "priority": 549
+  },
+  {
+    "point_id": "mount-0811",
+    "icon_id": "mount-6",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5843,
+    "priority": 551
+  },
+  {
+    "point_id": "mount-0822",
+    "icon_id": "mount-27",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5825,
+    "priority": 550
+  },
+  {
+    "point_id": "mount-0846",
+    "icon_id": "mount-4",
+    "min_zoom": 9.6,
+    "icon_scale": 0.5998,
+    "priority": 583
+  },
+  {
+    "point_id": "mount-0866",
+    "icon_id": "mount-6",
+    "min_zoom": 9.6,
+    "icon_scale": 0.5989,
+    "priority": 582
+  },
+  {
+    "point_id": "mount-0876",
+    "icon_id": "mount-30",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5918,
+    "priority": 553
+  },
+  {
+    "point_id": "mount-0895",
+    "icon_id": "mount-27",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5955,
+    "priority": 552
+  },
+  {
+    "point_id": "mount-0896",
+    "icon_id": "mount-6",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5822,
+    "priority": 550
+  },
+  {
+    "point_id": "mount-0905",
+    "icon_id": "mount-6",
+    "min_zoom": 9.6,
+    "icon_scale": 0.6095,
+    "priority": 585
+  },
+  {
+    "point_id": "mount-0920",
+    "icon_id": "mount-9",
+    "min_zoom": 9.6,
+    "icon_scale": 0.6077,
+    "priority": 583
+  },
+  {
+    "point_id": "mount-0931",
+    "icon_id": "mount-4",
+    "min_zoom": 8.2,
+    "icon_scale": 0.614,
+    "priority": 615
+  },
+  {
+    "point_id": "mount-0932",
+    "icon_id": "mount-4",
+    "min_zoom": 9.6,
+    "icon_scale": 0.5926,
+    "priority": 581
+  },
+  {
+    "point_id": "mount-0936",
+    "icon_id": "mount-9",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5967,
+    "priority": 553
+  },
+  {
+    "point_id": "mount-0945",
+    "icon_id": "mount-9",
+    "min_zoom": 9.6,
+    "icon_scale": 0.6101,
+    "priority": 582
+  },
+  {
+    "point_id": "mount-0962",
+    "icon_id": "mount-30",
+    "min_zoom": 11.0,
+    "icon_scale": 0.6127,
+    "priority": 552
+  },
+  {
+    "point_id": "mount-0997",
+    "icon_id": "mount-4",
+    "min_zoom": 11.0,
+    "icon_scale": 0.6166,
+    "priority": 551
+  },
+  {
+    "point_id": "mount-1009",
+    "icon_id": "mount-4",
+    "min_zoom": 9.6,
+    "icon_scale": 0.5983,
+    "priority": 582
+  },
+  {
+    "point_id": "mount-1011",
+    "icon_id": "mount-30",
+    "min_zoom": 11.0,
+    "icon_scale": 0.6041,
+    "priority": 552
+  },
+  {
+    "point_id": "mount-1021",
+    "icon_id": "mount-9",
+    "min_zoom": 9.6,
+    "icon_scale": 0.6242,
+    "priority": 581
+  },
+  {
+    "point_id": "mount-1048",
+    "icon_id": "mount-18",
+    "min_zoom": 9.6,
+    "icon_scale": 0.5975,
+    "priority": 582
+  },
+  {
+    "point_id": "mount-1076",
+    "icon_id": "mount-9",
+    "min_zoom": 11.0,
+    "icon_scale": 0.6058,
+    "priority": 552
+  },
+  {
+    "point_id": "mount-1079",
+    "icon_id": "mount-30",
+    "min_zoom": 9.6,
+    "icon_scale": 0.6094,
+    "priority": 585
+  },
+  {
+    "point_id": "mount-1084",
+    "icon_id": "mount-27",
+    "min_zoom": 11.0,
+    "icon_scale": 0.6021,
+    "priority": 552
+  },
+  {
+    "point_id": "mount-1085",
+    "icon_id": "mount-4",
+    "min_zoom": 9.6,
+    "icon_scale": 0.5989,
+    "priority": 582
+  },
+  {
+    "point_id": "mount-1086",
+    "icon_id": "mount-18",
+    "min_zoom": 9.6,
+    "icon_scale": 0.6091,
+    "priority": 582
+  },
+  {
+    "point_id": "mount-1103",
+    "icon_id": "mount-27",
+    "min_zoom": 9.6,
+    "icon_scale": 0.5993,
+    "priority": 583
+  },
+  {
+    "point_id": "mount-1137",
+    "icon_id": "mount-6",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5911,
+    "priority": 553
+  },
+  {
+    "point_id": "mount-1139",
+    "icon_id": "mount-9",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5835,
+    "priority": 550
+  },
+  {
+    "point_id": "mount-1150",
+    "icon_id": "mount-9",
+    "min_zoom": 8.2,
+    "icon_scale": 0.6179,
+    "priority": 614
+  },
+  {
+    "point_id": "mount-1152",
+    "icon_id": "mount-4",
+    "min_zoom": 9.6,
+    "icon_scale": 0.604,
+    "priority": 582
+  },
+  {
+    "point_id": "mount-1158",
+    "icon_id": "mount-6",
+    "min_zoom": 9.6,
+    "icon_scale": 0.6166,
+    "priority": 583
+  },
+  {
+    "point_id": "mount-1161",
+    "icon_id": "mount-27",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5886,
+    "priority": 552
+  },
+  {
+    "point_id": "mount-1169",
+    "icon_id": "mount-6",
+    "min_zoom": 11.0,
+    "icon_scale": 0.6016,
+    "priority": 552
+  },
+  {
+    "point_id": "mount-1192",
+    "icon_id": "mount-30",
+    "min_zoom": 9.6,
+    "icon_scale": 0.5946,
+    "priority": 582
+  },
+  {
+    "point_id": "mount-1216",
+    "icon_id": "mount-27",
+    "min_zoom": 9.6,
+    "icon_scale": 0.6184,
+    "priority": 582
+  },
+  {
+    "point_id": "mount-1219",
+    "icon_id": "mount-6",
+    "min_zoom": 9.6,
+    "icon_scale": 0.6159,
+    "priority": 582
+  },
+  {
+    "point_id": "mount-1224",
+    "icon_id": "mount-9",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5813,
+    "priority": 550
+  },
+  {
+    "point_id": "mount-1225",
+    "icon_id": "mount-27",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5921,
+    "priority": 553
+  },
+  {
+    "point_id": "mount-1226",
+    "icon_id": "mount-18",
+    "min_zoom": 11.0,
+    "icon_scale": 0.585,
+    "priority": 551
+  },
+  {
+    "point_id": "mount-1228",
+    "icon_id": "mount-30",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5991,
+    "priority": 551
+  },
+  {
+    "point_id": "mount-1234",
+    "icon_id": "mount-18",
+    "min_zoom": 9.6,
+    "icon_scale": 0.6213,
+    "priority": 582
+  },
+  {
+    "point_id": "mount-1245",
+    "icon_id": "mount-6",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5918,
+    "priority": 551
+  },
+  {
+    "point_id": "mount-1248",
+    "icon_id": "mount-4",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5835,
+    "priority": 550
+  },
+  {
+    "point_id": "mount-1261",
+    "icon_id": "mount-6",
+    "min_zoom": 9.6,
+    "icon_scale": 0.6088,
+    "priority": 583
+  },
+  {
+    "point_id": "mount-1279",
+    "icon_id": "mount-4",
+    "min_zoom": 9.6,
+    "icon_scale": 0.6015,
+    "priority": 584
+  },
+  {
+    "point_id": "mount-1292",
+    "icon_id": "mount-4",
+    "min_zoom": 11.0,
+    "icon_scale": 0.591,
+    "priority": 552
+  },
+  {
+    "point_id": "mount-1294",
+    "icon_id": "mount-18",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5883,
+    "priority": 552
+  },
+  {
+    "point_id": "mount-1346",
+    "icon_id": "mount-27",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5825,
+    "priority": 550
+  },
+  {
+    "point_id": "mount-1349",
+    "icon_id": "mount-30",
+    "min_zoom": 9.6,
+    "icon_scale": 0.6191,
+    "priority": 583
+  },
+  {
+    "point_id": "mount-1357",
+    "icon_id": "mount-6",
+    "min_zoom": 9.6,
+    "icon_scale": 0.6164,
+    "priority": 583
+  },
+  {
+    "point_id": "mount-1383",
+    "icon_id": "mount-27",
+    "min_zoom": 11.0,
+    "icon_scale": 0.621,
+    "priority": 553
+  },
+  {
+    "point_id": "mount-1391",
+    "icon_id": "mount-9",
+    "min_zoom": 11.0,
+    "icon_scale": 0.6177,
+    "priority": 550
+  },
+  {
+    "point_id": "mount-1395",
+    "icon_id": "mount-30",
+    "min_zoom": 9.6,
+    "icon_scale": 0.6224,
+    "priority": 583
+  },
+  {
+    "point_id": "mount-1398",
+    "icon_id": "mount-9",
+    "min_zoom": 8.2,
+    "icon_scale": 0.619,
+    "priority": 616
+  },
+  {
+    "point_id": "mount-1420",
+    "icon_id": "mount-30",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5936,
+    "priority": 551
+  },
+  {
+    "point_id": "mount-1424",
+    "icon_id": "mount-6",
+    "min_zoom": 9.6,
+    "icon_scale": 0.6106,
+    "priority": 582
+  },
+  {
+    "point_id": "mount-1443",
+    "icon_id": "mount-30",
+    "min_zoom": 11.0,
+    "icon_scale": 0.6163,
+    "priority": 553
+  },
+  {
+    "point_id": "mount-1489",
+    "icon_id": "mount-4",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5897,
+    "priority": 552
+  },
+  {
+    "point_id": "mount-1510",
+    "icon_id": "mount-4",
+    "min_zoom": 9.6,
+    "icon_scale": 0.6099,
+    "priority": 582
+  },
+  {
+    "point_id": "mount-1512",
+    "icon_id": "mount-9",
+    "min_zoom": 11.0,
+    "icon_scale": 0.6242,
+    "priority": 553
+  },
+  {
+    "point_id": "mount-1513",
+    "icon_id": "mount-18",
+    "min_zoom": 9.6,
+    "icon_scale": 0.5978,
+    "priority": 581
+  },
+  {
+    "point_id": "mount-1524",
+    "icon_id": "mount-6",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5807,
+    "priority": 550
+  },
+  {
+    "point_id": "mount-1525",
+    "icon_id": "mount-18",
+    "min_zoom": 8.2,
+    "icon_scale": 0.6211,
+    "priority": 617
+  },
+  {
+    "point_id": "mount-1528",
+    "icon_id": "mount-27",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5909,
+    "priority": 553
+  },
+  {
+    "point_id": "mount-1529",
+    "icon_id": "mount-4",
+    "min_zoom": 9.6,
+    "icon_scale": 0.5946,
+    "priority": 582
+  },
+  {
+    "point_id": "mount-1562",
+    "icon_id": "mount-27",
+    "min_zoom": 9.6,
+    "icon_scale": 0.6179,
+    "priority": 581
+  },
+  {
+    "point_id": "mount-1576",
+    "icon_id": "mount-18",
+    "min_zoom": 11.0,
+    "icon_scale": 0.6185,
+    "priority": 553
+  },
+  {
+    "point_id": "mount-1619",
+    "icon_id": "mount-6",
+    "min_zoom": 11.0,
+    "icon_scale": 0.613,
+    "priority": 551
+  },
+  {
+    "point_id": "mount-1631",
+    "icon_id": "mount-9",
+    "min_zoom": 9.6,
+    "icon_scale": 0.6086,
+    "priority": 584
+  },
+  {
+    "point_id": "mount-1634",
+    "icon_id": "mount-6",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5872,
+    "priority": 552
+  },
+  {
+    "point_id": "mount-1637",
+    "icon_id": "mount-27",
+    "min_zoom": 11.0,
+    "icon_scale": 0.6099,
+    "priority": 551
+  },
+  {
+    "point_id": "mount-1645",
+    "icon_id": "mount-4",
+    "min_zoom": 11.0,
+    "icon_scale": 0.6238,
+    "priority": 553
+  },
+  {
+    "point_id": "mount-1653",
+    "icon_id": "mount-9",
+    "min_zoom": 9.6,
+    "icon_scale": 0.5968,
+    "priority": 582
+  },
+  {
+    "point_id": "mount-1658",
+    "icon_id": "mount-18",
+    "min_zoom": 11.0,
+    "icon_scale": 0.6004,
+    "priority": 551
+  },
+  {
+    "point_id": "mount-1662",
+    "icon_id": "mount-9",
+    "min_zoom": 11.0,
+    "icon_scale": 0.6119,
+    "priority": 553
+  },
+  {
+    "point_id": "mount-1663",
+    "icon_id": "mount-6",
+    "min_zoom": 11.0,
+    "icon_scale": 0.6081,
+    "priority": 552
+  },
+  {
+    "point_id": "mount-1671",
+    "icon_id": "mount-9",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5846,
+    "priority": 551
+  },
+  {
+    "point_id": "mount-1683",
+    "icon_id": "mount-30",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5911,
+    "priority": 551
+  },
+  {
+    "point_id": "mount-1737",
+    "icon_id": "mount-27",
+    "min_zoom": 9.6,
+    "icon_scale": 0.5978,
+    "priority": 582
+  },
+  {
+    "point_id": "mount-1747",
+    "icon_id": "mount-18",
+    "min_zoom": 11.0,
+    "icon_scale": 0.597,
+    "priority": 551
+  },
+  {
+    "point_id": "mount-1778",
+    "icon_id": "mount-6",
+    "min_zoom": 9.6,
+    "icon_scale": 0.594,
+    "priority": 581
+  },
+  {
+    "point_id": "mount-1788",
+    "icon_id": "mount-18",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5866,
+    "priority": 551
+  },
+  {
+    "point_id": "mount-1805",
+    "icon_id": "mount-4",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5813,
+    "priority": 550
+  },
+  {
+    "point_id": "mount-1806",
+    "icon_id": "mount-30",
+    "min_zoom": 11.0,
+    "icon_scale": 0.6223,
+    "priority": 552
+  },
+  {
+    "point_id": "mount-1810",
+    "icon_id": "mount-4",
+    "min_zoom": 9.6,
+    "icon_scale": 0.5982,
+    "priority": 583
+  },
+  {
+    "point_id": "mount-1817",
+    "icon_id": "mount-4",
+    "min_zoom": 9.6,
+    "icon_scale": 0.6232,
+    "priority": 581
+  },
+  {
+    "point_id": "mount-1822",
+    "icon_id": "mount-6",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5908,
+    "priority": 552
+  },
+  {
+    "point_id": "mount-1831",
+    "icon_id": "mount-9",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5956,
+    "priority": 552
+  },
+  {
+    "point_id": "mount-1889",
+    "icon_id": "mount-9",
+    "min_zoom": 9.6,
+    "icon_scale": 0.614,
+    "priority": 583
+  },
+  {
+    "point_id": "mount-1902",
+    "icon_id": "mount-27",
+    "min_zoom": 9.6,
+    "icon_scale": 0.6151,
+    "priority": 582
+  },
+  {
+    "point_id": "mount-1905",
+    "icon_id": "mount-4",
+    "min_zoom": 11.0,
+    "icon_scale": 0.6007,
+    "priority": 551
+  },
+  {
+    "point_id": "mount-1909",
+    "icon_id": "mount-6",
+    "min_zoom": 9.6,
+    "icon_scale": 0.6211,
+    "priority": 581
+  },
+  {
+    "point_id": "mount-1910",
+    "icon_id": "mount-9",
+    "min_zoom": 11.0,
+    "icon_scale": 0.6071,
+    "priority": 553
+  },
+  {
+    "point_id": "mount-1927",
+    "icon_id": "mount-9",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5808,
+    "priority": 550
+  },
+  {
+    "point_id": "mount-1930",
+    "icon_id": "mount-18",
+    "min_zoom": 9.6,
+    "icon_scale": 0.608,
+    "priority": 582
+  },
+  {
+    "point_id": "mount-1935",
+    "icon_id": "mount-30",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5816,
+    "priority": 550
+  },
+  {
+    "point_id": "mount-1943",
+    "icon_id": "mount-4",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5864,
+    "priority": 551
+  },
+  {
+    "point_id": "mount-2007",
+    "icon_id": "mount-27",
+    "min_zoom": 9.6,
+    "icon_scale": 0.6525,
+    "priority": 584
+  },
+  {
+    "point_id": "mount-2031",
+    "icon_id": "mount-30",
+    "min_zoom": 9.6,
+    "icon_scale": 0.6606,
+    "priority": 581
+  },
+  {
+    "point_id": "mount-2041",
+    "icon_id": "mount-6",
+    "min_zoom": 11.0,
+    "icon_scale": 0.6672,
+    "priority": 552
+  },
+  {
+    "point_id": "mount-2056",
+    "icon_id": "mount-18",
+    "min_zoom": 11.0,
+    "icon_scale": 0.665,
+    "priority": 552
+  },
+  {
+    "point_id": "mount-5000-0001",
+    "icon_id": "mount-26",
+    "min_zoom": 6.7,
+    "icon_scale": 1.18,
+    "priority": 6105
+  },
+  {
+    "point_id": "mount-5000-0002",
+    "icon_id": "mount-11",
+    "min_zoom": 6.7,
+    "icon_scale": 1.0913,
+    "priority": 6034
+  },
+  {
+    "point_id": "mount-5000-0003",
+    "icon_id": "mount-17",
+    "min_zoom": 6.7,
+    "icon_scale": 1.05,
+    "priority": 6001
+  },
+  {
+    "point_id": "mount-5000-0004",
+    "icon_id": "mount-22",
+    "min_zoom": 6.7,
+    "icon_scale": 1.0763,
+    "priority": 6022
+  },
+  {
+    "point_id": "mount-main-0001",
+    "icon_id": "mount-13",
+    "min_zoom": 6.9,
+    "icon_scale": 0.9578,
+    "priority": 5657
+  },
+  {
+    "point_id": "mount-main-0002",
+    "icon_id": "mount-16",
+    "min_zoom": 6.9,
+    "icon_scale": 0.9229,
+    "priority": 5309
+  },
+  {
+    "point_id": "mount-main-0003",
+    "icon_id": "mount-29",
+    "min_zoom": 6.9,
+    "icon_scale": 0.9785,
+    "priority": 5863
+  },
+  {
+    "point_id": "mount-main-0004",
+    "icon_id": "mount-16",
+    "min_zoom": 6.9,
+    "icon_scale": 0.9675,
+    "priority": 5753
+  },
+  {
+    "point_id": "mount-main-0005",
+    "icon_id": "mount-12",
+    "min_zoom": 6.9,
+    "icon_scale": 0.9484,
+    "priority": 5563
+  },
+  {
+    "point_id": "mount-main-0006",
+    "icon_id": "mount-3",
+    "min_zoom": 6.9,
+    "icon_scale": 0.9191,
+    "priority": 5271
+  },
+  {
+    "point_id": "mount-main-0007",
+    "icon_id": "mount-12",
+    "min_zoom": 6.9,
+    "icon_scale": 0.9686,
+    "priority": 5764
+  },
+  {
+    "point_id": "mount-main-0008",
+    "icon_id": "mount-23",
+    "min_zoom": 6.9,
+    "icon_scale": 0.9716,
+    "priority": 5794
+  },
+  {
+    "point_id": "mount-main-0009",
+    "icon_id": "mount-3",
+    "min_zoom": 6.9,
+    "icon_scale": 0.9792,
+    "priority": 5870
+  },
+  {
+    "point_id": "mount-main-0010",
+    "icon_id": "mount-12",
+    "min_zoom": 6.9,
+    "icon_scale": 0.9462,
+    "priority": 5541
+  },
+  {
+    "point_id": "mount-main-0011",
+    "icon_id": "mount-23",
+    "min_zoom": 6.9,
+    "icon_scale": 0.9343,
+    "priority": 5423
+  },
+  {
+    "point_id": "mount-main-0012",
+    "icon_id": "mount-3",
+    "min_zoom": 6.9,
+    "icon_scale": 0.962,
+    "priority": 5699
+  },
+  {
+    "point_id": "mount-main-0013",
+    "icon_id": "mount-23",
+    "min_zoom": 6.9,
+    "icon_scale": 0.9587,
+    "priority": 5666
+  },
+  {
+    "point_id": "mount-main-0014",
+    "icon_id": "mount-16",
+    "min_zoom": 6.9,
+    "icon_scale": 0.9765,
+    "priority": 5843
+  },
+  {
+    "point_id": "mount-main-0015",
+    "icon_id": "mount-13",
+    "min_zoom": 6.9,
+    "icon_scale": 0.98,
+    "priority": 5878
+  },
+  {
+    "point_id": "mount-main-0016",
+    "icon_id": "mount-29",
+    "min_zoom": 6.9,
+    "icon_scale": 0.9547,
+    "priority": 5626
+  },
+  {
+    "point_id": "mount-main-0017",
+    "icon_id": "mount-29",
+    "min_zoom": 6.9,
+    "icon_scale": 0.923,
+    "priority": 5310
+  },
+  {
+    "point_id": "mount-main-0018",
+    "icon_id": "mount-12",
+    "min_zoom": 6.9,
+    "icon_scale": 0.8375,
+    "priority": 4458
+  },
+  {
+    "point_id": "mount-main-0019",
+    "icon_id": "mount-29",
+    "min_zoom": 6.9,
+    "icon_scale": 0.8453,
+    "priority": 4536
+  },
+  {
+    "point_id": "mount-main-0020",
+    "icon_id": "mount-16",
+    "min_zoom": 6.9,
+    "icon_scale": 0.82,
+    "priority": 4284
+  },
+  {
+    "point_id": "mount-main-0021",
+    "icon_id": "mount-13",
+    "min_zoom": 6.9,
+    "icon_scale": 0.8624,
+    "priority": 4706
+  },
+  {
+    "point_id": "rock-0039",
+    "icon_id": "mount-25",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5118,
+    "priority": 553
+  },
+  {
+    "point_id": "rock-0056",
+    "icon_id": "mount-5",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5079,
+    "priority": 552
+  },
+  {
+    "point_id": "rock-0091",
+    "icon_id": "mount-21",
+    "min_zoom": 8.2,
+    "icon_scale": 0.538,
+    "priority": 615
+  },
+  {
+    "point_id": "rock-0098",
+    "icon_id": "mount-21",
+    "min_zoom": 9.6,
+    "icon_scale": 0.5407,
+    "priority": 582
+  },
+  {
+    "point_id": "rock-0105",
+    "icon_id": "mount-15",
+    "min_zoom": 8.2,
+    "icon_scale": 0.5347,
+    "priority": 615
+  },
+  {
+    "point_id": "rock-0108",
+    "icon_id": "mount-25",
+    "min_zoom": 9.6,
+    "icon_scale": 0.5666,
+    "priority": 581
+  },
+  {
+    "point_id": "rock-0120",
+    "icon_id": "mount-15",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5084,
+    "priority": 552
+  },
+  {
+    "point_id": "rock-0149",
+    "icon_id": "mount-19",
+    "min_zoom": 9.6,
+    "icon_scale": 0.5299,
+    "priority": 584
+  },
+  {
+    "point_id": "rock-0173",
+    "icon_id": "mount-19",
+    "min_zoom": 11.0,
+    "icon_scale": 0.502,
+    "priority": 550
+  },
+  {
+    "point_id": "rock-0174",
+    "icon_id": "mount-5",
+    "min_zoom": 9.6,
+    "icon_scale": 0.524,
+    "priority": 584
+  },
+  {
+    "point_id": "rock-0194",
+    "icon_id": "mount-19",
+    "min_zoom": 9.6,
+    "icon_scale": 0.5219,
+    "priority": 584
+  },
+  {
+    "point_id": "rock-0228",
+    "icon_id": "mount-15",
+    "min_zoom": 9.6,
+    "icon_scale": 0.5202,
+    "priority": 583
+  },
+  {
+    "point_id": "rock-0243",
+    "icon_id": "mount-19",
+    "min_zoom": 8.2,
+    "icon_scale": 0.5857,
+    "priority": 616
+  },
+  {
+    "point_id": "rock-0258",
+    "icon_id": "mount-21",
+    "min_zoom": 9.6,
+    "icon_scale": 0.5984,
+    "priority": 582
+  },
+  {
+    "point_id": "rock-0268",
+    "icon_id": "mount-15",
+    "min_zoom": 8.2,
+    "icon_scale": 0.5946,
+    "priority": 621
+  },
+  {
+    "point_id": "rock-0282",
+    "icon_id": "mount-19",
+    "min_zoom": 8.2,
+    "icon_scale": 0.5992,
+    "priority": 619
+  },
+  {
+    "point_id": "rock-0286",
+    "icon_id": "mount-19",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5068,
+    "priority": 551
+  },
+  {
+    "point_id": "rock-0294",
+    "icon_id": "mount-25",
+    "min_zoom": 8.2,
+    "icon_scale": 0.5885,
+    "priority": 619
+  },
+  {
+    "point_id": "rock-0298",
+    "icon_id": "mount-5",
+    "min_zoom": 9.6,
+    "icon_scale": 0.5995,
+    "priority": 582
+  },
+  {
+    "point_id": "rock-0301",
+    "icon_id": "mount-25",
+    "min_zoom": 9.6,
+    "icon_scale": 0.5886,
+    "priority": 583
+  },
+  {
+    "point_id": "rock-0308",
+    "icon_id": "mount-25",
+    "min_zoom": 8.2,
+    "icon_scale": 0.5697,
+    "priority": 614
+  },
+  {
+    "point_id": "rock-0310",
+    "icon_id": "mount-19",
+    "min_zoom": 8.2,
+    "icon_scale": 0.5996,
+    "priority": 627
+  },
+  {
+    "point_id": "rock-0312",
+    "icon_id": "mount-19",
+    "min_zoom": 9.6,
+    "icon_scale": 0.5706,
+    "priority": 582
+  },
+  {
+    "point_id": "rock-0313",
+    "icon_id": "mount-21",
+    "min_zoom": 9.6,
+    "icon_scale": 0.5473,
+    "priority": 581
+  },
+  {
+    "point_id": "rock-0317",
+    "icon_id": "mount-5",
+    "min_zoom": 8.2,
+    "icon_scale": 0.5658,
+    "priority": 624
+  },
+  {
+    "point_id": "rock-0323",
+    "icon_id": "mount-21",
+    "min_zoom": 8.2,
+    "icon_scale": 0.5536,
+    "priority": 615
+  },
+  {
+    "point_id": "rock-0344",
+    "icon_id": "mount-25",
+    "min_zoom": 8.2,
+    "icon_scale": 0.5379,
+    "priority": 616
+  },
+  {
+    "point_id": "rock-0365",
+    "icon_id": "mount-15",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5304,
+    "priority": 553
+  },
+  {
+    "point_id": "rock-0393",
+    "icon_id": "mount-19",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5119,
+    "priority": 553
+  },
+  {
+    "point_id": "rock-0431",
+    "icon_id": "mount-25",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5011,
+    "priority": 550
+  },
+  {
+    "point_id": "rock-0453",
+    "icon_id": "mount-15",
+    "min_zoom": 8.2,
+    "icon_scale": 0.5292,
+    "priority": 614
+  },
+  {
+    "point_id": "rock-0464",
+    "icon_id": "mount-5",
+    "min_zoom": 11.0,
+    "icon_scale": 0.502,
+    "priority": 550
+  },
+  {
+    "point_id": "rock-0480",
+    "icon_id": "mount-15",
+    "min_zoom": 8.2,
+    "icon_scale": 0.5506,
+    "priority": 618
+  },
+  {
+    "point_id": "rock-0485",
+    "icon_id": "mount-19",
+    "min_zoom": 8.2,
+    "icon_scale": 0.5745,
+    "priority": 614
+  },
+  {
+    "point_id": "rock-0488",
+    "icon_id": "mount-21",
+    "min_zoom": 9.6,
+    "icon_scale": 0.5716,
+    "priority": 583
+  },
+  {
+    "point_id": "rock-0492",
+    "icon_id": "mount-19",
+    "min_zoom": 9.6,
+    "icon_scale": 0.5481,
+    "priority": 582
+  },
+  {
+    "point_id": "rock-0499",
+    "icon_id": "mount-5",
+    "min_zoom": 9.6,
+    "icon_scale": 0.5538,
+    "priority": 583
+  },
+  {
+    "point_id": "rock-0504",
+    "icon_id": "mount-19",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5069,
+    "priority": 551
+  },
+  {
+    "point_id": "rock-0510",
+    "icon_id": "mount-21",
+    "min_zoom": 8.2,
+    "icon_scale": 0.5524,
+    "priority": 614
+  },
+  {
+    "point_id": "rock-0518",
+    "icon_id": "mount-25",
+    "min_zoom": 8.2,
+    "icon_scale": 0.5342,
+    "priority": 615
+  },
+  {
+    "point_id": "rock-0553",
+    "icon_id": "mount-15",
+    "min_zoom": 9.6,
+    "icon_scale": 0.5625,
+    "priority": 583
+  },
+  {
+    "point_id": "rock-0574",
+    "icon_id": "mount-25",
+    "min_zoom": 8.2,
+    "icon_scale": 0.5662,
+    "priority": 624
+  },
+  {
+    "point_id": "rock-0594",
+    "icon_id": "mount-5",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5846,
+    "priority": 551
+  },
+  {
+    "point_id": "rock-0605",
+    "icon_id": "mount-15",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5048,
+    "priority": 551
+  },
+  {
+    "point_id": "rock-0628",
+    "icon_id": "mount-5",
+    "min_zoom": 8.2,
+    "icon_scale": 0.5601,
+    "priority": 617
+  },
+  {
+    "point_id": "rock-0634",
+    "icon_id": "mount-5",
+    "min_zoom": 9.6,
+    "icon_scale": 0.5165,
+    "priority": 582
+  },
+  {
+    "point_id": "rock-0660",
+    "icon_id": "mount-21",
+    "min_zoom": 8.2,
+    "icon_scale": 0.5895,
+    "priority": 618
+  },
+  {
+    "point_id": "rock-0678",
+    "icon_id": "mount-15",
+    "min_zoom": 9.6,
+    "icon_scale": 0.5257,
+    "priority": 585
+  },
+  {
+    "point_id": "rock-0732",
+    "icon_id": "mount-25",
+    "min_zoom": 8.2,
+    "icon_scale": 0.5532,
+    "priority": 619
+  },
+  {
+    "point_id": "rock-0744",
+    "icon_id": "mount-21",
+    "min_zoom": 9.6,
+    "icon_scale": 0.5141,
+    "priority": 581
+  },
+  {
+    "point_id": "rock-0779",
+    "icon_id": "mount-21",
+    "min_zoom": 9.6,
+    "icon_scale": 0.525,
+    "priority": 585
+  },
+  {
+    "point_id": "rock-0787",
+    "icon_id": "mount-5",
+    "min_zoom": 8.2,
+    "icon_scale": 0.5698,
+    "priority": 619
+  },
+  {
+    "point_id": "rock-0792",
+    "icon_id": "mount-15",
+    "min_zoom": 9.6,
+    "icon_scale": 0.573,
+    "priority": 584
+  },
+  {
+    "point_id": "rock-0798",
+    "icon_id": "mount-19",
+    "min_zoom": 8.2,
+    "icon_scale": 0.5892,
+    "priority": 614
+  },
+  {
+    "point_id": "rock-0800",
+    "icon_id": "mount-5",
+    "min_zoom": 8.2,
+    "icon_scale": 0.5582,
+    "priority": 614
+  },
+  {
+    "point_id": "rock-0801",
+    "icon_id": "mount-25",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5492,
+    "priority": 552
+  },
+  {
+    "point_id": "rock-0819",
+    "icon_id": "mount-25",
+    "min_zoom": 9.6,
+    "icon_scale": 0.5245,
+    "priority": 584
+  },
+  {
+    "point_id": "rock-0825",
+    "icon_id": "mount-19",
+    "min_zoom": 8.2,
+    "icon_scale": 0.5645,
+    "priority": 618
+  },
+  {
+    "point_id": "rock-0828",
+    "icon_id": "mount-21",
+    "min_zoom": 8.2,
+    "icon_scale": 0.5767,
+    "priority": 618
+  },
+  {
+    "point_id": "rock-0836",
+    "icon_id": "mount-5",
+    "min_zoom": 8.2,
+    "icon_scale": 0.5981,
+    "priority": 615
+  },
+  {
+    "point_id": "rock-0845",
+    "icon_id": "mount-5",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5607,
+    "priority": 553
+  },
+  {
+    "point_id": "rock-0857",
+    "icon_id": "mount-25",
+    "min_zoom": 9.6,
+    "icon_scale": 0.5601,
+    "priority": 582
+  },
+  {
+    "point_id": "rock-0875",
+    "icon_id": "mount-15",
+    "min_zoom": 11.0,
+    "icon_scale": 0.5653,
+    "priority": 550
+  },
+  {
+    "point_id": "rock-0893",
+    "icon_id": "mount-15",
+    "min_zoom": 8.2,
+    "icon_scale": 0.5547,
+    "priority": 621
+  },
+  {
+    "point_id": "rock-0904",
+    "icon_id": "mount-5",
+    "min_zoom": 8.2,
+    "icon_scale": 0.5324,
+    "priority": 613
+  },
+  {
+    "point_id": "rock-0905",
+    "icon_id": "mount-15",
+    "min_zoom": 8.2,
+    "icon_scale": 0.5302,
+    "priority": 614
+  },
+  {
+    "point_id": "rock-0911",
+    "icon_id": "mount-21",
+    "min_zoom": 8.2,
+    "icon_scale": 0.5554,
+    "priority": 621
+  }
+]

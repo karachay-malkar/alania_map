@@ -4,18 +4,18 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
   <meta name="theme-color" content="#d8c8a8">
-  <title>Alan Map 12.1 — 2D основа и горные точки</title>
+  <title>Alan Map 12.1 — 1000 горных точек и фигурки</title>
   <link rel="stylesheet" href="assets/maplibre.css">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <main id="map-shell" class="map-shell">
-    <div id="map" class="map" aria-label="Плоская интерактивная карта горных точек"></div>
+    <div id="map" class="map" aria-label="Плоская интерактивная карта горных точек и фигурок"></div>
 
     <div class="topbar">
       <section class="title-card" aria-label="Информация о карте">
         <h1 class="map-title">Alan Map · 12.1</h1>
-        <p class="map-subtitle">Чистая 2D-основа · утверждённая граница · все горные объекты точками</p>
+        <p class="map-subtitle">Чистая 2D-основа · 1000 равномерно отобранных точек · выборочные фигурки</p>
         <p id="map-status" class="map-status" role="status" aria-live="polite">Загрузка данных…</p>
       </section>
       <nav class="map-controls" aria-label="Управление масштабом">
@@ -26,7 +26,7 @@
     </div>
 
     <section class="legend" aria-label="Категории горных объектов">
-      <div class="legend-title"><span>Горные точки</span><span data-total-points>0</span></div>
+      <div class="legend-title"><span>Точки / фигурки</span><span><span data-total-points>0</span> / <span data-total-icons>0</span></span></div>
       <div class="legend-grid">
         <div class="legend-item"><span class="legend-dot" style="--dot:#66584b"></span><span>Горы</span><span class="legend-count" data-count="mountain">0</span></div>
         <div class="legend-item"><span class="legend-dot" style="--dot:#4e5053"></span><span>Скалы</span><span class="legend-count" data-count="rock">0</span></div>
@@ -45,10 +45,10 @@
     <div id="loading" class="loading" role="status" aria-live="polite">
       <div class="loading-card">
         <div class="loading-title">Alan Map 12.1</div>
-        <div class="loading-text">Подготавливаются граница и горные точки.</div>
+        <div class="loading-text">Подготавливаются 1000 точек и фигурки гор.</div>
       </div>
     </div>
   </main>
-  <script src="assets/bootstrap.js?v=12.1.0"></script>
+  <script src="assets/bootstrap.js?v=12.1.1"></script>
 </body>
 </html>

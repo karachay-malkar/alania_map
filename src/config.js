@@ -6,13 +6,21 @@
   'use strict';
 
   return Object.freeze({
-    version: '12.1.0',
+    version: '12.1.1',
     title: 'Alan Map · 12.1',
     boundaryUrl: 'data/map-frame.geojson',
     mountainSourceUrl: 'data/mountains/mountain_points.geojson',
+    iconBindingsUrl: 'data/mountains/mountain_icon_bindings.json',
+    iconManifestUrl: 'data/mountains/mountain_icon_manifest.json',
     minZoom: 6.7,
     maxZoom: 15,
     fitPadding: Object.freeze({top: 72, right: 36, bottom: 48, left: 36}),
+    iconTiers: Object.freeze([
+      Object.freeze({id: 'primary', minZoom: 6.7, filter: ['<', ['get', 'min_zoom'], 8]}),
+      Object.freeze({id: 'high', minZoom: 8.2, filter: ['==', ['get', 'min_zoom'], 8.2]}),
+      Object.freeze({id: 'medium', minZoom: 9.6, filter: ['==', ['get', 'min_zoom'], 9.6]}),
+      Object.freeze({id: 'detail', minZoom: 11, filter: ['==', ['get', 'min_zoom'], 11]})
+    ]),
     categories: Object.freeze({
       mountain: Object.freeze({prefix: 'mount', label: 'Гора', color: '#66584b', radius: 3.1}),
       rock: Object.freeze({prefix: 'rock', label: 'Скала', color: '#4e5053', radius: 2.8}),

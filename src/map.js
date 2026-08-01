@@ -20,6 +20,10 @@
     return `mountain-points-${type.replaceAll('_', '-')}`;
   }
 
+  function iconLayerId(tier) {
+    return `mountain-icons-${tier.id}`;
+  }
+
   function pointLayer(type) {
     const category = config.categories[type];
     return {
@@ -38,11 +42,35 @@
         'circle-color': category.color,
         'circle-stroke-color': '#f6eddc',
         'circle-stroke-width': type === 'five_thousander' ? 1.5 : 1,
-        'circle-opacity': 0.96,
-        'circle-stroke-opacity': 0.96,
+        'circle-opacity': 0.88,
+        'circle-stroke-opacity': 0.94,
         'circle-pitch-alignment': 'viewport',
         'circle-pitch-scale': 'viewport'
       }
+    };
+  }
+
+  function createIconLayer(tier) {
+    return {
+      id: iconLayerId(tier),
+      type: 'symbol',
+      source: 'mountain-icons',
+      minzoom: tier.minZoom,
+      filter: tier.filter,
+      layout: {
+        'symbol-placement': 'point',
+        'symbol-sort-key': ['get', 'sort_key'],
+        'icon-image': ['get', 'icon_id'],
+        'icon-size': ['get', 'icon_scale'],
+        'icon-anchor': 'bottom',
+        'icon-allow-overlap': false,
+        'icon-ignore-placement': false,
+        'icon-optional': false,
+        'icon-padding': 4,
+        'icon-rotation-alignment': 'viewport',
+        'icon-pitch-alignment': 'viewport'
+      },
+      paint: {'icon-opacity': 0.98}
     };
   }
 
@@ -62,6 +90,13 @@
           maxzoom: 15,
           tolerance: 0,
           buffer: 64
+        },
+        'mountain-icons': {
+          type: 'geojson',
+          data: data.icons,
+          maxzoom: 15,
+          tolerance: 0,
+          buffer: 128
         }
       },
       layers: [
@@ -104,7 +139,9 @@
 
   function updateSummary(summary) {
     const total = document.querySelector('[data-total-points]');
+    const icons = document.querySelector('[data-total-icons]');
     if (total) total.textContent = String(summary.total);
+    if (icons) icons.textContent = String(summary.icons.total);
     for (const type of CATEGORY_ORDER) {
       const target = document.querySelector(`[data-count="${type}"]`);
       if (target) target.textContent = String(summary.counts[type] || 0);
@@ -131,7 +168,7 @@
     const properties = feature.properties || {};
     const category = config.categories[properties.type] || config.categories.mountain;
     body.replaceChildren();
-    body.append(valueRow('ID', String(properties.id || '—')));
+    body.append(valueRow('ID', String(properties.id || properties.point_id || '—')));
     body.append(valueRow('Тип', category.label));
     if (properties.elevation_m !== null && properties.elevation_m !== undefined && properties.elevation_m !== '') {
       body.append(valueRow('Высота', `${properties.elevation_m} м`));
@@ -159,8 +196,7 @@
     });
   }
 
-  function bindPointInteraction(map) {
-    const layerIds = CATEGORY_ORDER.map(categoryLayerId);
+  function bindLayerInteraction(map, layerIds) {
     for (const layerId of layerIds) {
       map.on('mouseenter', layerId, () => { map.getCanvas().style.cursor = 'pointer'; });
       map.on('mouseleave', layerId, () => { map.getCanvas().style.cursor = ''; });
@@ -168,6 +204,23 @@
         const feature = event.features && event.features[0];
         if (feature) showFeatureCard(feature);
       });
+    }
+  }
+
+  async function registerAtlasIcons(map, manifest) {
+    const image = new Image();
+    image.decoding = 'async';
+    image.src = manifest.atlas;
+    await image.decode();
+    for (const icon of manifest.icons) {
+      if (map.hasImage(icon.id)) continue;
+      const canvas = document.createElement('canvas');
+      canvas.width = icon.width;
+      canvas.height = icon.height;
+      const context = canvas.getContext('2d', {alpha: true, willReadFrequently: true});
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(image, icon.x, icon.y, icon.width, icon.height, 0, 0, icon.width, icon.height);
+      map.addImage(icon.id, context.getImageData(0, 0, icon.width, icon.height), {pixelRatio: manifest.pixel_ratio});
     }
   }
 
@@ -199,17 +252,34 @@
     map.touchZoomRotate?.disableRotation();
     map.touchPitch?.disable();
 
-    map.once('load', () => {
-      map.fitBounds([[data.bounds[0], data.bounds[1]], [data.bounds[2], data.bounds[3]]], {
-        padding: config.fitPadding,
-        duration: 0,
-        bearing: 0,
-        pitch: 0
-      });
-      bindPointInteraction(map);
-      document.getElementById('loading')?.setAttribute('hidden', '');
-      const status = document.getElementById('map-status');
-      if (status) status.textContent = `Нанесено точек: ${data.summary.total}`;
+    map.once('load', async () => {
+      try {
+        await registerAtlasIcons(map, data.iconManifest);
+        const iconLayers = config.iconTiers.map(createIconLayer);
+        for (const layer of iconLayers) map.addLayer(layer);
+        map.fitBounds([[data.bounds[0], data.bounds[1]], [data.bounds[2], data.bounds[3]]], {
+          padding: config.fitPadding,
+          duration: 0,
+          bearing: 0,
+          pitch: 0
+        });
+        bindLayerInteraction(map, [
+          ...CATEGORY_ORDER.map(categoryLayerId),
+          ...config.iconTiers.map(iconLayerId)
+        ]);
+        document.getElementById('loading')?.setAttribute('hidden', '');
+        const status = document.getElementById('map-status');
+        if (status) status.textContent = `${data.summary.total} точек · ${data.summary.icons.total} фигурок`;
+      } catch (error) {
+        console.error(error);
+        const status = document.getElementById('map-status');
+        if (status) {
+          status.textContent = `Фигурки не загрузились: ${error.message || error}`;
+          status.dataset.failed = 'true';
+        }
+        const loadingText = document.querySelector('#loading .loading-text');
+        if (loadingText) loadingText.textContent = String(error.message || error);
+      }
     });
 
     bindControls(map, data);
@@ -229,6 +299,10 @@
       layerIds: (style.layers || []).map((layer) => layer.id),
       pointCount: data.summary.total,
       counts: data.summary.counts,
+      iconBindingCount: data.summary.icons.total,
+      iconCounts: data.summary.icons.counts,
+      iconTierCounts: data.summary.icons.tiers,
+      registeredImages: data.iconManifest.icons.filter((icon) => map.hasImage(icon.id)).length,
       invalidSourcePoints: data.summary.invalid,
       excludedOutsideBoundary: data.summary.outside
     };
@@ -237,6 +311,8 @@
   return Object.freeze({
     CATEGORY_ORDER,
     categoryLayerId,
+    iconLayerId,
+    createIconLayer,
     createStyle,
     createMap,
     diagnostics

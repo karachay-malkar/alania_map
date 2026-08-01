@@ -1,0 +1,76 @@
+{
+  "version": "12.1.1",
+  "source_points": 3797,
+  "active_points": 1000,
+  "target_counts": {
+    "five_thousander": 4,
+    "main_mountain": 21,
+    "mountain": 537,
+    "rock": 236,
+    "ridge": 0,
+    "hill": 202
+  },
+  "actual_counts": {
+    "five_thousander": 4,
+    "main_mountain": 21,
+    "mountain": 537,
+    "rock": 236,
+    "hill": 202
+  },
+  "icon_bindings": 300,
+  "icon_counts": {
+    "hill": 56,
+    "mountain": 152,
+    "five_thousander": 4,
+    "main_mountain": 21,
+    "rock": 67
+  },
+  "icon_tiers": {
+    "8.2": 75,
+    "9.6": 100,
+    "11.0": 100,
+    "6.7": 4,
+    "6.9": 21
+  },
+  "used_icons": {
+    "mount-28": 19,
+    "mount-10": 18,
+    "mount-8": 19,
+    "mount-30": 25,
+    "mount-18": 25,
+    "mount-9": 26,
+    "mount-27": 26,
+    "mount-4": 25,
+    "mount-6": 25,
+    "mount-26": 1,
+    "mount-11": 1,
+    "mount-17": 1,
+    "mount-22": 1,
+    "mount-13": 3,
+    "mount-16": 4,
+    "mount-29": 4,
+    "mount-12": 4,
+    "mount-3": 3,
+    "mount-23": 3,
+    "mount-25": 13,
+    "mount-5": 14,
+    "mount-21": 12,
+    "mount-15": 14,
+    "mount-19": 14
+  },
+  "point_spacing": {
+    "minimum_km": 0.192,
+    "p10_km": 2.48,
+    "median_km": 3.009,
+    "p90_km": 4.023
+  },
+  "icon_spacing": {
+    "minimum_km": 0.192,
+    "p10_km": 5.031,
+    "median_km": 6.359,
+    "p90_km": 8.418
+  },
+  "mandatory_missing_icons": [],
+  "mount_1_used": false,
+  "mount_11_non_5000": []
+}

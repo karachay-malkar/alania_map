@@ -1,0 +1,54 @@
+{
+  "version": "12.1.1",
+  "source": "final_mount_library_30_png(1).zip",
+  "excluded": [
+    "mount-1"
+  ],
+  "rules": {
+    "mount-11": "five_thousander only",
+    "sets_are_disjoint": true
+  },
+  "groups": {
+    "five_thousander": [
+      "mount-11",
+      "mount-17",
+      "mount-22",
+      "mount-26"
+    ],
+    "main_mountain": [
+      "mount-3",
+      "mount-12",
+      "mount-13",
+      "mount-16",
+      "mount-23",
+      "mount-29"
+    ],
+    "mountain": [
+      "mount-4",
+      "mount-6",
+      "mount-9",
+      "mount-18",
+      "mount-27",
+      "mount-30"
+    ],
+    "rock": [
+      "mount-5",
+      "mount-15",
+      "mount-19",
+      "mount-21",
+      "mount-25"
+    ],
+    "ridge": [
+      "mount-2",
+      "mount-7",
+      "mount-14",
+      "mount-20",
+      "mount-24"
+    ],
+    "hill": [
+      "mount-8",
+      "mount-10",
+      "mount-28"
+    ]
+  }
+}
