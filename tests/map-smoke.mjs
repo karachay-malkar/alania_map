@@ -35,12 +35,18 @@ try {
     null,
     {timeout: 120000}
   );
+  await page.waitForFunction(
+    () => window.ALAN_SLIPPY_HYBRID_DIAGNOSTICS?.().layerIds?.every((id) => window.ALAN_MAP_INSTANCE?.map?.getLayer?.(id)),
+    null,
+    {timeout: 120000}
+  );
 } catch (error) {
   const startupDiagnostics = await page.evaluate(() => ({
     fatalError: document.querySelector('.alan-map-fatal-error')?.textContent || '',
     rootText: document.getElementById('alan-map-root')?.textContent?.slice(0, 1000) || '',
     hasInstance: Boolean(window.ALAN_MAP_INSTANCE),
-    hasManifestDiagnostics: Boolean(window.ALAN_MAP_PMTILES_SHARD_DIAGNOSTICS),
+    hasSlippyDiagnostics: Boolean(window.ALAN_SLIPPY_HYBRID_DIAGNOSTICS),
+    slippy: window.ALAN_SLIPPY_HYBRID_DIAGNOSTICS?.() || null,
     shard: window.ALAN_MAP_PMTILES_SHARD_DIAGNOSTICS?.() || null,
     readyState: document.readyState
   }));
@@ -55,11 +61,6 @@ try {
 }
 await page.waitForFunction(
   () => document.querySelector('.alan-map-loading')?.classList.contains('hidden'),
-  null,
-  {timeout: 120000}
-);
-await page.waitForFunction(
-  () => window.ALAN_MAP_INSTANCE?.getFantasyDiagnostics?.().installed === true,
   null,
   {timeout: 120000}
 );
@@ -79,7 +80,7 @@ for (const checkpoint of checkpoints) {
   checkpointResults[checkpoint.id] = await page.evaluate(async (current) => {
     const map = window.ALAN_MAP_INSTANCE.map;
     map.stop();
-    map.jumpTo({center: current.center, zoom: current.zoom, pitch: 0, bearing: 180});
+    map.jumpTo({center: current.center, zoom: current.zoom, pitch: 0, bearing: 0});
     const deadline = performance.now() + 30000;
     let sourceFeatures = [];
     let values = [];
@@ -101,11 +102,9 @@ const performanceSample = await page.evaluate(async () => {
   const map = window.ALAN_MAP_INSTANCE.map;
   let frameCount = 0;
   const start = performance.now();
-  const sample = () => {
-    frameCount += 1;
-  };
+  const sample = () => { frameCount += 1; };
   map.on('render', sample);
-  map.easeTo({center: [42.35, 43.55], zoom: 8.5, pitch: 45, duration: 1200});
+  map.easeTo({center: [42.35, 43.55], zoom: 8.5, pitch: 0, bearing: 0, duration: 1200});
   await new Promise((resolve) => setTimeout(resolve, 1400));
   map.stop();
   map.off('render', sample);
@@ -126,25 +125,33 @@ const diagnostics = await page.evaluate(() => {
   const frame = instance.getFrameClipDiagnostics();
   const network = instance.getNetworkDiagnostics();
   const shard = window.ALAN_MAP_PMTILES_SHARD_DIAGNOSTICS?.() || null;
-  const fantasy = instance.getFantasyDiagnostics?.() || null;
+  const slippy = window.ALAN_SLIPPY_HYBRID_DIAGNOSTICS?.() || null;
   const requiredLayers = [
-    'osm-glacier-fill', 'osm-snow-fill', 'osm-water-fill', 'osm-river-water-fill',
+    'terrain-hillshade', 'osm-glacier-fill', 'osm-snow-fill', 'osm-water-fill', 'osm-river-water-fill',
     'osm-river-halo', 'osm-river-line', 'osm-peak-points', 'osm-peak-labels'
   ];
-  const requiredFantasyLayers = [
-    'fantasy-paper-grain', 'fantasy-ridge-shadow', 'fantasy-slope-hachures',
-    'fantasy-mountains-main', 'fantasy-mountains-secondary', 'fantasy-mountains-spur',
-    'fantasy-elbrus-massif'
+  const requiredMountainLayers = [
+    'alan-mountain-icons-standard',
+    'alan-mountain-icons-high',
+    'alan-mountain-icons-five-thousanders'
   ];
+  const layerOrder = map.getStyle().layers.map((layer) => layer.id);
+  const firstPointIndex = ['settlement-current-points', 'mountain-object-points', 'mountain-passes', 'osm-peak-points']
+    .map((id) => layerOrder.indexOf(id))
+    .filter((index) => index >= 0)
+    .sort((a, b) => a - b)[0];
+  const mountainIndexes = requiredMountainLayers.map((id) => layerOrder.indexOf(id));
   return {
     version: instance.version,
     requiredLayers: Object.fromEntries(requiredLayers.map((id) => [id, Boolean(map.getLayer(id))])),
-    requiredFantasyLayers: Object.fromEntries(requiredFantasyLayers.map((id) => [id, Boolean(map.getLayer(id))])),
-    fantasy,
-    fantasyButton: {
-      present: Boolean(document.querySelector('[data-fantasy-toggle]')),
-      active: document.querySelector('[data-fantasy-toggle]')?.classList.contains('active') || false,
-      pressed: document.querySelector('[data-fantasy-toggle]')?.getAttribute('aria-pressed') || null
+    requiredMountainLayers: Object.fromEntries(requiredMountainLayers.map((id) => [id, Boolean(map.getLayer(id))])),
+    mountainLayersBelowPoints: mountainIndexes.every((index) => index >= 0 && index < firstPointIndex),
+    slippy,
+    camera: {
+      bearing: map.getBearing(),
+      pitch: map.getPitch(),
+      maxPitch: map.getMaxPitch(),
+      terrain: map.getTerrain()
     },
     style,
     frame,
@@ -187,20 +194,17 @@ if (diagnostics.version !== '7.0.23') {
 for (const [layer, present] of Object.entries(diagnostics.requiredLayers)) {
   if (!present) throw new Error(`Required layer is missing: ${layer}`);
 }
-for (const [layer, present] of Object.entries(diagnostics.requiredFantasyLayers)) {
-  if (!present) throw new Error(`Required fantasy layer is missing: ${layer}`);
+for (const [layer, present] of Object.entries(diagnostics.requiredMountainLayers)) {
+  if (!present) throw new Error(`Required mountain layer is missing: ${layer}`);
 }
-if (!diagnostics.fantasy?.installed || !diagnostics.fantasy?.enabled || !diagnostics.fantasy?.sourcePresent || !diagnostics.fantasy?.landmarkSourcePresent) {
-  throw new Error(`Fantasy controller regression: ${JSON.stringify(diagnostics.fantasy)}`);
+if (!diagnostics.slippy?.flat || diagnostics.camera.bearing !== 0 || diagnostics.camera.pitch !== 0 || diagnostics.camera.maxPitch !== 0 || diagnostics.camera.terrain) {
+  throw new Error(`Slippy camera regression: ${JSON.stringify({slippy: diagnostics.slippy, camera: diagnostics.camera})}`);
 }
-if (diagnostics.fantasy?.installationError || diagnostics.fantasy?.wrapperError) {
-  throw new Error(`Fantasy installation error: ${JSON.stringify(diagnostics.fantasy)}`);
+if (!diagnostics.mountainLayersBelowPoints) {
+  throw new Error('Mountain icon layers are not below the point layers.');
 }
-if (!diagnostics.fantasyButton.present || !diagnostics.fantasyButton.active || diagnostics.fantasyButton.pressed !== 'true') {
-  throw new Error(`Fantasy toggle regression: ${JSON.stringify(diagnostics.fantasyButton)}`);
-}
-if (!diagnostics.fantasy?.ridge?.flattenedFeatureCount) {
-  throw new Error(`Fantasy ridge source is empty: ${JSON.stringify(diagnostics.fantasy)}`);
+if (diagnostics.slippy?.mount1Loaded) {
+  throw new Error('mount-1 must not be loaded.');
 }
 for (const [checkpoint, result] of Object.entries(checkpointResults)) {
   if (!result.matched) {
