@@ -1,0 +1,42 @@
+name: Slippy Delivery
+
+on:
+  pull_request:
+    branches:
+      - 7.0.23
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify adapter
+        shell: bash
+        run: |
+          cat assets/slippy-hybrid.part-*.js > /tmp/slippy-hybrid.js
+          node --check /tmp/slippy-hybrid.js
+          node --check assets/bootstrap.js
+          test ! -e assets/mountains/mount-1.png
+          grep -q "elevation >= 5000" /tmp/slippy-hybrid.js
+          grep -q "mount-11" /tmp/slippy-hybrid.js
+
+      - name: Package project
+        shell: bash
+        run: |
+          zip -r alan-map-7.0.23-slippy-hybrid-icons.zip . \
+            -x '.git/*' \
+            -x '.github/workflows/slippy-delivery.yml' \
+            -x 'alan-map-7.0.23-slippy-hybrid-icons.zip'
+
+      - name: Upload project archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: alan-map-7.0.23-slippy-hybrid-icons
+          path: alan-map-7.0.23-slippy-hybrid-icons.zip
+          if-no-files-found: error
+          retention-days: 7
