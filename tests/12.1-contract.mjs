@@ -11,7 +11,9 @@ const active = dataModule.normalizeMountainPoints(readJson('../data/mountains/mo
 const bindingsRaw = readJson('../data/mountains/mountain_icon_bindings.json');
 const icons = dataModule.normalizeBindings(bindingsRaw, active.collection);
 const manifest = dataModule.normalizeIconManifest(readJson('../data/mountains/mountain_icon_manifest.json'));
-const rivers = dataModule.normalizeRivers(readJson('../data/hydrography/rivers.geojson'));
+const riverParts = ['major', 'medium', 'minor'].map((name) => readJson(`../data/hydrography/rivers-${name}.geojson`));
+const rawRivers = {type: 'FeatureCollection', features: riverParts.flatMap((part) => part.features)};
+const rivers = dataModule.normalizeRivers(rawRivers);
 const selection = readJson('../data/mountains/selection_report.json');
 const riverSourceReport = readJson('../data/hydrography/river_source_report.json');
 const riverMountainReport = readJson('../data/hydrography/river_mountain_report.json');
@@ -37,7 +39,7 @@ assert.equal(riverSourceReport.source_validation.present, 32);
 assert.deepEqual(riverSourceReport.source_validation.missing, []);
 assert.deepEqual(riverSourceReport.source_validation.disconnected, []);
 assert.ok(riverMountainReport.corridor_point_count >= 800);
-assert.equal(readJson('../data/hydrography/rivers.geojson').features.some((feature) => String(feature.properties.class || '').toLowerCase() === 'stream'), false);
+assert.equal(rawRivers.features.some((feature) => String(feature.properties.class || '').toLowerCase() === 'stream'), false);
 
 const style = mapModule.createStyle({boundary, mountains: active.collection, rivers: rivers.collection});
 assert.deepEqual(Object.keys(style.sources).sort(), ['boundary', 'mountain-points', 'rivers']);
