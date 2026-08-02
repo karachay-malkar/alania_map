@@ -11,7 +11,11 @@
     mountainSourceUrl: 'data/mountains/mountain_points.geojson',
     iconBindingsUrl: 'data/mountains/mountain_icon_bindings.json',
     iconManifestUrl: 'data/mountains/mountain_icon_manifest.json',
-    riverSourceUrl: 'data/hydrography/rivers.geojson',
+    riverSourceUrls: Object.freeze([
+      'data/hydrography/rivers-major.geojson',
+      'data/hydrography/rivers-medium.geojson',
+      'data/hydrography/rivers-minor.geojson'
+    ]),
     minZoom: 6.7,
     maxZoom: 15,
     fitPadding: Object.freeze({top: 72, right: 36, bottom: 48, left: 36}),
