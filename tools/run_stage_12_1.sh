@@ -26,7 +26,9 @@ git add -A -- \
   data/mountains/mountain_icon_catalog.json \
   data/mountains/mountain_icon_manifest.json \
   data/mountains/selection_report.json \
-  data/hydrography/rivers.geojson \
+  data/hydrography/rivers-major.geojson \
+  data/hydrography/rivers-medium.geojson \
+  data/hydrography/rivers-minor.geojson \
   data/hydrography/river_source_report.json \
   data/hydrography/river_mountain_report.json
 
