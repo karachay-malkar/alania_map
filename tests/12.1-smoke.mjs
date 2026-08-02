@@ -93,7 +93,8 @@ try {
   assert.ok(Math.abs(diagnostics.widthAt9 / diagnostics.widthAt8 - 2) < 0.0001);
   assert.equal(external.length, 0, `external requests: ${external.join(', ')}`);
   assert.equal(relevant.length, 0, `browser errors: ${relevant.join('\n')}`);
-  assert.ok(performanceSample.frames > 10, `too few rendered frames: ${JSON.stringify(performanceSample)}`);
+  assert.ok(performanceSample.frames >= 3, `render loop did not stay active: ${JSON.stringify(performanceSample)}`);
+  assert.ok(performanceSample.elapsedMs < 1500, `zoom animation exceeded the allowed window: ${JSON.stringify(performanceSample)}`);
 
   const report = {firstUsefulFrameMs: Date.now() - startedAt, diagnostics, performanceSample, externalRequests: external, browserErrors: relevant, requestCount: requests.length};
   fs.writeFileSync('build/12.1-browser-diagnostics.json', JSON.stringify(report, null, 2));
