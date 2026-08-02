@@ -1,6 +1,8 @@
 name: Alan Map 12.1 Validation
 
 on:
+  pull_request:
+    types: [opened, synchronize, reopened]
   workflow_dispatch:
 
 permissions:
@@ -8,6 +10,46 @@ permissions:
 
 jobs:
   validate:
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
-      - run: echo "Validation is paused during cleanup of stale build metadata."
+      - name: Checkout 12.1
+        uses: actions/checkout@v4
+        with:
+          ref: 12.1
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Build, validate and publish 12.1
+        shell: bash
+        run: bash tools/run_stage_12_1.sh
+
+      - name: Upload validation evidence
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: alan-map-12.1-validation
+          path: |
+            build/12.1-map.png
+            build/12.1-map-failed.png
+            build/12.1-browser-diagnostics.json
+            build/12.1-browser-errors.json
+            build/http-server.log
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Upload complete project archive
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: alan-map-12.1-mountain-river-chains
+          path: |
+            build/alan-map-12.1-mountain-river-chains.zip
+            build/12.1-file-sizes.txt
+          if-no-files-found: error
+          retention-days: 7
