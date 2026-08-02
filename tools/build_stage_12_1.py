@@ -173,7 +173,8 @@ def build_bindings(records: list[dict[str, Any]], manifest: dict[str, Any]) -> l
 def main() -> None:
     full = load("data/archive/mountain_points_full.geojson")
     points = load("data/mountains/mountain_points.geojson")
-    rivers = load("data/hydrography/rivers.geojson")
+    river_parts = [load("data/hydrography/rivers-major.geojson"), load("data/hydrography/rivers-medium.geojson"), load("data/hydrography/rivers-minor.geojson")]
+    rivers = {"type": "FeatureCollection", "features": [feature for part in river_parts for feature in part["features"]]}
     manifest = load("data/mountains/mountain_icon_manifest.json")
     if len(points["features"]) != 1000:
         raise RuntimeError("Active point set must contain exactly 1000 points")
