@@ -1,15 +1,7 @@
 {
-  "version": "12.1.1",
+  "version": "12.1.3",
   "source_points": 3797,
   "active_points": 1000,
-  "target_counts": {
-    "five_thousander": 4,
-    "main_mountain": 21,
-    "mountain": 537,
-    "rock": 236,
-    "ridge": 0,
-    "hill": 202
-  },
   "actual_counts": {
     "five_thousander": 4,
     "main_mountain": 21,
@@ -17,60 +9,313 @@
     "rock": 236,
     "hill": 202
   },
-  "icon_bindings": 300,
+  "icon_bindings": 1000,
   "icon_counts": {
-    "hill": 56,
-    "mountain": 152,
+    "hill": 202,
+    "mountain": 537,
     "five_thousander": 4,
     "main_mountain": 21,
-    "rock": 67
+    "rock": 236
   },
   "icon_tiers": {
-    "8.2": 75,
-    "9.6": 100,
-    "11.0": 100,
-    "6.7": 4,
-    "6.9": 21
+    "6.7": 1000
   },
   "used_icons": {
-    "mount-28": 19,
-    "mount-10": 18,
-    "mount-8": 19,
-    "mount-30": 25,
-    "mount-18": 25,
-    "mount-9": 26,
-    "mount-27": 26,
-    "mount-4": 25,
-    "mount-6": 25,
-    "mount-26": 1,
+    "mount-10": 67,
+    "mount-8": 68,
+    "mount-28": 67,
+    "mount-4": 90,
+    "mount-30": 90,
+    "mount-18": 90,
+    "mount-27": 89,
+    "mount-9": 89,
+    "mount-6": 89,
     "mount-11": 1,
-    "mount-17": 1,
     "mount-22": 1,
-    "mount-13": 3,
+    "mount-26": 1,
+    "mount-17": 1,
+    "mount-23": 4,
+    "mount-13": 4,
     "mount-16": 4,
-    "mount-29": 4,
-    "mount-12": 4,
     "mount-3": 3,
-    "mount-23": 3,
-    "mount-25": 13,
-    "mount-5": 14,
-    "mount-21": 12,
-    "mount-15": 14,
-    "mount-19": 14
+    "mount-12": 3,
+    "mount-29": 3,
+    "mount-19": 48,
+    "mount-5": 47,
+    "mount-25": 47,
+    "mount-15": 47,
+    "mount-21": 47
   },
-  "point_spacing": {
-    "minimum_km": 0.192,
-    "p10_km": 2.48,
-    "median_km": 3.009,
-    "p90_km": 4.023
+  "river_chain_analysis": {
+    "segment_count": 1066,
+    "corridor_point_count": 814,
+    "large_spacing_count": 17,
+    "river_sides": [
+      {
+        "system_id": "aksaut",
+        "tier": 2,
+        "corridor_points": 7,
+        "left_points": 1,
+        "left_max_nearest_gap_km": null,
+        "right_points": 6,
+        "right_max_nearest_gap_km": 3.336
+      },
+      {
+        "system_id": "alibek",
+        "tier": 3,
+        "corridor_points": 8,
+        "left_points": 1,
+        "left_max_nearest_gap_km": null,
+        "right_points": 7,
+        "right_max_nearest_gap_km": 3.422
+      },
+      {
+        "system_id": "arkhyz",
+        "tier": 2,
+        "corridor_points": 39,
+        "left_points": 22,
+        "left_max_nearest_gap_km": 4.98,
+        "right_points": 17,
+        "right_max_nearest_gap_km": 5.536
+      },
+      {
+        "system_id": "baduk",
+        "tier": 3,
+        "corridor_points": 4,
+        "left_points": 4,
+        "left_max_nearest_gap_km": 3.197,
+        "right_points": 0,
+        "right_max_nearest_gap_km": null
+      },
+      {
+        "system_id": "baksan",
+        "tier": 1,
+        "corridor_points": 93,
+        "left_points": 47,
+        "left_max_nearest_gap_km": 5.636,
+        "right_points": 46,
+        "right_max_nearest_gap_km": 5.306
+      },
+      {
+        "system_id": "bashil-auzu-su",
+        "tier": 3,
+        "corridor_points": 10,
+        "left_points": 4,
+        "left_max_nearest_gap_km": 4.125,
+        "right_points": 6,
+        "right_max_nearest_gap_km": 4.062
+      },
+      {
+        "system_id": "bolshoy-zelenchuk",
+        "tier": 1,
+        "corridor_points": 58,
+        "left_points": 51,
+        "left_max_nearest_gap_km": 5.136,
+        "right_points": 7,
+        "right_max_nearest_gap_km": 15.211
+      },
+      {
+        "system_id": "chegem",
+        "tier": 1,
+        "corridor_points": 29,
+        "left_points": 16,
+        "left_max_nearest_gap_km": 4.285,
+        "right_points": 13,
+        "right_max_nearest_gap_km": 10.421
+      },
+      {
+        "system_id": "cherek-balkarsky",
+        "tier": 1,
+        "corridor_points": 14,
+        "left_points": 9,
+        "left_max_nearest_gap_km": 15.167,
+        "right_points": 5,
+        "right_max_nearest_gap_km": 19.676
+      },
+      {
+        "system_id": "cherek-bezengiysky",
+        "tier": 1,
+        "corridor_points": 44,
+        "left_points": 18,
+        "left_max_nearest_gap_km": 10.89,
+        "right_points": 26,
+        "right_max_nearest_gap_km": 7.624
+      },
+      {
+        "system_id": "dombay-ulgen",
+        "tier": 3,
+        "corridor_points": 17,
+        "left_points": 9,
+        "left_max_nearest_gap_km": 4.728,
+        "right_points": 8,
+        "right_max_nearest_gap_km": 5.096
+      },
+      {
+        "system_id": "dykh-su",
+        "tier": 3,
+        "corridor_points": 21,
+        "left_points": 8,
+        "left_max_nearest_gap_km": 6.81,
+        "right_points": 13,
+        "right_max_nearest_gap_km": 4.784
+      },
+      {
+        "system_id": "gara-auzu-su",
+        "tier": 3,
+        "corridor_points": 8,
+        "left_points": 4,
+        "left_max_nearest_gap_km": 3.988,
+        "right_points": 4,
+        "right_max_nearest_gap_km": 3.931
+      },
+      {
+        "system_id": "gondaray",
+        "tier": 2,
+        "corridor_points": 19,
+        "left_points": 3,
+        "left_max_nearest_gap_km": 5.578,
+        "right_points": 16,
+        "right_max_nearest_gap_km": 5.161
+      },
+      {
+        "system_id": "jamagat",
+        "tier": 2,
+        "corridor_points": 13,
+        "left_points": 4,
+        "left_max_nearest_gap_km": 3.041,
+        "right_points": 9,
+        "right_max_nearest_gap_km": 4.04
+      },
+      {
+        "system_id": "kara-su",
+        "tier": 3,
+        "corridor_points": 16,
+        "left_points": 10,
+        "left_max_nearest_gap_km": 13.884,
+        "right_points": 6,
+        "right_max_nearest_gap_km": 2.664
+      },
+      {
+        "system_id": "kizgych",
+        "tier": 3,
+        "corridor_points": 15,
+        "left_points": 4,
+        "left_max_nearest_gap_km": 12.75,
+        "right_points": 11,
+        "right_max_nearest_gap_km": 4.791
+      },
+      {
+        "system_id": "kuban",
+        "tier": 1,
+        "corridor_points": 94,
+        "left_points": 33,
+        "left_max_nearest_gap_km": 37.338,
+        "right_points": 61,
+        "right_max_nearest_gap_km": 4.533
+      },
+      {
+        "system_id": "makhar",
+        "tier": 2,
+        "corridor_points": 19,
+        "left_points": 13,
+        "left_max_nearest_gap_km": 7.675,
+        "right_points": 6,
+        "right_max_nearest_gap_km": 4.528
+      },
+      {
+        "system_id": "malka",
+        "tier": 1,
+        "corridor_points": 110,
+        "left_points": 69,
+        "left_max_nearest_gap_km": 13.41,
+        "right_points": 41,
+        "right_max_nearest_gap_km": 11.838
+      },
+      {
+        "system_id": "maly-zelenchuk",
+        "tier": 1,
+        "corridor_points": 1,
+        "left_points": 1,
+        "left_max_nearest_gap_km": null,
+        "right_points": 0,
+        "right_max_nearest_gap_km": null
+      },
+      {
+        "system_id": "marukha",
+        "tier": 2,
+        "corridor_points": 24,
+        "left_points": 13,
+        "left_max_nearest_gap_km": 7.005,
+        "right_points": 11,
+        "right_max_nearest_gap_km": 4.101
+      },
+      {
+        "system_id": "nalchik",
+        "tier": 2,
+        "corridor_points": 4,
+        "left_points": 0,
+        "left_max_nearest_gap_km": null,
+        "right_points": 4,
+        "right_max_nearest_gap_km": 4.837
+      },
+      {
+        "system_id": "psysh",
+        "tier": 2,
+        "corridor_points": 22,
+        "left_points": 17,
+        "left_max_nearest_gap_km": 4.029,
+        "right_points": 5,
+        "right_max_nearest_gap_km": 4.287
+      },
+      {
+        "system_id": "sofia",
+        "tier": 3,
+        "corridor_points": 4,
+        "left_points": 1,
+        "left_max_nearest_gap_km": null,
+        "right_points": 3,
+        "right_max_nearest_gap_km": 3.668
+      },
+      {
+        "system_id": "sukan-su",
+        "tier": 3,
+        "corridor_points": 15,
+        "left_points": 4,
+        "left_max_nearest_gap_km": 5.823,
+        "right_points": 11,
+        "right_max_nearest_gap_km": 6.09
+      },
+      {
+        "system_id": "teberda",
+        "tier": 1,
+        "corridor_points": 74,
+        "left_points": 34,
+        "left_max_nearest_gap_km": 18.661,
+        "right_points": 40,
+        "right_max_nearest_gap_km": 23.384
+      },
+      {
+        "system_id": "terek",
+        "tier": 1,
+        "corridor_points": 5,
+        "left_points": 0,
+        "left_max_nearest_gap_km": null,
+        "right_points": 5,
+        "right_max_nearest_gap_km": 3.41
+      },
+      {
+        "system_id": "uchkulan",
+        "tier": 2,
+        "corridor_points": 27,
+        "left_points": 18,
+        "left_max_nearest_gap_km": 4.041,
+        "right_points": 9,
+        "right_max_nearest_gap_km": 4.025
+      }
+    ]
   },
-  "icon_spacing": {
-    "minimum_km": 0.192,
-    "p10_km": 5.031,
-    "median_km": 6.359,
-    "p90_km": 8.418
-  },
-  "mandatory_missing_icons": [],
+  "unbound_points": [],
   "mount_1_used": false,
-  "mount_11_non_5000": []
+  "mount_11_non_5000": [],
+  "draw_order": "ordinary north-to-south, then main_mountain, then five_thousander"
 }

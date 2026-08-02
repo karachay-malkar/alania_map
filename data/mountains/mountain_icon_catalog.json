@@ -1,12 +1,13 @@
 {
-  "version": "12.1.1",
+  "version": "12.1.3",
   "source": "final_mount_library_30_png(1).zip",
   "excluded": [
     "mount-1"
   ],
   "rules": {
     "mount-11": "five_thousander only",
-    "sets_are_disjoint": true
+    "all_active_points_have_icons": true,
+    "river_corridor_geometry_adjustment": "scale, wide-icon selection and bottom shear; summit coordinate unchanged"
   },
   "groups": {
     "five_thousander": [
