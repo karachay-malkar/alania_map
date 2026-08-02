@@ -225,14 +225,15 @@
   }
 
   async function loadStageData() {
-    const [rawBoundary, rawMountains, rawBindings, rawManifest, rawRivers] = await Promise.all([
-      loadJson(config.boundaryUrl), loadJson(config.mountainSourceUrl), loadJson(config.iconBindingsUrl), loadJson(config.iconManifestUrl), loadJson(config.riverSourceUrl)
+    const [rawBoundary, rawMountains, rawBindings, rawManifest, ...rawRiverParts] = await Promise.all([
+      loadJson(config.boundaryUrl), loadJson(config.mountainSourceUrl), loadJson(config.iconBindingsUrl), loadJson(config.iconManifestUrl),
+      ...config.riverSourceUrls.map(loadJson)
     ]);
     const boundary = normalizeBoundary(rawBoundary);
     const normalized = normalizeMountainPoints(rawMountains, boundary);
     const icons = normalizeBindings(rawBindings, normalized.collection);
     const iconManifest = normalizeIconManifest(rawManifest);
-    const rivers = normalizeRivers(rawRivers);
+    const rivers = normalizeRivers({type: 'FeatureCollection', features: rawRiverParts.flatMap((part) => part.features || [])});
     return {boundary, mountains: normalized.collection, icons: icons.collection, iconBindings: icons.bindings, iconManifest, rivers: rivers.collection, summary: {...normalized.summary, icons: icons.summary, rivers: rivers.summary}, bounds: calculateBounds(boundary)};
   }
 
