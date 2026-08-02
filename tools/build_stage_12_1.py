@@ -1,34 +1,17 @@
 #!/usr/bin/env python3
-"""Deterministically reduce mountain points and bind project mountain PNGs."""
+"""Generate 1000 mountain bindings and river-chain diagnostics for Alan Map 12.1."""
 from __future__ import annotations
 
-import argparse
 import hashlib
 import json
 import math
 from collections import Counter, defaultdict
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
-
-TARGET_COUNTS = {
-    "five_thousander": 4,
-    "main_mountain": 21,
-    "mountain": 537,
-    "rock": 236,
-    "ridge": 0,
-    "hill": 202,
-}
-ICON_COUNTS = {
-    "five_thousander": 4,
-    "main_mountain": 21,
-    "mountain": 152,
-    "rock": 67,
-    "ridge": 0,
-    "hill": 56,
-}
+VERSION = "12.1.3"
+ROOT = Path(__file__).resolve().parents[1]
 TYPE_ORDER = ["five_thousander", "main_mountain", "mountain", "rock", "ridge", "hill"]
-MANDATORY_TYPES = {"five_thousander", "main_mountain"}
 ICON_GROUPS = {
     "five_thousander": ["mount-11", "mount-17", "mount-22", "mount-26"],
     "main_mountain": ["mount-3", "mount-12", "mount-13", "mount-16", "mount-23", "mount-29"],
@@ -37,318 +20,187 @@ ICON_GROUPS = {
     "ridge": ["mount-2", "mount-7", "mount-14", "mount-20", "mount-24"],
     "hill": ["mount-8", "mount-10", "mount-28"],
 }
-ICON_MIN_ZOOMS = (8.2, 9.6, 11.0)
+BASE_SCALE = {"mountain": 0.38, "rock": 0.35, "ridge": 0.42, "hill": 0.33}
+CORRIDOR_KM = {1: 18.0, 2: 13.0, 3: 9.0}
+GAP_TARGET_KM = {1: 6.5, 2: 7.0, 3: 7.5}
 
 
-def read_json(path: Path) -> Any:
-    return json.loads(path.read_text(encoding="utf-8"))
+def load(path: str) -> Any:
+    return json.loads((ROOT / path).read_text(encoding="utf-8"))
 
 
-def write_json(path: Path, value: Any, *, compact: bool = False) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    text = json.dumps(value, ensure_ascii=False, separators=(",", ":") if compact else None, indent=None if compact else 2)
-    path.write_text(text + ("" if compact else "\n"), encoding="utf-8")
+def save(path: str, value: Any) -> None:
+    target = ROOT / path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
-def km_xy(lon: float, lat: float, mean_lat: float) -> tuple[float, float]:
+def stable(value: str) -> float:
+    return int.from_bytes(hashlib.sha256(value.encode()).digest()[:8], "big") / (2**64 - 1)
+
+
+def kmxy(lon: float, lat: float, mean_lat: float) -> tuple[float, float]:
     return lon * 111.320 * math.cos(math.radians(mean_lat)), lat * 110.574
 
 
-def dist_sq(left: dict[str, Any], right: dict[str, Any]) -> float:
-    dx = left["x"] - right["x"]
-    dy = left["y"] - right["y"]
-    return dx * dx + dy * dy
+def iter_lines(geometry: dict[str, Any]) -> Iterable[list[list[float]]]:
+    if geometry.get("type") == "LineString":
+        yield geometry.get("coordinates") or []
+    elif geometry.get("type") == "MultiLineString":
+        yield from geometry.get("coordinates") or []
 
 
-def stable_fraction(value: str) -> float:
-    digest = hashlib.sha256(value.encode("utf-8")).digest()
-    return int.from_bytes(digest[:8], "big") / float(2**64 - 1)
+def build_segments(rivers: dict[str, Any], mean_lat: float) -> list[dict[str, Any]]:
+    result = []
+    for feature in rivers["features"]:
+        props = feature["properties"]
+        tier = int(props["tier"])
+        for line in iter_lines(feature["geometry"]):
+            points = [kmxy(float(p[0]), float(p[1]), mean_lat) for p in line]
+            for (ax, ay), (bx, by) in zip(points, points[1:]):
+                dx, dy = bx - ax, by - ay
+                length_sq = dx * dx + dy * dy
+                if length_sq > 1e-10:
+                    result.append({"system_id": props["system_id"], "tier": tier, "ax": ax, "ay": ay, "dx": dx, "dy": dy, "length_sq": length_sq})
+    if not result:
+        raise RuntimeError("No usable local river segments")
+    return result
 
 
-def decorate(features: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    mean_lat = sum(f["properties"]["latitude"] for f in features) / len(features)
-    elevations_by_type: dict[str, list[int]] = defaultdict(list)
+def nearest_river(point: dict[str, Any], segments: list[dict[str, Any]]) -> dict[str, Any]:
+    best = None
+    best_sq = float("inf")
+    px, py = point["x"], point["y"]
+    for segment in segments:
+        t = ((px - segment["ax"]) * segment["dx"] + (py - segment["ay"]) * segment["dy"]) / segment["length_sq"]
+        t = max(0.0, min(1.0, t))
+        qx = segment["ax"] + t * segment["dx"]
+        qy = segment["ay"] + t * segment["dy"]
+        vx, vy = px - qx, py - qy
+        distance_sq = vx * vx + vy * vy
+        if distance_sq < best_sq:
+            cross = segment["dx"] * (py - segment["ay"]) - segment["dy"] * (px - segment["ax"])
+            best_sq = distance_sq
+            best = {"system_id": segment["system_id"], "tier": segment["tier"], "distance_km": math.sqrt(distance_sq), "nearest_x": qx, "side": "left" if cross > 0 else "right" if cross < 0 else "axis"}
+    assert best is not None
+    best["in_corridor"] = best["distance_km"] <= CORRIDOR_KM[best["tier"]]
+    return best
+
+
+def distance(a: dict[str, Any], b: dict[str, Any]) -> float:
+    return math.hypot(a["x"] - b["x"], a["y"] - b["y"])
+
+
+def decorate(points: dict[str, Any], rivers: dict[str, Any]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    features = points["features"]
+    mean_lat = sum(float(f["properties"]["latitude"]) for f in features) / len(features)
+    elevations = defaultdict(list)
     for feature in features:
         props = feature["properties"]
-        if props["elevation_m"] is not None:
-            elevations_by_type[props["type"]].append(props["elevation_m"])
-    ranges = {
-        type_name: (min(values), max(values)) if values else (0, 1)
-        for type_name, values in elevations_by_type.items()
-    }
-    records: list[dict[str, Any]] = []
+        if props.get("elevation_m") is not None:
+            elevations[props["type"]].append(int(props["elevation_m"]))
+    ranges = {kind: (min(values), max(values)) for kind, values in elevations.items()}
+    records = []
     for feature in features:
         props = feature["properties"]
-        lon = float(props["longitude"])
-        lat = float(props["latitude"])
-        x, y = km_xy(lon, lat, mean_lat)
+        x, y = kmxy(float(props["longitude"]), float(props["latitude"]), mean_lat)
         low, high = ranges.get(props["type"], (0, 1))
-        elevation = props["elevation_m"] or 0
-        elevation_score = 0.0 if high == low else (elevation - low) / (high - low)
-        records.append({
-            "feature": feature,
-            "id": props["id"],
-            "type": props["type"],
-            "lon": lon,
-            "lat": lat,
-            "x": x,
-            "y": y,
-            "elevation": elevation,
-            "elevation_score": elevation_score,
-            "named": bool(props.get("name")),
-        })
-    return records
+        elevation = int(props.get("elevation_m") or 0)
+        records.append({"feature": feature, "id": props["id"], "type": props["type"], "lat": float(props["latitude"]), "elevation": elevation, "elevation_score": 0.0 if high == low else (elevation - low) / (high - low), "x": x, "y": y})
 
-
-def proportional_schedule(targets: dict[str, int], already: Counter[str]) -> list[str]:
-    remaining = {t: max(0, targets.get(t, 0) - already.get(t, 0)) for t in TYPE_ORDER}
-    total = sum(remaining.values())
-    chosen = Counter()
-    schedule: list[str] = []
-    for step in range(1, total + 1):
-        available = [t for t in TYPE_ORDER if chosen[t] < remaining[t]]
-        type_name = max(
-            available,
-            key=lambda t: (remaining[t] * step / total - chosen[t], remaining[t], -TYPE_ORDER.index(t)),
-        )
-        schedule.append(type_name)
-        chosen[type_name] += 1
-    return schedule
-
-
-def select_uniform(records: list[dict[str, Any]], targets: dict[str, int]) -> tuple[list[dict[str, Any]], dict[str, float]]:
-    by_type: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    segments = build_segments(rivers, mean_lat)
     for record in records:
-        by_type[record["type"]].append(record)
+        record["river"] = nearest_river(record, segments)
+        record["nearest_point_km"] = min(distance(record, other) for other in records if other is not record)
 
-    selected: list[dict[str, Any]] = [r for r in records if r["type"] in MANDATORY_TYPES]
-    selected_ids = {r["id"] for r in selected}
-    counts = Counter(r["type"] for r in selected)
+    groups = defaultdict(list)
+    for record in records:
+        river = record["river"]
+        if river["in_corridor"] and river["side"] != "axis":
+            groups[(river["system_id"], river["side"])].append(record)
+    for record in records:
+        river = record["river"]
+        same_gap = None
+        if river["in_corridor"] and river["side"] != "axis":
+            peers = groups[(river["system_id"], river["side"])]
+            same_gap = min((distance(record, other) for other in peers if other is not record), default=None)
+        record["same_side_gap_km"] = same_gap
+        target = GAP_TARGET_KM[river["tier"]]
+        side_score = 1.0 if same_gap is None and river["in_corridor"] else max(0.0, min(1.0, ((same_gap or 0.0) - target * 0.65) / (target * 0.8)))
+        spacing_score = max(0.0, min(1.0, (record["nearest_point_km"] - 3.1) / 2.6))
+        record["gap_score"] = max(side_score, spacing_score)
 
-    # Preserve spatial extremes of every ordinary category before the greedy pass.
-    for type_name in TYPE_ORDER:
-        if type_name in MANDATORY_TYPES or targets.get(type_name, 0) <= 0:
-            continue
-        candidates = by_type[type_name]
-        extrema = []
-        for key in ("x", "y"):
-            extrema.extend((min(candidates, key=lambda r: (r[key], r["id"])), max(candidates, key=lambda r: (r[key], r["id"]))))
-        for record in extrema:
-            if counts[type_name] >= targets[type_name] or record["id"] in selected_ids:
-                continue
-            selected.append(record)
-            selected_ids.add(record["id"])
-            counts[type_name] += 1
-
-    candidates = [r for r in records if r["id"] not in selected_ids and counts[r["type"]] < targets.get(r["type"], 0)]
-    min_dist = {r["id"]: min((dist_sq(r, s) for s in selected), default=float("inf")) for r in candidates}
-    schedule = proportional_schedule(targets, counts)
-    selection_scores: dict[str, float] = {}
-
-    for type_name in schedule:
-        pool = [r for r in candidates if r["type"] == type_name and r["id"] not in selected_ids]
-        if not pool:
-            raise RuntimeError(f"Not enough points for category {type_name}")
-        max_distance = max(min_dist[r["id"]] for r in pool) or 1.0
-        best = max(
-            pool,
-            key=lambda r: (
-                0.76 * (min_dist[r["id"]] / max_distance)
-                + 0.21 * r["elevation_score"]
-                + 0.02 * (1.0 if r["named"] else 0.0)
-                + 0.01 * stable_fraction(r["id"]),
-                r["elevation"],
-                r["id"],
-            ),
-        )
-        score = 0.76 * (min_dist[best["id"]] / max_distance) + 0.21 * best["elevation_score"] + 0.02 * (1.0 if best["named"] else 0.0)
-        selection_scores[best["id"]] = score
-        selected.append(best)
-        selected_ids.add(best["id"])
-        counts[type_name] += 1
-        for record in candidates:
-            if record["id"] in selected_ids:
-                continue
-            distance = dist_sq(record, best)
-            if distance < min_dist[record["id"]]:
-                min_dist[record["id"]] = distance
-
-    if len(selected) != sum(targets.values()):
-        raise RuntimeError(f"Expected {sum(targets.values())} points, selected {len(selected)}")
-    if Counter(r["type"] for r in selected) != Counter(targets):
-        raise RuntimeError(f"Category counts mismatch: {Counter(r['type'] for r in selected)}")
-    return selected, selection_scores
+    side_report = []
+    for system_id in sorted({r["river"]["system_id"] for r in records if r["river"]["in_corridor"]}):
+        system = [r for r in records if r["river"]["in_corridor"] and r["river"]["system_id"] == system_id]
+        item = {"system_id": system_id, "tier": min(r["river"]["tier"] for r in system), "corridor_points": len(system)}
+        for side in ("left", "right"):
+            side_records = [r for r in system if r["river"]["side"] == side]
+            gaps = [r["same_side_gap_km"] for r in side_records if r["same_side_gap_km"] is not None]
+            item[f"{side}_points"] = len(side_records)
+            item[f"{side}_max_nearest_gap_km"] = round(max(gaps), 3) if gaps else None
+        side_report.append(item)
+    report = {"segment_count": len(segments), "corridor_point_count": sum(r["river"]["in_corridor"] for r in records), "large_spacing_count": sum(r["nearest_point_km"] > 5.5 for r in records), "river_sides": side_report}
+    return records, report
 
 
-def select_icons(selected_points: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, float]]:
-    by_type: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for record in selected_points:
-        by_type[record["type"]].append(record)
-
-    selected: list[dict[str, Any]] = [r for r in selected_points if r["type"] in MANDATORY_TYPES]
-    selected_ids = {r["id"] for r in selected}
-    counts = Counter(r["type"] for r in selected)
-    candidates = [r for r in selected_points if r["id"] not in selected_ids and ICON_COUNTS.get(r["type"], 0) > 0]
-    min_dist = {r["id"]: min((dist_sq(r, s) for s in selected), default=float("inf")) for r in candidates}
-    schedule = proportional_schedule(ICON_COUNTS, counts)
-    scores: dict[str, float] = {}
-
-    for type_name in schedule:
-        pool = [r for r in candidates if r["type"] == type_name and r["id"] not in selected_ids]
-        if not pool:
-            raise RuntimeError(f"Not enough icon candidates for category {type_name}")
-        max_distance = max(min_dist[r["id"]] for r in pool) or 1.0
-        best = max(
-            pool,
-            key=lambda r: (
-                0.70 * (min_dist[r["id"]] / max_distance)
-                + 0.28 * r["elevation_score"]
-                + 0.02 * stable_fraction(r["id"]),
-                r["elevation"],
-                r["id"],
-            ),
-        )
-        score = 0.70 * (min_dist[best["id"]] / max_distance) + 0.28 * best["elevation_score"]
-        scores[best["id"]] = score
-        selected.append(best)
-        selected_ids.add(best["id"])
-        counts[type_name] += 1
-        for record in candidates:
-            if record["id"] in selected_ids:
-                continue
-            distance = dist_sq(record, best)
-            if distance < min_dist[record["id"]]:
-                min_dist[record["id"]] = distance
-
-    if len(selected) != sum(ICON_COUNTS.values()):
-        raise RuntimeError(f"Expected {sum(ICON_COUNTS.values())} icon bindings, selected {len(selected)}")
-    return selected, scores
-
-
-def choose_icons(icon_points: list[dict[str, Any]], scores: dict[str, float]) -> list[dict[str, Any]]:
-    usage: Counter[str] = Counter()
-    placed: list[tuple[dict[str, Any], str]] = []
-    ordinary = [r for r in icon_points if r["type"] not in MANDATORY_TYPES]
-    ordinary_sorted = sorted(ordinary, key=lambda r: (scores.get(r["id"], 0), r["elevation"], r["id"]), reverse=True)
-    tier_by_id: dict[str, float] = {}
-    for index, record in enumerate(ordinary_sorted):
-        tier_by_id[record["id"]] = ICON_MIN_ZOOMS[0] if index < 75 else ICON_MIN_ZOOMS[1] if index < 175 else ICON_MIN_ZOOMS[2]
-
-    ordered = sorted(
-        icon_points,
-        key=lambda r: (
-            2 if r["type"] == "five_thousander" else 1 if r["type"] == "main_mountain" else 0,
-            scores.get(r["id"], 0),
-            r["elevation"],
-            r["id"],
-        ),
-        reverse=True,
-    )
-    bindings: list[dict[str, Any]] = []
-    for rank, record in enumerate(ordered):
+def build_bindings(records: list[dict[str, Any]], manifest: dict[str, Any]) -> list[dict[str, Any]]:
+    aspects = {icon["id"]: icon["width"] / icon["height"] for icon in manifest["icons"]}
+    usage = Counter()
+    bindings = []
+    for record in sorted(records, key=lambda r: r["id"]):
         options = ICON_GROUPS[record["type"]]
-        def option_score(icon_id: str) -> tuple[float, float, float]:
-            nearby_same = sum(1 for other, assigned in placed if assigned == icon_id and dist_sq(record, other) < 20 * 20)
-            return (nearby_same, usage[icon_id], stable_fraction(record["id"] + ":" + icon_id))
-        icon_id = min(options, key=option_score)
-        usage[icon_id] += 1
-        placed.append((record, icon_id))
-
+        desired = 3.55 if record["gap_score"] >= 0.55 else 3.05
         if record["type"] == "five_thousander":
-            min_zoom = 6.7
-            icon_scale = 1.05 + 0.13 * record["elevation_score"]
-            priority = 1000 + record["elevation"]
+            desired = 1.15 if usage["mount-11"] == 0 else 3.0
+        icon = min(options, key=lambda item: (usage[item], abs(aspects.get(item, 3.0) - desired), stable(record["id"] + item)))
+        usage[icon] += 1
+        if record["type"] == "five_thousander":
+            scale = 1.10 + 0.16 * record["elevation_score"] + 0.05 * record["gap_score"]
+            priority = 2000 + record["elevation"]
         elif record["type"] == "main_mountain":
-            min_zoom = 6.9
-            icon_scale = 0.82 + 0.16 * record["elevation_score"]
-            priority = 900 + record["elevation"]
+            scale = 0.86 + 0.16 * record["elevation_score"] + 0.07 * record["gap_score"]
+            priority = 1500 + record["elevation"]
         else:
-            min_zoom = tier_by_id[record["id"]]
-            base_scale = {"mountain": 0.58, "rock": 0.50, "ridge": 0.56, "hill": 0.40}[record["type"]]
-            icon_scale = base_scale + 0.10 * record["elevation_score"]
-            priority = int(700 - min_zoom * 20 + scores.get(record["id"], 0) * 100)
-
-        bindings.append({
-            "point_id": record["id"],
-            "icon_id": icon_id,
-            "min_zoom": round(min_zoom, 1),
-            "icon_scale": round(icon_scale, 4),
-            "priority": priority,
-        })
-    return sorted(bindings, key=lambda b: b["point_id"])
-
-
-
-def build_catalog() -> dict[str, Any]:
-    return {
-        "version": "12.1.1",
-        "source": "final_mount_library_30_png(1).zip",
-        "excluded": ["mount-1"],
-        "rules": {
-            "mount-11": "five_thousander only",
-            "sets_are_disjoint": True,
-        },
-        "groups": ICON_GROUPS,
-    }
-
-
-def nearest_neighbor_stats(records: list[dict[str, Any]]) -> dict[str, float]:
-    distances = []
-    for index, record in enumerate(records):
-        nearest = min((math.sqrt(dist_sq(record, other)) for j, other in enumerate(records) if j != index), default=0.0)
-        distances.append(nearest)
-    distances.sort()
-    def percentile(p: float) -> float:
-        if not distances:
-            return 0.0
-        return distances[min(len(distances) - 1, round((len(distances) - 1) * p))]
-    return {
-        "minimum_km": round(distances[0], 3),
-        "p10_km": round(percentile(0.10), 3),
-        "median_km": round(percentile(0.50), 3),
-        "p90_km": round(percentile(0.90), 3),
-    }
+            scale = min(BASE_SCALE[record["type"]] + 0.075 * record["elevation_score"] + 0.14 * record["gap_score"] + (0.025 if record["river"]["in_corridor"] else 0), 0.61)
+            priority = 700 + int(record["elevation_score"] * 100) + int(record["gap_score"] * 80)
+        river = record["river"]
+        shift = max(-0.14, min(0.14, (record["x"] - river["nearest_x"]) / max(river["distance_km"], 1e-6) * (0.07 + 0.05 * record["gap_score"]))) if river["in_corridor"] else (stable(record["id"] + ":base") - 0.5) * 0.035
+        bindings.append({"point_id": record["id"], "icon_id": icon, "min_zoom": 6.7, "icon_scale": round(scale, 4), "base_shift": round(shift, 4), "priority": priority})
+    return bindings
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--full", type=Path, default=Path("data/archive/mountain_points_full.geojson"))
-    parser.add_argument("--project-root", type=Path, default=Path("."))
-    args = parser.parse_args()
-    root = args.project_root.resolve()
-    full = read_json(root / args.full)
-    records = decorate(full["features"])
-    selected, point_scores = select_uniform(records, TARGET_COUNTS)
-    selected = sorted(selected, key=lambda r: (TYPE_ORDER.index(r["type"]), r["id"]))
-    active_collection = {"type": "FeatureCollection", "features": [r["feature"] for r in selected]}
-    icon_points, icon_scores = select_icons(selected)
-    bindings = choose_icons(icon_points, icon_scores)
-    catalog = build_catalog()
-
-    write_json(root / "data/mountains/mountain_points.geojson", active_collection, compact=True)
-    write_json(root / "data/mountains/mountain_icon_bindings.json", bindings, compact=False)
-    write_json(root / "data/mountains/mountain_icon_catalog.json", catalog, compact=False)
-
-    selected_by_id = {r["id"]: r for r in selected}
-    icon_types = Counter(selected_by_id[b["point_id"]]["type"] for b in bindings)
-    report = {
-        "version": "12.1.1",
-        "source_points": len(records),
-        "active_points": len(selected),
-        "target_counts": TARGET_COUNTS,
-        "actual_counts": dict(Counter(r["type"] for r in selected)),
+    full = load("data/archive/mountain_points_full.geojson")
+    points = load("data/mountains/mountain_points.geojson")
+    rivers = load("data/hydrography/rivers.geojson")
+    manifest = load("data/mountains/mountain_icon_manifest.json")
+    if len(points["features"]) != 1000:
+        raise RuntimeError("Active point set must contain exactly 1000 points")
+    records, chain_report = decorate(points, rivers)
+    bindings = build_bindings(records, manifest)
+    by_id = {record["id"]: record for record in records}
+    selection = {
+        "version": VERSION,
+        "source_points": len(full["features"]),
+        "active_points": len(records),
+        "actual_counts": dict(Counter(r["type"] for r in records)),
         "icon_bindings": len(bindings),
-        "icon_counts": dict(icon_types),
+        "icon_counts": dict(Counter(by_id[b["point_id"]]["type"] for b in bindings)),
         "icon_tiers": dict(Counter(str(b["min_zoom"]) for b in bindings)),
         "used_icons": dict(Counter(b["icon_id"] for b in bindings)),
-        "point_spacing": nearest_neighbor_stats(selected),
-        "icon_spacing": nearest_neighbor_stats(icon_points),
-        "mandatory_missing_icons": [r["id"] for r in selected if r["type"] in MANDATORY_TYPES and r["id"] not in {b["point_id"] for b in bindings}],
+        "river_chain_analysis": chain_report,
+        "unbound_points": sorted(set(by_id) - {b["point_id"] for b in bindings}),
         "mount_1_used": any(b["icon_id"] == "mount-1" for b in bindings),
-        "mount_11_non_5000": [b["point_id"] for b in bindings if b["icon_id"] == "mount-11" and selected_by_id[b["point_id"]]["type"] != "five_thousander"],
+        "mount_11_non_5000": [b["point_id"] for b in bindings if b["icon_id"] == "mount-11" and by_id[b["point_id"]]["type"] != "five_thousander"],
+        "draw_order": "ordinary north-to-south, then main_mountain, then five_thousander",
     }
-    write_json(root / "data/mountains/selection_report.json", report, compact=False)
-    print(json.dumps(report, ensure_ascii=False, indent=2))
+    catalog = {"version": VERSION, "source": "final_mount_library_30_png(1).zip", "excluded": ["mount-1"], "rules": {"mount-11": "five_thousander only", "all_active_points_have_icons": True, "river_corridor_geometry_adjustment": "scale, wide-icon selection and bottom shear; summit coordinate unchanged"}, "groups": ICON_GROUPS}
+    save("data/mountains/mountain_icon_bindings.json", bindings)
+    save("data/mountains/mountain_icon_catalog.json", catalog)
+    save("data/mountains/selection_report.json", selection)
+    save("data/hydrography/river_mountain_report.json", {"version": VERSION, "method": "Every active mountain point is checked against the nearest validated river segment; scale, PNG aspect and bottom shear reduce chain gaps while the summit coordinate stays fixed.", **chain_report})
+    print(json.dumps(selection, ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":
