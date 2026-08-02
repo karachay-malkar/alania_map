@@ -41,6 +41,6 @@ fi
 
 rm -rf build/package
 mkdir -p build/package
-rsync -a --exclude='.git' --exclude='build' --exclude='node_modules' --exclude='package-lock.json' ./ build/package/
+rsync -a --exclude='.git' --exclude='.build' --exclude='build' --exclude='node_modules' --exclude='package-lock.json' ./ build/package/
 (cd build/package && zip -qr ../alan-map-12.1-mountain-river-chains.zip .)
 find build/package -type f -printf '%P\t%s bytes\n' | sort > build/12.1-file-sizes.txt
