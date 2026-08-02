@@ -1,45 +1,41 @@
 (function (root, factory) {
-  if (typeof module === 'object' && module.exports) {
-    module.exports = factory(require('./config.js'));
-  } else {
-    root.ALAN_12_1_MAP = factory(root.ALAN_12_1_CONFIG);
-  }
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./config.js'));
+  else root.ALAN_12_1_MAP = factory(root.ALAN_12_1_CONFIG);
 })(typeof self !== 'undefined' ? self : this, function (config) {
   'use strict';
 
-  const CATEGORY_ORDER = Object.freeze([
-    'mountain', 'rock', 'ridge', 'hill', 'main_mountain', 'five_thousander'
-  ]);
-  const BASE_WIDTH_M = Object.freeze({mountain: 9000, rock: 8500, ridge: 10000, hill: 10000, main_mountain: 9500, five_thousander: 11000});
+  const CATEGORY_ORDER = Object.freeze(['mountain', 'rock', 'ridge', 'hill', 'main_mountain', 'five_thousander']);
+  const BASE_WIDTH_M = Object.freeze({mountain: 8000, rock: 7600, ridge: 8600, hill: 7600, main_mountain: 10000, five_thousander: 12000});
 
   function categoryLayerId(type) {
     return `mountain-points-${type.replaceAll('_', '-')}`;
   }
 
   function pointLayer(type) {
-    const category = config.categories[type];
     return {
       id: categoryLayerId(type),
       type: 'circle',
       source: 'mountain-points',
       minzoom: config.minZoom,
       filter: ['==', ['get', 'type'], type],
-      paint: {
-        'circle-radius': [
-          'interpolate', ['linear'], ['zoom'],
-          config.minZoom, Math.max(1.8, category.radius - 1.1),
-          10, category.radius,
-          15, category.radius + 1.5
-        ],
-        'circle-color': category.color,
-        'circle-stroke-color': '#f6eddc',
-        'circle-stroke-width': type === 'five_thousander' ? 1.5 : 1,
-        'circle-opacity': 0.9,
-        'circle-stroke-opacity': 0.95,
-        'circle-pitch-alignment': 'viewport',
-        'circle-pitch-scale': 'viewport'
-      }
+      layout: {visibility: 'none'},
+      paint: {'circle-radius': config.pointHitRadius, 'circle-color': 'rgba(0,0,0,0)', 'circle-opacity': 0}
     };
+  }
+
+  function tierMatch(major, medium, minor) {
+    return ['match', ['get', 'tier'], 1, major, 2, medium, minor];
+  }
+
+  function riverWidth(kind) {
+    const buffer = kind === 'buffer';
+    return [
+      'interpolate', ['linear'], ['zoom'],
+      config.minZoom, buffer ? tierMatch(5.2, 3.8, 2.8) : tierMatch(1.15, 0.85, 0.62),
+      10, buffer ? tierMatch(15, 10.5, 7.3) : tierMatch(2.8, 2.0, 1.35),
+      13, buffer ? tierMatch(37, 26, 17) : tierMatch(5.8, 4.2, 2.8),
+      15, buffer ? tierMatch(55, 39, 26) : tierMatch(8.2, 6.0, 4.0)
+    ];
   }
 
   function createStyle(data) {
@@ -47,19 +43,26 @@
       version: 8,
       sources: {
         boundary: {type: 'geojson', data: data.boundary, tolerance: 0.1, buffer: 16},
+        rivers: {type: 'geojson', data: data.rivers, maxzoom: 15, tolerance: 0.05, buffer: 128},
         'mountain-points': {type: 'geojson', data: data.mountains, maxzoom: 15, tolerance: 0, buffer: 64}
       },
       layers: [
-        {id: 'background', type: 'background', paint: {'background-color': '#d8c8a8'}},
-        {id: 'territory-fill', type: 'fill', source: 'boundary', paint: {'fill-color': '#efe2c8', 'fill-opacity': 1}},
+        {id: 'background', type: 'background', paint: {'background-color': config.colors.outside}},
+        {id: 'territory-fill', type: 'fill', source: 'boundary', paint: {'fill-color': config.colors.territory, 'fill-opacity': 1}},
         {
           id: 'territory-outline', type: 'line', source: 'boundary',
           layout: {'line-cap': 'round', 'line-join': 'round'},
-          paint: {
-            'line-color': '#5e5143',
-            'line-width': ['interpolate', ['linear'], ['zoom'], config.minZoom, 1.1, 12, 2.2],
-            'line-opacity': 0.92
-          }
+          paint: {'line-color': config.colors.boundary, 'line-width': ['interpolate', ['linear'], ['zoom'], config.minZoom, 1.1, 12, 2.2], 'line-opacity': 0.92}
+        },
+        {
+          id: config.riverBufferLayerId, type: 'line', source: 'rivers',
+          layout: {'line-cap': 'round', 'line-join': 'round'},
+          paint: {'line-color': config.colors.territory, 'line-width': riverWidth('buffer'), 'line-opacity': 1}
+        },
+        {
+          id: config.riverLineLayerId, type: 'line', source: 'rivers',
+          layout: {'line-cap': 'round', 'line-join': 'round'},
+          paint: {'line-color': config.colors.river, 'line-width': riverWidth('line'), 'line-opacity': 0.98}
         },
         ...CATEGORY_ORDER.map(pointLayer)
       ]
@@ -73,9 +76,7 @@
   function updateSummary(summary) {
     document.querySelector('[data-total-points]')?.replaceChildren(String(summary.total));
     document.querySelector('[data-total-icons]')?.replaceChildren(String(summary.icons.total));
-    for (const type of CATEGORY_ORDER) {
-      document.querySelector(`[data-count="${type}"]`)?.replaceChildren(String(summary.counts[type] || 0));
-    }
+    for (const type of CATEGORY_ORDER) document.querySelector(`[data-count="${type}"]`)?.replaceChildren(String(summary.counts[type] || 0));
   }
 
   function valueRow(label, value) {
@@ -100,9 +101,7 @@
     body.replaceChildren();
     body.append(valueRow('ID', String(properties.id || '—')));
     body.append(valueRow('Тип', category.label));
-    if (properties.elevation_m !== null && properties.elevation_m !== undefined && properties.elevation_m !== '') {
-      body.append(valueRow('Высота', `${properties.elevation_m} м`));
-    }
+    if (properties.elevation_m !== null && properties.elevation_m !== undefined && properties.elevation_m !== '') body.append(valueRow('Высота', `${properties.elevation_m} м`));
     body.append(valueRow('Долгота', Number(properties.longitude).toFixed(6)));
     body.append(valueRow('Широта', Number(properties.latitude).toFixed(6)));
     if (properties.name) body.append(valueRow('Название', String(properties.name)));
@@ -112,25 +111,34 @@
   function bindControls(map, data) {
     document.querySelector('[data-action="zoom-in"]')?.addEventListener('click', () => map.zoomIn({duration: 180}));
     document.querySelector('[data-action="zoom-out"]')?.addEventListener('click', () => map.zoomOut({duration: 180}));
-    document.querySelector('[data-action="reset"]')?.addEventListener('click', () => map.fitBounds(
-      [[data.bounds[0], data.bounds[1]], [data.bounds[2], data.bounds[3]]],
-      {padding: config.fitPadding, duration: 420, bearing: 0, pitch: 0}
-    ));
-    document.querySelector('[data-action="close-card"]')?.addEventListener('click', () => {
-      const card = document.getElementById('feature-card');
-      if (card) card.hidden = true;
-    });
+    document.querySelector('[data-action="reset"]')?.addEventListener('click', () => map.fitBounds([[data.bounds[0], data.bounds[1]], [data.bounds[2], data.bounds[3]]], {padding: config.fitPadding, duration: 420, bearing: 0, pitch: 0}));
+    document.querySelector('[data-action="close-card"]')?.addEventListener('click', () => { const card = document.getElementById('feature-card'); if (card) card.hidden = true; });
   }
 
-  function bindPointInteraction(map) {
-    for (const layerId of CATEGORY_ORDER.map(categoryLayerId)) {
-      map.on('mouseenter', layerId, () => { map.getCanvas().style.cursor = 'pointer'; });
-      map.on('mouseleave', layerId, () => { map.getCanvas().style.cursor = ''; });
-      map.on('click', layerId, (event) => {
-        const feature = event.features && event.features[0];
-        if (feature) showFeatureCard(feature);
-      });
+  function nearestPointFeature(map, features, screenPoint, radius) {
+    let best = null;
+    let bestDistanceSq = radius * radius;
+    for (const feature of features) {
+      const coordinates = feature.geometry.coordinates;
+      const projected = map.project({lng: coordinates[0], lat: coordinates[1]});
+      const dx = projected.x - screenPoint.x;
+      const dy = projected.y - screenPoint.y;
+      const distanceSq = dx * dx + dy * dy;
+      if (distanceSq <= bestDistanceSq) { bestDistanceSq = distanceSq; best = feature; }
     }
+    return best;
+  }
+
+  function bindPointInteraction(map, data) {
+    const features = data.mountains.features;
+    map.on('mousemove', (event) => {
+      map.getCanvas().style.cursor = nearestPointFeature(map, features, event.point, config.pointHitRadius) ? 'pointer' : '';
+    });
+    map.on('mouseout', () => { map.getCanvas().style.cursor = ''; });
+    map.on('click', (event) => {
+      const feature = nearestPointFeature(map, features, event.point, config.pointHitRadius);
+      if (feature) showFeatureCard(feature);
+    });
   }
 
   function compileShader(gl, type, source) {
@@ -193,9 +201,7 @@
       let summitY = 0;
       let found = false;
       for (let y = 0; y < icon.height && !found; y += 1) {
-        for (let x = 0; x < icon.width; x += 1) {
-          if (alpha[(y * icon.width + x) * 4 + 3] > 20) { summitY = y; found = true; break; }
-        }
+        for (let x = 0; x < icon.width; x += 1) if (alpha[(y * icon.width + x) * 4 + 3] > 20) { summitY = y; found = true; break; }
       }
       let weightedX = 0;
       let weight = 0;
@@ -214,17 +220,17 @@
     const manifestById = buildSpriteMetrics(data.iconManifest, atlasImage);
     const typeRank = {mountain: 0, rock: 0, ridge: 0, hill: 0, main_mountain: 1, five_thousander: 2};
     const features = [...data.icons.features].sort((left, right) => {
-      const a = left.properties;
-      const b = right.properties;
+      const a = left.properties; const b = right.properties;
       return (typeRank[a.type] - typeRank[b.type]) || (b.latitude - a.latitude) || (a.priority - b.priority) || a.point_id.localeCompare(b.point_id);
     });
-    const layer = {
+    return {
       id: config.imageLayerId,
       type: 'custom',
       renderingMode: '2d',
       imageCount: features.length,
       drawCalls: 0,
       vertexCount: 0,
+      drawOrder: features.map((feature) => feature.properties.point_id),
       onAdd(map, gl) {
         this.map = map;
         this.gl = gl;
@@ -259,17 +265,25 @@
           const visibleTop = Math.max(0, -icon.y);
           const visibleRight = Math.min(icon.width, data.iconManifest.atlas_width - icon.x);
           const visibleBottom = Math.min(icon.height, data.iconManifest.atlas_height - icon.y);
-          const x0 = left + width * (visibleLeft / icon.width);
-          const x1 = left + width * (visibleRight / icon.width);
           const y0 = top + height * (visibleTop / icon.height);
           const y1 = top + height * (visibleBottom / icon.height);
+          const summitV = icon.summit_y / icon.height;
+          const denominator = Math.max(0.001, 1 - summitV);
+          const shear = width * Number(properties.base_shift || 0);
+          const shiftAt = (spriteY) => shear * ((spriteY / icon.height) - summitV) / denominator;
+          const topShift = shiftAt(visibleTop);
+          const bottomShift = shiftAt(visibleBottom);
+          const x0Top = left + width * (visibleLeft / icon.width) + topShift;
+          const x1Top = left + width * (visibleRight / icon.width) + topShift;
+          const x0Bottom = left + width * (visibleLeft / icon.width) + bottomShift;
+          const x1Bottom = left + width * (visibleRight / icon.width) + bottomShift;
           const u0 = Math.max(0, icon.x) / data.iconManifest.atlas_width;
           const u1 = Math.min(data.iconManifest.atlas_width, icon.x + icon.width) / data.iconManifest.atlas_width;
           const v0 = Math.max(0, icon.y) / data.iconManifest.atlas_height;
           const v1 = Math.min(data.iconManifest.atlas_height, icon.y + icon.height) / data.iconManifest.atlas_height;
           values.push(
-            x0, y0, u0, v0,  x1, y0, u1, v0,  x1, y1, u1, v1,
-            x0, y0, u0, v0,  x1, y1, u1, v1,  x0, y1, u0, v1
+            x0Top, y0, u0, v0, x1Top, y0, u1, v0, x1Bottom, y1, u1, v1,
+            x0Top, y0, u0, v0, x1Bottom, y1, u1, v1, x0Bottom, y1, u0, v1
           );
           this.widths.set(properties.point_id, {widthM, latitude: properties.latitude});
         }
@@ -307,7 +321,6 @@
         return item.widthM * coordinate.meterInMercatorCoordinateUnits() * 512 * Math.pow(2, zoom);
       }
     };
-    return layer;
   }
 
   async function loadAtlasImage(manifest) {
@@ -335,22 +348,17 @@
       try {
         const atlasImage = await loadAtlasImage(data.iconManifest);
         const imageLayer = createMountainImageLayer(maplibregl, data, atlasImage);
-        map.addLayer(imageLayer, categoryLayerId('mountain'));
+        map.addLayer(imageLayer, config.riverBufferLayerId);
         map.__mountainImageLayer = imageLayer;
-        map.fitBounds([[data.bounds[0], data.bounds[1]], [data.bounds[2], data.bounds[3]]], {
-          padding: config.fitPadding, duration: 0, bearing: 0, pitch: 0
-        });
-        bindPointInteraction(map);
+        map.fitBounds([[data.bounds[0], data.bounds[1]], [data.bounds[2], data.bounds[3]]], {padding: config.fitPadding, duration: 0, bearing: 0, pitch: 0});
+        bindPointInteraction(map, data);
         document.getElementById('loading')?.setAttribute('hidden', '');
         const status = document.getElementById('map-status');
-        if (status) status.textContent = `${data.summary.total} точек · ${data.summary.icons.total} фигурок`;
+        if (status) status.textContent = `${data.summary.total} точек · ${data.summary.icons.total} фигурок · ${data.summary.rivers.representedSystems} речные системы`;
       } catch (error) {
         console.error(error);
         const status = document.getElementById('map-status');
-        if (status) {
-          status.textContent = `Фигурки не загрузились: ${error.message || error}`;
-          status.dataset.failed = 'true';
-        }
+        if (status) { status.textContent = `Карта не загрузилась: ${error.message || error}`; status.dataset.failed = 'true'; }
         document.querySelector('#loading .loading-text')?.replaceChildren(String(error.message || error));
       }
     });
@@ -363,25 +371,23 @@
   function diagnostics(map, data) {
     const style = map.getStyle();
     const renderer = map.__mountainImageLayer;
+    const layerIds = (style.layers || []).map((layer) => layer.id);
+    const runtimeLayerOrder = Array.isArray(map.style?._order) ? [...map.style._order] : layerIds;
     return {
       version: config.version,
       flat: map.getPitch() === 0 && map.getBearing() === 0 && map.getMaxPitch() === 0,
       pitch: map.getPitch(), bearing: map.getBearing(), maxPitch: map.getMaxPitch(),
-      sourceIds: Object.keys(style.sources || {}),
-      layerIds: (style.layers || []).map((layer) => layer.id),
-      pointCount: data.summary.total,
-      counts: data.summary.counts,
-      iconBindingCount: data.summary.icons.total,
-      iconCounts: data.summary.icons.counts,
-      imageLayerCount: renderer?.imageCount || 0,
-      imageVertexCount: renderer?.vertexCount || 0,
-      imageDrawCalls: renderer?.drawCalls || 0,
-      invalidSourcePoints: data.summary.invalid,
-      excludedOutsideBoundary: data.summary.outside
+      sourceIds: Object.keys(style.sources || {}), layerIds, runtimeLayerOrder,
+      pointCount: data.summary.total, counts: data.summary.counts,
+      iconBindingCount: data.summary.icons.total, iconCounts: data.summary.icons.counts,
+      riverFeatureCount: data.summary.rivers.features, representedRiverSystems: data.summary.rivers.representedSystems,
+      imageLayerCount: renderer?.imageCount || 0, imageVertexCount: renderer?.vertexCount || 0, imageDrawCalls: renderer?.drawCalls || 0,
+      imageLayerBeforeRiverBuffer: runtimeLayerOrder.indexOf(config.imageLayerId) >= 0 && runtimeLayerOrder.indexOf(config.imageLayerId) < runtimeLayerOrder.indexOf(config.riverBufferLayerId),
+      riverBufferBeforeRiverLine: runtimeLayerOrder.indexOf(config.riverBufferLayerId) < runtimeLayerOrder.indexOf(config.riverLineLayerId),
+      pointLayersHidden: CATEGORY_ORDER.every((type) => map.getLayoutProperty(categoryLayerId(type), 'visibility') === 'none'),
+      invalidSourcePoints: data.summary.invalid, excludedOutsideBoundary: data.summary.outside
     };
   }
 
-  return Object.freeze({
-    CATEGORY_ORDER, BASE_WIDTH_M, categoryLayerId, pointLayer, createStyle, buildSpriteMetrics, createMountainImageLayer, createMap, diagnostics
-  });
+  return Object.freeze({CATEGORY_ORDER, BASE_WIDTH_M, categoryLayerId, pointLayer, riverWidth, createStyle, buildSpriteMetrics, createMountainImageLayer, createMap, diagnostics, nearestPointFeature});
 });
