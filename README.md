@@ -67,7 +67,9 @@ priority
 
 Активные файлы:
 
-- `data/hydrography/rivers.geojson`;
+- `data/hydrography/rivers-major.geojson`;
+- `data/hydrography/rivers-medium.geojson`;
+- `data/hydrography/rivers-minor.geojson`;
 - `data/hydrography/river_source_report.json`;
 - `data/hydrography/river_mountain_report.json`.
 
