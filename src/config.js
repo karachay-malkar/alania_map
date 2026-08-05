@@ -5,8 +5,8 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
   return Object.freeze({
-    version: '12.1.3',
-    title: 'Alan Map · 12.1',
+    version: '12.1.4',
+    title: 'Alan Map · 12.1.4',
     boundaryUrl: 'data/map-frame.geojson',
     mountainSourceUrl: 'data/mountains/mountain_points.geojson',
     iconBindingsUrl: 'data/mountains/mountain_icon_bindings.json',
@@ -22,7 +22,6 @@
     imageLayerId: 'mountain-images',
     riverBufferLayerId: 'river-buffer',
     riverLineLayerId: 'river-line',
-    pointHitRadius: 11,
     colors: Object.freeze({
       outside: '#d8c8a8',
       territory: '#efe2c8',

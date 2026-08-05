@@ -39,21 +39,15 @@ try {
       imageLayerRegistered: Boolean(instance.map.getLayer('mountain-images')),
       riverBufferRegistered: Boolean(instance.map.getLayer('river-buffer')),
       riverLineRegistered: Boolean(instance.map.getLayer('river-line')),
+      featureCardPresent: Boolean(document.getElementById('feature-card')),
       firstOrdinaryIndex: order.indexOf(firstOrdinary.properties.point_id),
       firstMainIndex: order.indexOf(firstMain.properties.point_id),
       firstFiveIndex: order.indexOf(firstFive.properties.point_id)
     };
   });
 
-  const clickable = await page.evaluate(async () => {
-    const instance = window.ALAN_12_1_INSTANCE;
-    const feature = instance.data.mountains.features.find((item) => item.properties.type === 'five_thousander');
-    const point = instance.map.project(feature.geometry.coordinates);
-    const rect = instance.map.getCanvas().getBoundingClientRect();
-    return {x: rect.left + point.x, y: rect.top + point.y};
-  });
-  await page.mouse.click(clickable.x, clickable.y);
-  await page.waitForFunction(() => document.getElementById('feature-card')?.hidden === false);
+  await page.mouse.move(720, 500);
+  const canvasCursor = await page.evaluate(() => getComputedStyle(window.ALAN_12_1_INSTANCE.map.getCanvas()).cursor);
 
   const performanceSample = await page.evaluate(async () => {
     const map = window.ALAN_12_1_INSTANCE.map;
@@ -71,9 +65,9 @@ try {
 
   const external = requests.filter((url) => !url.startsWith('http://127.0.0.1:8000/') && !url.startsWith('blob:http://127.0.0.1:8000/'));
   const relevant = errors.filter((message) => !/favicon|WebGL performance caveat/i.test(message));
-  assert.equal(diagnostics.version, '12.1.3');
+  assert.equal(diagnostics.version, '12.1.4');
   assert.equal(diagnostics.flat, true);
-  assert.deepEqual(diagnostics.sourceIds.sort(), ['boundary', 'mountain-points', 'rivers']);
+  assert.deepEqual(diagnostics.sourceIds.sort(), ['boundary', 'rivers']);
   assert.equal(diagnostics.pointCount, 1000);
   assert.equal(diagnostics.iconBindingCount, 1000);
   assert.equal(diagnostics.imageLayerCount, 1000);
@@ -86,17 +80,22 @@ try {
   assert.equal(diagnostics.riverLineRegistered, true);
   assert.equal(diagnostics.imageLayerBeforeRiverBuffer, true);
   assert.equal(diagnostics.riverBufferBeforeRiverLine, true);
-  assert.equal(diagnostics.pointLayersHidden, true);
+  assert.equal(diagnostics.imageAnchorMode, 'center');
+  assert.equal(diagnostics.imageSizeMultiplier, 2);
+  assert.equal(diagnostics.pointSourceRegistered, false);
+  assert.equal(diagnostics.pointInteractionEnabled, false);
+  assert.equal(diagnostics.featureCardPresent, false);
   assert.ok(diagnostics.firstOrdinaryIndex >= 0 && diagnostics.firstMainIndex > diagnostics.firstOrdinaryIndex && diagnostics.firstFiveIndex > diagnostics.firstMainIndex);
   assert.deepEqual(diagnostics.bindingPropertyKeys, ['base_shift', 'icon_id', 'icon_scale', 'min_zoom', 'point_id', 'priority']);
-  assert.equal(diagnostics.status, '1000 точек · 1000 фигурок · 32 речные системы');
+  assert.equal(diagnostics.status, '1000 фигурок · 32 речные системы');
   assert.ok(Math.abs(diagnostics.widthAt9 / diagnostics.widthAt8 - 2) < 0.0001);
+  assert.notEqual(canvasCursor, 'pointer');
   assert.equal(external.length, 0, `external requests: ${external.join(', ')}`);
   assert.equal(relevant.length, 0, `browser errors: ${relevant.join('\n')}`);
   assert.ok(performanceSample.frames >= 3, `render loop did not stay active: ${JSON.stringify(performanceSample)}`);
   assert.ok(performanceSample.elapsedMs < 1500, `zoom animation exceeded the allowed window: ${JSON.stringify(performanceSample)}`);
 
-  const report = {firstUsefulFrameMs: Date.now() - startedAt, diagnostics, performanceSample, externalRequests: external, browserErrors: relevant, requestCount: requests.length};
+  const report = {firstUsefulFrameMs: Date.now() - startedAt, diagnostics, canvasCursor, performanceSample, externalRequests: external, browserErrors: relevant, requestCount: requests.length};
   fs.writeFileSync('build/12.1-browser-diagnostics.json', JSON.stringify(report, null, 2));
   await page.screenshot({path: 'build/12.1-map.png', animations: 'disabled'});
   console.log(JSON.stringify(report, null, 2));

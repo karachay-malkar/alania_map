@@ -43,8 +43,7 @@ button { font: inherit; }
 
 .title-card,
 .legend,
-.map-controls,
-.feature-card {
+.map-controls {
   background: rgba(246, 238, 221, 0.94);
   border: 1px solid rgba(74, 62, 50, 0.26);
   box-shadow: 0 6px 22px rgba(56, 44, 32, 0.14);
@@ -84,8 +83,7 @@ button { font: inherit; }
   pointer-events: auto;
 }
 
-.map-controls button,
-.close-card {
+.map-controls button {
   appearance: none;
   border: 0;
   background: transparent;
@@ -103,9 +101,7 @@ button { font: inherit; }
 
 .map-controls button:last-child { border-bottom: 0; font-size: 15px; }
 .map-controls button:hover,
-.map-controls button:focus-visible,
-.close-card:hover,
-.close-card:focus-visible { background: rgba(92, 76, 58, 0.1); outline: none; }
+.map-controls button:focus-visible { background: rgba(92, 76, 58, 0.1); outline: none; }
 
 .legend {
   position: absolute;
@@ -154,33 +150,6 @@ button { font: inherit; }
 
 .legend-count { margin-left: auto; color: #8a7d6e; font-variant-numeric: tabular-nums; }
 
-.feature-card {
-  position: absolute;
-  z-index: 6;
-  right: 12px;
-  bottom: max(12px, env(safe-area-inset-bottom));
-  width: min(310px, calc(100vw - 24px));
-  border-radius: 10px;
-  overflow: hidden;
-}
-
-.feature-card[hidden] { display: none; }
-.feature-card-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 10px 8px 12px;
-  border-bottom: 1px solid rgba(74, 62, 50, 0.16);
-  font-weight: 700;
-  font-size: 13px;
-}
-
-.close-card { width: 30px; height: 30px; border-radius: 7px; font-size: 18px; }
-.feature-card-body { padding: 8px 12px 11px; }
-.feature-row { display: grid; grid-template-columns: 92px 1fr; gap: 10px; padding: 4px 0; font-size: 12px; }
-.feature-term { color: #807366; }
-.feature-value { min-width: 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
-
 .loading {
   position: absolute;
   z-index: 10;
@@ -212,5 +181,4 @@ button { font: inherit; }
   .map-controls { grid-template-columns: 34px; }
   .map-controls button { width: 34px; height: 34px; }
   .legend { left: 8px; bottom: max(8px, env(safe-area-inset-bottom)); width: min(230px, calc(100vw - 16px)); }
-  .feature-card { right: 8px; bottom: max(8px, env(safe-area-inset-bottom)); }
 }

@@ -16,27 +16,19 @@ trap - EXIT
 
 rm -rf node_modules package-lock.json package.json
 
-git add -A -- \
-  README.md DATA-SOURCES-AND-LICENSES.md index.html styles.css \
-  src/config.js src/data.js src/map.js src/app.js \
-  tests/12.1-contract.mjs tests/12.1-smoke.mjs \
-  tools/build_stage_12_1.py tools/run_stage_12_1.sh \
-  data/mountains/mountain_points.geojson \
+# Validation is read-only: generated files must already be committed in the candidate branch.
+if ! git diff --quiet -- \
   data/mountains/mountain_icon_bindings.json \
   data/mountains/mountain_icon_catalog.json \
-  data/mountains/mountain_icon_manifest.json \
   data/mountains/selection_report.json \
-  data/hydrography/rivers-major.geojson \
-  data/hydrography/rivers-medium.geojson \
-  data/hydrography/rivers-minor.geojson \
-  data/hydrography/river_source_report.json \
-  data/hydrography/river_mountain_report.json
-
-if ! git diff --cached --quiet; then
-  git config user.name github-actions[bot]
-  git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-  git commit -m "Build 1000 mountain chains and river valleys"
-  git push origin HEAD:12.1
+  data/hydrography/river_mountain_report.json; then
+  echo 'Generated stage data differs from the committed candidate.' >&2
+  git diff -- \
+    data/mountains/mountain_icon_bindings.json \
+    data/mountains/mountain_icon_catalog.json \
+    data/mountains/selection_report.json \
+    data/hydrography/river_mountain_report.json >&2
+  exit 1
 fi
 
 rm -rf build/package

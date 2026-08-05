@@ -8,7 +8,7 @@
     if (!config || !dataModule || !mapModule) throw new Error('Модули карты 12.1 подключены не полностью.');
 
     const status = document.getElementById('map-status');
-    if (status) status.textContent = 'Подготавливаются граница и горные точки…';
+    if (status) status.textContent = 'Подготавливаются граница и горные фигурки…';
 
     const data = await dataModule.loadStageData();
     const map = mapModule.createMap(root.maplibregl, data);
