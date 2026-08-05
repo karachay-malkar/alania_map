@@ -1,6 +1,6 @@
 {
-  "version": "12.1.3",
-  "method": "Every active mountain point is checked against the nearest validated river segment; scale, PNG aspect and bottom shear reduce chain gaps while the summit coordinate stays fixed.",
+  "version": "12.1.4",
+  "method": "Every active mountain coordinate is checked against the nearest validated river segment; scale, PNG aspect and center-based shear reduce chain gaps while the image center stays fixed.",
   "segment_count": 1066,
   "corridor_point_count": 814,
   "large_spacing_count": 17,
