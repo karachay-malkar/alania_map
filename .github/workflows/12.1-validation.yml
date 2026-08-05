@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   validate:
@@ -14,10 +14,10 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
-      - name: Checkout 12.1
+      - name: Checkout current 12.1 candidate
         uses: actions/checkout@v4
         with:
-          ref: 12.1
+          ref: ${{ github.event.pull_request.head.sha || '12.1' }}
           fetch-depth: 0
 
       - name: Setup Node
@@ -25,7 +25,7 @@ jobs:
         with:
           node-version: 22
 
-      - name: Build, validate and publish 12.1
+      - name: Build and validate 12.1 candidate
         shell: bash
         run: bash tools/run_stage_12_1.sh
 
