@@ -5,23 +5,15 @@
   'use strict';
 
   const CATEGORY_ORDER = Object.freeze(['mountain', 'rock', 'ridge', 'hill', 'main_mountain', 'five_thousander']);
-  const BASE_WIDTH_M = Object.freeze({mountain: 8000, rock: 7600, ridge: 8600, hill: 7600, main_mountain: 10000, five_thousander: 12000});
-
-  function categoryLayerId(type) {
-    return `mountain-points-${type.replaceAll('_', '-')}`;
-  }
-
-  function pointLayer(type) {
-    return {
-      id: categoryLayerId(type),
-      type: 'circle',
-      source: 'mountain-points',
-      minzoom: config.minZoom,
-      filter: ['==', ['get', 'type'], type],
-      layout: {visibility: 'none'},
-      paint: {'circle-radius': config.pointHitRadius, 'circle-color': 'rgba(0,0,0,0)', 'circle-opacity': 0}
-    };
-  }
+  const SIZE_MULTIPLIER = 2;
+  const BASE_WIDTH_M = Object.freeze({
+    mountain: 16000,
+    rock: 15200,
+    ridge: 17200,
+    hill: 15200,
+    main_mountain: 20000,
+    five_thousander: 24000
+  });
 
   function tierMatch(major, medium, minor) {
     return ['match', ['get', 'tier'], 1, major, 2, medium, minor];
@@ -43,8 +35,7 @@
       version: 8,
       sources: {
         boundary: {type: 'geojson', data: data.boundary, tolerance: 0.1, buffer: 16},
-        rivers: {type: 'geojson', data: data.rivers, maxzoom: 15, tolerance: 0.05, buffer: 128},
-        'mountain-points': {type: 'geojson', data: data.mountains, maxzoom: 15, tolerance: 0, buffer: 64}
+        rivers: {type: 'geojson', data: data.rivers, maxzoom: 15, tolerance: 0.05, buffer: 128}
       },
       layers: [
         {id: 'background', type: 'background', paint: {'background-color': config.colors.outside}},
@@ -63,8 +54,7 @@
           id: config.riverLineLayerId, type: 'line', source: 'rivers',
           layout: {'line-cap': 'round', 'line-join': 'round'},
           paint: {'line-color': config.colors.river, 'line-width': riverWidth('line'), 'line-opacity': 0.98}
-        },
-        ...CATEGORY_ORDER.map(pointLayer)
+        }
       ]
     };
   }
@@ -74,71 +64,17 @@
   }
 
   function updateSummary(summary) {
-    document.querySelector('[data-total-points]')?.replaceChildren(String(summary.total));
     document.querySelector('[data-total-icons]')?.replaceChildren(String(summary.icons.total));
     for (const type of CATEGORY_ORDER) document.querySelector(`[data-count="${type}"]`)?.replaceChildren(String(summary.counts[type] || 0));
-  }
-
-  function valueRow(label, value) {
-    const row = document.createElement('div');
-    row.className = 'feature-row';
-    const term = document.createElement('span');
-    term.className = 'feature-term';
-    term.textContent = label;
-    const description = document.createElement('span');
-    description.className = 'feature-value';
-    description.textContent = value;
-    row.append(term, description);
-    return row;
-  }
-
-  function showFeatureCard(feature) {
-    const card = document.getElementById('feature-card');
-    const body = document.getElementById('feature-card-body');
-    if (!card || !body) return;
-    const properties = feature.properties || {};
-    const category = config.categories[properties.type] || config.categories.mountain;
-    body.replaceChildren();
-    body.append(valueRow('ID', String(properties.id || '—')));
-    body.append(valueRow('Тип', category.label));
-    if (properties.elevation_m !== null && properties.elevation_m !== undefined && properties.elevation_m !== '') body.append(valueRow('Высота', `${properties.elevation_m} м`));
-    body.append(valueRow('Долгота', Number(properties.longitude).toFixed(6)));
-    body.append(valueRow('Широта', Number(properties.latitude).toFixed(6)));
-    if (properties.name) body.append(valueRow('Название', String(properties.name)));
-    card.hidden = false;
   }
 
   function bindControls(map, data) {
     document.querySelector('[data-action="zoom-in"]')?.addEventListener('click', () => map.zoomIn({duration: 180}));
     document.querySelector('[data-action="zoom-out"]')?.addEventListener('click', () => map.zoomOut({duration: 180}));
-    document.querySelector('[data-action="reset"]')?.addEventListener('click', () => map.fitBounds([[data.bounds[0], data.bounds[1]], [data.bounds[2], data.bounds[3]]], {padding: config.fitPadding, duration: 420, bearing: 0, pitch: 0}));
-    document.querySelector('[data-action="close-card"]')?.addEventListener('click', () => { const card = document.getElementById('feature-card'); if (card) card.hidden = true; });
-  }
-
-  function nearestPointFeature(map, features, screenPoint, radius) {
-    let best = null;
-    let bestDistanceSq = radius * radius;
-    for (const feature of features) {
-      const coordinates = feature.geometry.coordinates;
-      const projected = map.project({lng: coordinates[0], lat: coordinates[1]});
-      const dx = projected.x - screenPoint.x;
-      const dy = projected.y - screenPoint.y;
-      const distanceSq = dx * dx + dy * dy;
-      if (distanceSq <= bestDistanceSq) { bestDistanceSq = distanceSq; best = feature; }
-    }
-    return best;
-  }
-
-  function bindPointInteraction(map, data) {
-    const features = data.mountains.features;
-    map.on('mousemove', (event) => {
-      map.getCanvas().style.cursor = nearestPointFeature(map, features, event.point, config.pointHitRadius) ? 'pointer' : '';
-    });
-    map.on('mouseout', () => { map.getCanvas().style.cursor = ''; });
-    map.on('click', (event) => {
-      const feature = nearestPointFeature(map, features, event.point, config.pointHitRadius);
-      if (feature) showFeatureCard(feature);
-    });
+    document.querySelector('[data-action="reset"]')?.addEventListener('click', () => map.fitBounds(
+      [[data.bounds[0], data.bounds[1]], [data.bounds[2], data.bounds[3]]],
+      {padding: config.fitPadding, duration: 420, bearing: 0, pitch: 0}
+    ));
   }
 
   function compileShader(gl, type, source) {
@@ -188,41 +124,27 @@
     return program;
   }
 
-  function buildSpriteMetrics(manifest, atlasImage) {
+  function buildSpriteMetrics(manifest) {
     const metrics = new Map();
     for (const icon of manifest.icons) {
-      const canvas = document.createElement('canvas');
-      canvas.width = icon.width;
-      canvas.height = icon.height;
-      const context = canvas.getContext('2d', {alpha: true, willReadFrequently: true});
-      context.clearRect(0, 0, icon.width, icon.height);
-      context.drawImage(atlasImage, icon.x, icon.y, icon.width, icon.height, 0, 0, icon.width, icon.height);
-      const alpha = context.getImageData(0, 0, icon.width, icon.height).data;
-      let summitY = 0;
-      let found = false;
-      for (let y = 0; y < icon.height && !found; y += 1) {
-        for (let x = 0; x < icon.width; x += 1) if (alpha[(y * icon.width + x) * 4 + 3] > 20) { summitY = y; found = true; break; }
-      }
-      let weightedX = 0;
-      let weight = 0;
-      for (let y = summitY; y < Math.min(icon.height, summitY + 5); y += 1) {
-        for (let x = 0; x < icon.width; x += 1) {
-          const value = alpha[(y * icon.width + x) * 4 + 3];
-          if (value > 20) { weightedX += x * value; weight += value; }
-        }
-      }
-      metrics.set(icon.id, {...icon, summit_x: weight ? weightedX / weight : icon.width / 2, summit_y: summitY});
+      metrics.set(icon.id, {
+        ...icon,
+        center_x: icon.width / 2,
+        center_y: icon.height / 2
+      });
     }
     return metrics;
   }
 
   function createMountainImageLayer(maplibregl, data, atlasImage) {
-    const manifestById = buildSpriteMetrics(data.iconManifest, atlasImage);
+    const manifestById = buildSpriteMetrics(data.iconManifest);
     const typeRank = {mountain: 0, rock: 0, ridge: 0, hill: 0, main_mountain: 1, five_thousander: 2};
     const features = [...data.icons.features].sort((left, right) => {
-      const a = left.properties; const b = right.properties;
+      const a = left.properties;
+      const b = right.properties;
       return (typeRank[a.type] - typeRank[b.type]) || (b.latitude - a.latitude) || (a.priority - b.priority) || a.point_id.localeCompare(b.point_id);
     });
+
     return {
       id: config.imageLayerId,
       type: 'custom',
@@ -231,6 +153,8 @@
       drawCalls: 0,
       vertexCount: 0,
       drawOrder: features.map((feature) => feature.properties.point_id),
+      anchorMode: 'center',
+      sizeMultiplier: SIZE_MULTIPLIER,
       onAdd(map, gl) {
         this.map = map;
         this.gl = gl;
@@ -254,29 +178,31 @@
           const properties = feature.properties;
           const icon = manifestById.get(properties.icon_id);
           if (!icon) throw new Error(`Фигурка отсутствует в манифесте: ${properties.icon_id}`);
+
           const coordinate = maplibregl.MercatorCoordinate.fromLngLat({lng: properties.longitude, lat: properties.latitude}, 0);
           const unitsPerMeter = coordinate.meterInMercatorCoordinateUnits();
           const widthM = BASE_WIDTH_M[properties.type] * Number(properties.icon_scale);
           const width = widthM * unitsPerMeter;
           const height = width * (icon.height / icon.width);
-          const left = coordinate.x - width * (icon.summit_x / icon.width);
-          const top = coordinate.y - height * (icon.summit_y / icon.height);
+          const left = coordinate.x - width * (icon.center_x / icon.width);
+          const top = coordinate.y - height * (icon.center_y / icon.height);
+
           const visibleLeft = Math.max(0, -icon.x);
           const visibleTop = Math.max(0, -icon.y);
           const visibleRight = Math.min(icon.width, data.iconManifest.atlas_width - icon.x);
           const visibleBottom = Math.min(icon.height, data.iconManifest.atlas_height - icon.y);
           const y0 = top + height * (visibleTop / icon.height);
           const y1 = top + height * (visibleBottom / icon.height);
-          const summitV = icon.summit_y / icon.height;
-          const denominator = Math.max(0.001, 1 - summitV);
+
           const shear = width * Number(properties.base_shift || 0);
-          const shiftAt = (spriteY) => shear * ((spriteY / icon.height) - summitV) / denominator;
+          const shiftAt = (spriteY) => shear * ((spriteY / icon.height) - 0.5) * 2;
           const topShift = shiftAt(visibleTop);
           const bottomShift = shiftAt(visibleBottom);
           const x0Top = left + width * (visibleLeft / icon.width) + topShift;
           const x1Top = left + width * (visibleRight / icon.width) + topShift;
           const x0Bottom = left + width * (visibleLeft / icon.width) + bottomShift;
           const x1Bottom = left + width * (visibleRight / icon.width) + bottomShift;
+
           const u0 = Math.max(0, icon.x) / data.iconManifest.atlas_width;
           const u1 = Math.min(data.iconManifest.atlas_width, icon.x + icon.width) / data.iconManifest.atlas_width;
           const v0 = Math.max(0, icon.y) / data.iconManifest.atlas_height;
@@ -287,6 +213,7 @@
           );
           this.widths.set(properties.point_id, {widthM, latitude: properties.latitude});
         }
+
         this.vertexCount = values.length / 4;
         this.buffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
@@ -350,15 +277,20 @@
         const imageLayer = createMountainImageLayer(maplibregl, data, atlasImage);
         map.addLayer(imageLayer, config.riverBufferLayerId);
         map.__mountainImageLayer = imageLayer;
-        map.fitBounds([[data.bounds[0], data.bounds[1]], [data.bounds[2], data.bounds[3]]], {padding: config.fitPadding, duration: 0, bearing: 0, pitch: 0});
-        bindPointInteraction(map, data);
+        map.fitBounds(
+          [[data.bounds[0], data.bounds[1]], [data.bounds[2], data.bounds[3]]],
+          {padding: config.fitPadding, duration: 0, bearing: 0, pitch: 0}
+        );
         document.getElementById('loading')?.setAttribute('hidden', '');
         const status = document.getElementById('map-status');
-        if (status) status.textContent = `${data.summary.total} точек · ${data.summary.icons.total} фигурок · ${data.summary.rivers.representedSystems} речные системы`;
+        if (status) status.textContent = `${data.summary.icons.total} фигурок · ${data.summary.rivers.representedSystems} речные системы`;
       } catch (error) {
         console.error(error);
         const status = document.getElementById('map-status');
-        if (status) { status.textContent = `Карта не загрузилась: ${error.message || error}`; status.dataset.failed = 'true'; }
+        if (status) {
+          status.textContent = `Карта не загрузилась: ${error.message || error}`;
+          status.dataset.failed = 'true';
+        }
         document.querySelector('#loading .loading-text')?.replaceChildren(String(error.message || error));
       }
     });
@@ -376,18 +308,31 @@
     return {
       version: config.version,
       flat: map.getPitch() === 0 && map.getBearing() === 0 && map.getMaxPitch() === 0,
-      pitch: map.getPitch(), bearing: map.getBearing(), maxPitch: map.getMaxPitch(),
-      sourceIds: Object.keys(style.sources || {}), layerIds, runtimeLayerOrder,
-      pointCount: data.summary.total, counts: data.summary.counts,
-      iconBindingCount: data.summary.icons.total, iconCounts: data.summary.icons.counts,
-      riverFeatureCount: data.summary.rivers.features, representedRiverSystems: data.summary.rivers.representedSystems,
-      imageLayerCount: renderer?.imageCount || 0, imageVertexCount: renderer?.vertexCount || 0, imageDrawCalls: renderer?.drawCalls || 0,
+      pitch: map.getPitch(),
+      bearing: map.getBearing(),
+      maxPitch: map.getMaxPitch(),
+      sourceIds: Object.keys(style.sources || {}),
+      layerIds,
+      runtimeLayerOrder,
+      pointCount: data.summary.total,
+      counts: data.summary.counts,
+      iconBindingCount: data.summary.icons.total,
+      iconCounts: data.summary.icons.counts,
+      riverFeatureCount: data.summary.rivers.features,
+      representedRiverSystems: data.summary.rivers.representedSystems,
+      imageLayerCount: renderer?.imageCount || 0,
+      imageVertexCount: renderer?.vertexCount || 0,
+      imageDrawCalls: renderer?.drawCalls || 0,
+      imageAnchorMode: renderer?.anchorMode || null,
+      imageSizeMultiplier: renderer?.sizeMultiplier || 0,
+      pointSourceRegistered: Boolean(style.sources?.['mountain-points']),
+      pointInteractionEnabled: false,
       imageLayerBeforeRiverBuffer: runtimeLayerOrder.indexOf(config.imageLayerId) >= 0 && runtimeLayerOrder.indexOf(config.imageLayerId) < runtimeLayerOrder.indexOf(config.riverBufferLayerId),
       riverBufferBeforeRiverLine: runtimeLayerOrder.indexOf(config.riverBufferLayerId) < runtimeLayerOrder.indexOf(config.riverLineLayerId),
-      pointLayersHidden: CATEGORY_ORDER.every((type) => map.getLayoutProperty(categoryLayerId(type), 'visibility') === 'none'),
-      invalidSourcePoints: data.summary.invalid, excludedOutsideBoundary: data.summary.outside
+      invalidSourcePoints: data.summary.invalid,
+      excludedOutsideBoundary: data.summary.outside
     };
   }
 
-  return Object.freeze({CATEGORY_ORDER, BASE_WIDTH_M, categoryLayerId, pointLayer, riverWidth, createStyle, buildSpriteMetrics, createMountainImageLayer, createMap, diagnostics, nearestPointFeature});
+  return Object.freeze({CATEGORY_ORDER, SIZE_MULTIPLIER, BASE_WIDTH_M, riverWidth, createStyle, buildSpriteMetrics, createMountainImageLayer, createMap, diagnostics});
 });
