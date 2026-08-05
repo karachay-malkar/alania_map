@@ -79,6 +79,7 @@ jobs:
         run: |
           python -m pip install --disable-pip-version-check shapely==2.1.2
           python tools/build_stage_12_1.py
+          rm -f assets/bootstrap.js
           node --check src/config.js
           node --check src/data.js
           node --check src/map.js
@@ -86,7 +87,6 @@ jobs:
           node --check src/app.js
           node --check assets/app-12.1.5.js
           node tests/12.1-contract.mjs
-          rm -f assets/bootstrap.js
 
       - name: Commit complete candidate
         shell: bash
