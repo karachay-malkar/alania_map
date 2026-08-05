@@ -9,7 +9,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any, Iterable
 
-VERSION = "12.1.3"
+VERSION = "12.1.4"
 ROOT = Path(__file__).resolve().parents[1]
 TYPE_ORDER = ["five_thousander", "main_mountain", "mountain", "rock", "ridge", "hill"]
 ICON_GROUPS = {
@@ -196,11 +196,11 @@ def main() -> None:
         "mount_11_non_5000": [b["point_id"] for b in bindings if b["icon_id"] == "mount-11" and by_id[b["point_id"]]["type"] != "five_thousander"],
         "draw_order": "ordinary north-to-south, then main_mountain, then five_thousander",
     }
-    catalog = {"version": VERSION, "source": "final_mount_library_30_png(1).zip", "excluded": ["mount-1"], "rules": {"mount-11": "five_thousander only", "all_active_points_have_icons": True, "river_corridor_geometry_adjustment": "scale, wide-icon selection and bottom shear; summit coordinate unchanged"}, "groups": ICON_GROUPS}
+    catalog = {"version": VERSION, "source": "final_mount_library_30_png(1).zip", "excluded": ["mount-1"], "rules": {"mount-11": "five_thousander only", "all_active_points_have_icons": True, "river_corridor_geometry_adjustment": "scale, wide-icon selection and center-based shear; image center remains on the source coordinate"}, "groups": ICON_GROUPS}
     save("data/mountains/mountain_icon_bindings.json", bindings)
     save("data/mountains/mountain_icon_catalog.json", catalog)
     save("data/mountains/selection_report.json", selection)
-    save("data/hydrography/river_mountain_report.json", {"version": VERSION, "method": "Every active mountain point is checked against the nearest validated river segment; scale, PNG aspect and bottom shear reduce chain gaps while the summit coordinate stays fixed.", **chain_report})
+    save("data/hydrography/river_mountain_report.json", {"version": VERSION, "method": "Every active mountain coordinate is checked against the nearest validated river segment; scale, PNG aspect and center-based shear reduce chain gaps while the image center stays fixed.", **chain_report})
     print(json.dumps(selection, ensure_ascii=False, indent=2))
 
 
