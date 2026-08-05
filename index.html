@@ -4,13 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
   <meta name="theme-color" content="#d8c8a8">
-  <title>Alan Map 12.1 — горные цепи и речные ущелья</title>
+  <title>Alan Map 12.1.4 — горные цепи и речные ущелья</title>
   <link rel="stylesheet" href="assets/maplibre.css">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <main id="map-shell" class="map-shell">
-    <div id="map" class="map" aria-label="Плоская интерактивная карта горных точек и фигурок"></div>
+    <div id="map" class="map" aria-label="Плоская интерактивная карта горных фигурок и рек"></div>
 
     <div class="topbar">
       <section class="title-card" aria-label="Информация о карте">
@@ -26,7 +26,7 @@
     </div>
 
     <section class="legend" aria-label="Категории горных объектов">
-      <div class="legend-title"><span>Скрытые точки / фигурки</span><span><span data-total-points>0</span> / <span data-total-icons>0</span></span></div>
+      <div class="legend-title"><span>Фигурки</span><span data-total-icons>0</span></div>
       <div class="legend-grid">
         <div class="legend-item"><span class="legend-dot" style="--dot:#7a7a78"></span><span>Горы</span><span class="legend-count" data-count="mountain">0</span></div>
         <div class="legend-item"><span class="legend-dot" style="--dot:#7a7a78"></span><span>Скалы</span><span class="legend-count" data-count="rock">0</span></div>
@@ -37,11 +37,6 @@
       </div>
     </section>
 
-    <aside id="feature-card" class="feature-card" hidden aria-live="polite">
-      <div class="feature-card-head"><span>Горный объект</span><button type="button" class="close-card" data-action="close-card" aria-label="Закрыть">×</button></div>
-      <div id="feature-card-body" class="feature-card-body"></div>
-    </aside>
-
     <div id="loading" class="loading" role="status" aria-live="polite">
       <div class="loading-card">
         <div class="loading-title">Alan Map 12.1</div>
@@ -49,6 +44,6 @@
       </div>
     </div>
   </main>
-  <script src="assets/bootstrap.js?v=12.1.3"></script>
+  <script src="assets/bootstrap.js?v=12.1.4"></script>
 </body>
 </html>
