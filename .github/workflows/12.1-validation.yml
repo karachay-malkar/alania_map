@@ -91,6 +91,7 @@ jobs:
       - name: Commit complete candidate
         shell: bash
         run: |
+          git checkout HEAD -- .github/workflows/12.1-validation.yml
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add -A
