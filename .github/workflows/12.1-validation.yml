@@ -4,6 +4,10 @@ on:
   push:
     branches:
       - agent/12.1.5-ridge-continuity
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - '12.1'
 
 permissions:
   contents: write
