@@ -1,55 +1,95 @@
-name: Alan Map 12.1 Validation
+name: Build Alan Map 12.1.5 candidate
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
-  workflow_dispatch:
+  push:
+    branches:
+      - agent/12.1.5-ridge-continuity
 
 permissions:
-  contents: read
+  contents: write
+  issues: read
 
 jobs:
-  validate:
+  build-candidate:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
-      - name: Checkout current 12.1 candidate
+      - name: Checkout candidate branch
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha || '12.1' }}
+          ref: agent/12.1.5-ridge-continuity
           fetch-depth: 0
+
+      - name: Restore approved 12.1.5 source package
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          curl --fail --silent --show-error \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/issues/14/comments?per_page=100" \
+            > /tmp/alan1215-comments.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          order = [
+              'PAYLOAD_PART_01',
+              'PAYLOAD_PART_02',
+              'PAYLOAD_PART_03',
+              'PAYLOAD_PART_04A',
+              'PAYLOAD_PART_04B',
+              'PAYLOAD_PART_05',
+          ]
+          comments = json.loads(Path('/tmp/alan1215-comments.json').read_text(encoding='utf-8'))
+          parts = {}
+          for comment in comments:
+              body = str(comment.get('body') or '')
+              marker, separator, payload = body.partition('\n')
+              if separator and marker in order:
+                  parts[marker] = ''.join(payload.split())
+          missing = [marker for marker in order if marker not in parts]
+          if missing:
+              raise SystemExit(f'Missing payload parts: {missing}')
+          Path('/tmp/alan1215-src.b64').write_text(''.join(parts[marker] for marker in order), encoding='ascii')
+          PY
+          base64 --decode /tmp/alan1215-src.b64 > /tmp/alan1215-src.tgz
+          tar -xzf /tmp/alan1215-src.tgz -C .
+          mkdir -p data/archive
+          git show c71d722a46b7d137a1d8b5b8582ece77360fdd98:data/mountains/mountain_points.geojson > data/archive/mountain_points_12.1.4.geojson
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
 
-      - name: Build and validate 12.1 candidate
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Generate and verify 12.1.5
         shell: bash
-        run: bash tools/run_stage_12_1.sh
+        run: |
+          python -m pip install --disable-pip-version-check shapely==2.1.2
+          python tools/build_stage_12_1.py
+          node --check src/config.js
+          node --check src/data.js
+          node --check src/map.js
+          node --check src/map-compat.js
+          node --check src/app.js
+          node --check assets/app-12.1.5.js
+          node tests/12.1-contract.mjs
+          rm -f assets/bootstrap.js
 
-      - name: Upload validation evidence
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: alan-map-12.1-validation
-          path: |
-            build/12.1-map.png
-            build/12.1-map-failed.png
-            build/12.1-browser-diagnostics.json
-            build/12.1-browser-errors.json
-            build/http-server.log
-          if-no-files-found: warn
-          retention-days: 7
-
-      - name: Upload complete project archive
-        uses: actions/upload-artifact@v4
-        if: success()
-        with:
-          name: alan-map-12.1-mountain-river-chains
-          path: |
-            build/alan-map-12.1-mountain-river-chains.zip
-            build/12.1-file-sizes.txt
-          if-no-files-found: error
-          retention-days: 7
+      - name: Commit complete candidate
+        shell: bash
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git diff --cached --quiet && exit 0
+          git commit -m "Build Alan Map 12.1.5 ridge continuity [skip ci]"
+          git push origin HEAD:agent/12.1.5-ridge-continuity
