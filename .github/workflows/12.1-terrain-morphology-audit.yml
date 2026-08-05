@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - agent/12.1.6-terrain-morphology-audit
+  pull_request:
+    branches:
+      - agent/12.1.6-terrain-morphology-audit
   workflow_dispatch:
 
 permissions:
