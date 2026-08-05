@@ -4,18 +4,14 @@
   else root.ALAN_12_1_CONFIG = value;
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
+  const version = '12.1.5';
   return Object.freeze({
-    version: '12.1.4',
-    title: 'Alan Map · 12.1.4',
-    boundaryUrl: 'data/map-frame.geojson',
-    mountainSourceUrl: 'data/mountains/mountain_points.geojson',
-    iconBindingsUrl: 'data/mountains/mountain_icon_bindings.json',
-    iconManifestUrl: 'data/mountains/mountain_icon_manifest.json',
-    riverSourceUrls: Object.freeze([
-      'data/hydrography/rivers-major.geojson',
-      'data/hydrography/rivers-medium.geojson',
-      'data/hydrography/rivers-minor.geojson'
-    ]),
+    version,
+    title: `Alan Map · ${version}`,
+    boundaryUrl: `data/map-frame-${version}.geojson`,
+    mountainRenderUrl: `data/mountains/mountain-render-${version}.geojson`,
+    iconManifestUrl: `data/mountains/mountain-icon-manifest-${version}.json`,
+    riversUrl: `data/hydrography/rivers-${version}.geojson`,
     minZoom: 6.7,
     maxZoom: 15,
     fitPadding: Object.freeze({top: 72, right: 36, bottom: 48, left: 36}),
@@ -31,7 +27,7 @@
     categories: Object.freeze({
       mountain: Object.freeze({prefix: 'mount', label: 'Гора'}),
       rock: Object.freeze({prefix: 'rock', label: 'Скала'}),
-      ridge: Object.freeze({prefix: 'ridge', label: 'Хребет'}),
+      ridge: Object.freeze({prefix: 'ridge', label: 'Хребтовый якорь'}),
       hill: Object.freeze({prefix: 'hill', label: 'Холм'}),
       main_mountain: Object.freeze({prefix: 'mount-main', label: 'Основная гора'}),
       five_thousander: Object.freeze({prefix: 'mount-5000', label: 'Пятитысячник'})

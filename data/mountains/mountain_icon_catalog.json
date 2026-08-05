@@ -1,28 +1,41 @@
 {
-  "version": "12.1.4",
+  "version": "12.1.5",
   "source": "final_mount_library_30_png(1).zip",
   "excluded": [
     "mount-1"
   ],
   "rules": {
     "mount-11": "five_thousander only",
+    "five_thousanders": "peak-role icons only",
     "all_active_points_have_icons": true,
-    "river_corridor_geometry_adjustment": "scale, wide-icon selection and center-based shear; image center remains on the source coordinate"
+    "river_corridor_geometry_adjustment": "station-referenced source anchors plus unnamed ridge anchors; PNG remains center-anchored",
+    "dense_cluster_adjustment": "local icon_scale reduction with global 12.1.4 x2 physical base widths retained"
   },
   "groups": {
     "five_thousander": [
       "mount-11",
-      "mount-17",
-      "mount-22",
-      "mount-26"
+      "mount-15",
+      "mount-21",
+      "mount-25"
     ],
     "main_mountain": [
-      "mount-3",
+      "mount-5",
+      "mount-6",
       "mount-12",
-      "mount-13",
+      "mount-15",
       "mount-16",
-      "mount-23",
-      "mount-29"
+      "mount-19",
+      "mount-21",
+      "mount-25",
+      "mount-27"
+    ],
+    "ridge": [
+      "mount-2",
+      "mount-7",
+      "mount-14",
+      "mount-20",
+      "mount-24",
+      "mount-28"
     ],
     "mountain": [
       "mount-4",
@@ -39,17 +52,13 @@
       "mount-21",
       "mount-25"
     ],
-    "ridge": [
-      "mount-2",
-      "mount-7",
-      "mount-14",
-      "mount-20",
-      "mount-24"
-    ],
     "hill": [
       "mount-8",
       "mount-10",
-      "mount-28"
+      "mount-13",
+      "mount-23",
+      "mount-28",
+      "mount-29"
     ]
   }
 }

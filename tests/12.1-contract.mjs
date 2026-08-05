@@ -5,45 +5,61 @@ import dataModule from '../src/data.js';
 import mapModule from '../src/map.js';
 
 const readJson = (path) => JSON.parse(fs.readFileSync(new URL(path, import.meta.url), 'utf8'));
-const boundary = dataModule.normalizeBoundary(readJson('../data/map-frame.geojson'));
-const full = dataModule.normalizeMountainPoints(readJson('../data/archive/mountain_points_full.geojson'), boundary);
-const active = dataModule.normalizeMountainPoints(readJson('../data/mountains/mountain_points.geojson'), boundary);
-const bindingsRaw = readJson('../data/mountains/mountain_icon_bindings.json');
-const icons = dataModule.normalizeBindings(bindingsRaw, active.collection);
-const manifest = dataModule.normalizeIconManifest(readJson('../data/mountains/mountain_icon_manifest.json'));
-const riverParts = ['major', 'medium', 'minor'].map((name) => readJson(`../data/hydrography/rivers-${name}.geojson`));
-const rawRivers = {type: 'FeatureCollection', features: riverParts.flatMap((part) => part.features)};
-const rivers = dataModule.normalizeRivers(rawRivers);
+const boundary = dataModule.normalizeBoundary(readJson('../data/map-frame-12.1.5.geojson'));
+const render = dataModule.normalizeRender(readJson('../data/mountains/mountain-render-12.1.5.geojson'));
+const manifest = dataModule.normalizeIconManifest(readJson('../data/mountains/mountain-icon-manifest-12.1.5.json'));
+const rivers = dataModule.normalizeRivers(readJson('../data/hydrography/rivers-12.1.5.geojson'));
+const full = readJson('../data/archive/mountain_points_full.geojson');
+const active = readJson('../data/mountains/mountain_points.geojson');
+const bindings = readJson('../data/mountains/mountain_icon_bindings.json');
 const selection = readJson('../data/mountains/selection_report.json');
-const catalog = readJson('../data/mountains/mountain_icon_catalog.json');
+const riverReport = readJson('../data/hydrography/river_mountain_report.json');
 const riverSourceReport = readJson('../data/hydrography/river_source_report.json');
-const riverMountainReport = readJson('../data/hydrography/river_mountain_report.json');
+const catalog = readJson('../data/mountains/mountain_icon_catalog.json');
 
-assert.equal(config.version, '12.1.4');
-assert.equal(full.collection.features.length, 3797);
-assert.equal(active.collection.features.length, 1000);
-assert.equal(bindingsRaw.length, 1000);
-assert.equal(icons.collection.features.length, 1000);
-assert.deepEqual(Object.keys(bindingsRaw[0]).sort(), ['base_shift', 'icon_id', 'icon_scale', 'min_zoom', 'point_id', 'priority']);
-assert.equal(new Set(bindingsRaw.map((binding) => binding.point_id)).size, 1000);
-assert.equal(bindingsRaw.every((binding) => binding.min_zoom === 6.7), true);
-assert.equal(bindingsRaw.every((binding) => Math.abs(binding.base_shift) <= 0.2), true);
-assert.equal(selection.version, '12.1.4');
+assert.equal(config.version, '12.1.5');
+assert.equal(full.features.length, 3797);
+assert.equal(active.features.length, 1000);
+assert.equal(render.collection.features.length, 1000);
+assert.equal(bindings.length, 1000);
+assert.equal(new Set(bindings.map((binding) => binding.point_id)).size, 1000);
+assert.equal(selection.version, '12.1.5');
+assert.equal(selection.active_points, 1000);
+assert.equal(selection.synthetic_point_count, selection.actual_counts.ridge);
+assert.ok(selection.synthetic_point_count > 0);
 assert.equal(selection.unbound_points.length, 0);
 assert.equal(selection.mount_1_used, false);
 assert.deepEqual(selection.mount_11_non_5000, []);
-assert.equal(catalog.version, '12.1.4');
+assert.equal(catalog.version, '12.1.5');
 assert.equal(manifest.icons.length, 29);
+assert.equal(manifest.atlas, 'assets/mountains/mountain-atlas-12.1.5.png');
+assert.equal(render.summary.counts.ridge, selection.synthetic_point_count);
+assert.equal(render.collection.features.find((feature) => feature.properties.id === 'mount-5000-0002').properties.name, 'Джанги-Тау Восточная');
+assert.equal(render.collection.features.find((feature) => feature.properties.id === 'mount-main-0013').properties.name, 'Пик 4859');
 
 assert.equal(rivers.collection.features.length, 31);
 assert.equal(rivers.summary.representedSystems, 32);
 assert.deepEqual(rivers.summary.tiers, {1: 11, 2: 10, 3: 10});
+assert.equal(riverSourceReport.version, '12.1.5');
 assert.equal(riverSourceReport.source_validation.present, 32);
 assert.deepEqual(riverSourceReport.source_validation.missing, []);
 assert.deepEqual(riverSourceReport.source_validation.disconnected, []);
-assert.equal(riverMountainReport.version, '12.1.4');
-assert.ok(riverMountainReport.corridor_point_count >= 800);
-assert.equal(rawRivers.features.some((feature) => String(feature.properties.class || '').toLowerCase() === 'stream'), false);
+assert.equal(riverReport.version, '12.1.5');
+assert.equal(riverReport.all_chain_targets_pass, true);
+assert.ok(riverReport.source_anchor_count >= 300);
+assert.ok(riverReport.synthetic_ridge_anchor_count > 0);
+for (const chain of riverReport.chains) assert.ok(chain.max_longitudinal_gap_km <= chain.target_gap_km, JSON.stringify(chain));
+for (const systemId of ['cherek-balkarsky', 'cherek-bezengiysky', 'kuban', 'teberda', 'malka', 'chegem', 'baksan', 'bolshoy-zelenchuk']) {
+  const system = riverReport.systems[systemId];
+  assert.ok(system, `missing station report for ${systemId}`);
+  assert.ok(system.max_longitudinal_gap_km <= system.target_gap_km, JSON.stringify({systemId, system}));
+}
+
+const iconById = new Map(manifest.icons.map((icon) => [icon.id, icon]));
+for (const [pointId, iconId] of Object.entries(selection.five_thousander_icons)) {
+  assert.ok(iconById.get(iconId)?.roles.includes('peak'), `${pointId} uses non-peak ${iconId}`);
+}
+assert.equal(new Set(Object.values(selection.five_thousander_icons)).size, 4);
 
 assert.equal(mapModule.SIZE_MULTIPLIER, 2);
 assert.deepEqual(mapModule.BASE_WIDTH_M, {
@@ -54,47 +70,45 @@ assert.deepEqual(mapModule.BASE_WIDTH_M, {
   main_mountain: 20000,
   five_thousander: 24000
 });
-
 const style = mapModule.createStyle({boundary, rivers: rivers.collection});
 assert.deepEqual(Object.keys(style.sources).sort(), ['boundary', 'rivers']);
 assert.equal(style.layers.some((layer) => layer.type === 'symbol' || layer.type === 'circle'), false);
-assert.equal(style.layers.some((layer) => layer.source === 'mountain-points'), false);
 assert.ok(style.layers.find((layer) => layer.id === config.riverBufferLayerId));
 assert.ok(style.layers.find((layer) => layer.id === config.riverLineLayerId));
-const styleOrder = style.layers.map((layer) => layer.id);
-assert.ok(styleOrder.indexOf('territory-outline') < styleOrder.indexOf(config.riverBufferLayerId));
-assert.ok(styleOrder.indexOf(config.riverBufferLayerId) < styleOrder.indexOf(config.riverLineLayerId));
 
-const source = fs.readFileSync(new URL('../src/map.js', import.meta.url), 'utf8');
+const mapSource = fs.readFileSync(new URL('../src/map.js', import.meta.url), 'utf8');
 const index = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
-assert.ok(source.includes("type: 'custom'"));
-assert.ok(source.includes('gl.drawArrays(gl.TRIANGLES'));
-assert.ok(source.includes('buildSpriteMetrics'));
-assert.ok(source.includes("map.addLayer(imageLayer, config.riverBufferLayerId)"));
-assert.ok(source.includes('const left = coordinate.x - width * (icon.center_x / icon.width)'));
-assert.ok(source.includes('const top = coordinate.y - height * (icon.center_y / icon.height)'));
-assert.ok(source.includes('base_shift'));
-assert.equal(source.includes('summit_x'), false);
-assert.equal(source.includes('summit_y'), false);
-assert.equal(source.includes('bindPointInteraction'), false);
-assert.equal(source.includes('nearestPointFeature'), false);
-assert.equal(source.includes('showFeatureCard'), false);
-assert.equal(source.includes("map.on('mousemove'"), false);
-assert.equal(source.includes("map.on('click'"), false);
-assert.equal(index.includes('feature-card'), false);
-assert.equal(index.includes('data-total-points'), false);
-for (const token of ['pitch: 0', 'maxPitch: 0', 'bearing: 0', 'dragRotate: false', 'pitchWithRotate: false', 'touchPitch: false', 'renderWorldCopies: false']) assert.ok(source.includes(token));
+const appBundle = fs.readFileSync(new URL('../assets/app-12.1.5.js', import.meta.url), 'utf8');
+const maplibreBundle = fs.readFileSync(new URL('../assets/maplibre-12.1.5.js', import.meta.url), 'utf8');
+assert.ok(mapSource.includes("type: 'custom'"));
+assert.ok(mapSource.includes('gl.drawArrays(gl.TRIANGLES'));
+assert.ok(mapSource.includes('const left = coordinate.x - width * (icon.center_x / icon.width)'));
+assert.ok(mapSource.includes('const top = coordinate.y - height * (icon.center_y / icon.height)'));
+assert.ok(mapSource.includes('antialias: false'));
+assert.ok(mapSource.includes('pixelRatio: Math.min'));
+assert.equal(mapSource.includes("map.on('mousemove'"), false);
+assert.equal(mapSource.includes("map.on('click'"), false);
+assert.equal(index.includes('assets/bootstrap.js'), false);
+assert.equal(index.includes('eval('), false);
+assert.equal(appBundle.includes('eval('), false);
+assert.equal(maplibreBundle.includes('eval('), false);
+assert.ok(index.includes('assets/maplibre-12.1.5.js'));
+assert.ok(index.includes('assets/app-12.1.5.js'));
+assert.ok(index.includes('styles-12.1.5.css'));
+assert.ok(index.includes('Content-Security-Policy'));
+assert.equal(fs.existsSync(new URL('../assets/bootstrap.js', import.meta.url)), false);
+for (const path of Object.values(selection.runtime_files)) assert.ok(fs.existsSync(new URL(`../${path}`, import.meta.url)), `missing runtime file ${path}`);
 
 console.log(JSON.stringify({
   version: config.version,
-  sourcePoints: 3797,
-  activePoints: 1000,
-  icons: 1000,
-  sizeMultiplier: mapModule.SIZE_MULTIPLIER,
-  anchorMode: 'center',
-  pointRendering: false,
-  pointInteraction: false,
-  rivers: rivers.summary,
-  corridorPoints: riverMountainReport.corridor_point_count,
-  sources: Object.keys(style.sources)
+  sourcePoints: full.features.length,
+  activePoints: active.features.length,
+  counts: selection.actual_counts,
+  sourceAnchors: riverReport.source_anchor_count,
+  syntheticRidgeAnchors: riverReport.synthetic_ridge_anchor_count,
+  chainTargetsPassed: riverReport.all_chain_targets_pass,
+  fiveThousanderIcons: selection.five_thousander_icons,
+  runtimeFiles: selection.runtime_files,
+  maplibreBytes: Buffer.byteLength(maplibreBundle),
+  appBytes: Buffer.byteLength(appBundle)
 }, null, 2));

@@ -1,15 +1,58 @@
 {
-  "version": "12.1.3",
+  "version": "12.1.5",
   "source": "Alan Map 7.0.23 autonomous OSM PMTiles, waterway layer at zoom 10",
   "selection": "31 validated named river geometries; Ullukam is represented by the Kuban upper mainstem. Unnamed and generic streams are excluded.",
   "required_systems": 32,
   "geometry_systems": 31,
-  "coverage_aliases": [{"id": "ullukam", "covered_by": "kuban"}],
-  "tiers": {"1": 11, "2": 10, "3": 10},
+  "coverage_aliases": [
+    {
+      "id": "ullukam",
+      "covered_by": "kuban"
+    }
+  ],
+  "tiers": {
+    "1": 11,
+    "2": 10,
+    "3": 10
+  },
   "systems": {
-    "major": ["baksan", "bolshoy-zelenchuk", "chegem", "cherek-balkarsky", "cherek-bezengiysky", "kuban", "malka", "maly-zelenchuk", "teberda", "terek", "urukh"],
-    "medium": ["aksaut", "arkhyz", "gondaray", "jamagat", "makhar", "marukha", "nalchik", "psysh", "uchkulan", "urvan"],
-    "minor_significant": ["alibek", "baduk", "bashil-auzu-su", "dombay-ulgen", "dykh-su", "gara-auzu-su", "kara-su", "kizgych", "sofia", "sukan-su"]
+    "major": [
+      "baksan",
+      "bolshoy-zelenchuk",
+      "chegem",
+      "cherek-balkarsky",
+      "cherek-bezengiysky",
+      "kuban",
+      "malka",
+      "maly-zelenchuk",
+      "teberda",
+      "terek",
+      "urukh"
+    ],
+    "medium": [
+      "aksaut",
+      "arkhyz",
+      "gondaray",
+      "jamagat",
+      "makhar",
+      "marukha",
+      "nalchik",
+      "psysh",
+      "uchkulan",
+      "urvan"
+    ],
+    "minor_significant": [
+      "alibek",
+      "baduk",
+      "bashil-auzu-su",
+      "dombay-ulgen",
+      "dykh-su",
+      "gara-auzu-su",
+      "kara-su",
+      "kizgych",
+      "sofia",
+      "sukan-su"
+    ]
   },
   "source_validation": {
     "present": 32,

@@ -4,9 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
   <meta name="theme-color" content="#d8c8a8">
-  <title>Alan Map 12.1.4 — горные цепи и речные ущелья</title>
-  <link rel="stylesheet" href="assets/maplibre.css">
-  <link rel="stylesheet" href="styles.css">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; child-src blob:">
+  <title>Alan Map 12.1.5 — горные цепи и речные ущелья</title>
+  <link rel="stylesheet" href="assets/maplibre-12.1.5.css">
+  <link rel="stylesheet" href="styles-12.1.5.css">
 </head>
 <body>
   <main id="map-shell" class="map-shell">
@@ -14,7 +15,7 @@
 
     <div class="topbar">
       <section class="title-card" aria-label="Информация о карте">
-        <h1 class="map-title">Alan Map · 12.1</h1>
+        <h1 class="map-title">Alan Map · 12.1.5</h1>
         <p class="map-subtitle">Плоская Slippy Map · 1000 фигурок · 32 речные системы</p>
         <p id="map-status" class="map-status" role="status" aria-live="polite">Загрузка данных…</p>
       </section>
@@ -28,22 +29,23 @@
     <section class="legend" aria-label="Категории горных объектов">
       <div class="legend-title"><span>Фигурки</span><span data-total-icons>0</span></div>
       <div class="legend-grid">
-        <div class="legend-item"><span class="legend-dot" style="--dot:#7a7a78"></span><span>Горы</span><span class="legend-count" data-count="mountain">0</span></div>
-        <div class="legend-item"><span class="legend-dot" style="--dot:#7a7a78"></span><span>Скалы</span><span class="legend-count" data-count="rock">0</span></div>
-        <div class="legend-item"><span class="legend-dot" style="--dot:#7a7a78"></span><span>Хребты</span><span class="legend-count" data-count="ridge">0</span></div>
-        <div class="legend-item"><span class="legend-dot" style="--dot:#7a7a78"></span><span>Холмы</span><span class="legend-count" data-count="hill">0</span></div>
-        <div class="legend-item"><span class="legend-dot" style="--dot:#59483b"></span><span>Основные</span><span class="legend-count" data-count="main_mountain">0</span></div>
-        <div class="legend-item"><span class="legend-dot" style="--dot:#342f2c"></span><span>5000+</span><span class="legend-count" data-count="five_thousander">0</span></div>
+        <div class="legend-item"><span class="legend-dot legend-dot-ordinary"></span><span>Горы</span><span class="legend-count" data-count="mountain">0</span></div>
+        <div class="legend-item"><span class="legend-dot legend-dot-ordinary"></span><span>Скалы</span><span class="legend-count" data-count="rock">0</span></div>
+        <div class="legend-item"><span class="legend-dot legend-dot-ridge"></span><span>Хребты</span><span class="legend-count" data-count="ridge">0</span></div>
+        <div class="legend-item"><span class="legend-dot legend-dot-ordinary"></span><span>Холмы</span><span class="legend-count" data-count="hill">0</span></div>
+        <div class="legend-item"><span class="legend-dot legend-dot-main"></span><span>Основные</span><span class="legend-count" data-count="main_mountain">0</span></div>
+        <div class="legend-item"><span class="legend-dot legend-dot-five"></span><span>5000+</span><span class="legend-count" data-count="five_thousander">0</span></div>
       </div>
     </section>
 
     <div id="loading" class="loading" role="status" aria-live="polite">
       <div class="loading-card">
-        <div class="loading-title">Alan Map 12.1</div>
-        <div class="loading-text">Подготавливаются 1000 фигурок и локальные речные коридоры.</div>
+        <div class="loading-title">Alan Map 12.1.5</div>
+        <div class="loading-text">Подготавливаются хребтовые цепи и локальные речные коридоры.</div>
       </div>
     </div>
   </main>
-  <script src="assets/bootstrap.js?v=12.1.4"></script>
+  <script src="assets/maplibre-12.1.5.js"></script>
+  <script src="assets/app-12.1.5.js"></script>
 </body>
 </html>
