@@ -1,0 +1,113 @@
+name: Alan Map terrain morphology audit
+
+on:
+  push:
+    branches:
+      - agent/12.1.6-terrain-morphology-audit
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  classify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Checkout audit branch
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install terrain dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy==2.2.6 scipy==1.15.3 rasterio==1.4.3 shapely==2.1.1 pyproj==3.7.1
+
+      - name: Restore classifier
+        run: |
+          base64 -d tools/classify_terrain_morphology.py.gz.b64 | gzip -d > tools/classify_terrain_morphology.py
+          python -m py_compile tools/classify_terrain_morphology.py
+
+      - name: Download Copernicus GLO-30 DEM tiles
+        run: |
+          set -euo pipefail
+          mkdir -p build/terrain-audit/dem
+          for lat in 42 43 44; do
+            for lon in 40 41 42 43; do
+              north="N$(printf '%02d' "$lat")_00"
+              east="E$(printf '%03d' "$lon")_00"
+              stem="Copernicus_DSM_COG_10_${north}_${east}_DEM"
+              url="https://copernicus-dem-30m.s3.amazonaws.com/${stem}/${stem}.tif"
+              echo "Downloading ${stem}"
+              curl --fail --location --retry 5 --retry-delay 3 --output "build/terrain-audit/dem/${stem}.tif" "$url"
+            done
+          done
+          du -sh build/terrain-audit/dem
+
+      - name: Download OSM geomorphology features
+        run: |
+          set -euo pipefail
+          cat > build/terrain-audit/osm-query.txt <<'EOF'
+          [out:json][timeout:900][maxsize:1073741824];
+          (
+            nwr["natural"~"^(bare_rock|cliff|scree|rock|ridge|arete|peak|saddle)$"](42.80,40.60,44.25,43.80);
+          );
+          out geom;
+          EOF
+          success=0
+          for endpoint in \
+            https://overpass-api.de/api/interpreter \
+            https://overpass.kumi.systems/api/interpreter \
+            https://overpass.nchc.org.tw/api/interpreter; do
+            echo "Trying ${endpoint}"
+            if curl --fail --location --retry 2 --max-time 1200 \
+              --data-urlencode "data@build/terrain-audit/osm-query.txt" \
+              --output build/terrain-audit/osm-natural.json "$endpoint"; then
+              success=1
+              break
+            fi
+          done
+          test "$success" -eq 1
+          python - <<'PY'
+          import json
+          p='build/terrain-audit/osm-natural.json'
+          d=json.load(open(p, encoding='utf-8'))
+          print('OSM elements:', len(d.get('elements', [])))
+          PY
+
+      - name: Classify all 3797 source points
+        run: |
+          set -euo pipefail
+          python tools/classify_terrain_morphology.py \
+            --points data/archive/mountain_points_full.geojson \
+            --dem-dir build/terrain-audit/dem \
+            --osm build/terrain-audit/osm-natural.json \
+            --output-dir build/terrain-audit/result
+          test "$(python - <<'PY'
+          import csv
+          with open('build/terrain-audit/result/mountain_morphology_classification.csv', encoding='utf-8-sig') as f:
+              print(sum(1 for _ in csv.DictReader(f)))
+          PY
+          )" = "3797"
+
+      - name: Package audit result
+        run: |
+          cd build/terrain-audit/result
+          zip -9 -r ../alan-map-terrain-morphology-audit.zip .
+          cd -
+          cat build/terrain-audit/result/README.md
+
+      - name: Upload terrain audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: alan-map-terrain-morphology-audit
+          path: |
+            build/terrain-audit/alan-map-terrain-morphology-audit.zip
+            build/terrain-audit/result/README.md
+            build/terrain-audit/result/mountain_morphology_report.json
+          retention-days: 14
+          if-no-files-found: error
