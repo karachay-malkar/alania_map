@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - agent/12.1.8-morphology-gold-points
+  pull_request:
+    types: [opened, synchronize, reopened]
 
 permissions:
   contents: write
