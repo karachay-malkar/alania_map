@@ -12,7 +12,6 @@
 <body>
   <main id="map-shell" class="map-shell">
     <div id="map" class="map" aria-label="Плоская интерактивная карта горных фигурок, особых вершин и рек"></div>
-
     <div class="topbar">
       <section class="title-card" aria-label="Информация о карте">
         <h1 class="map-title">Alan Map · 12.1.8</h1>
@@ -25,7 +24,6 @@
         <button type="button" data-action="reset" aria-label="Показать всю территорию">⌂</button>
       </nav>
     </div>
-
     <section class="legend" aria-label="Категории горных объектов">
       <div class="legend-title"><span>PNG-фигурки</span><span data-total-icons>0</span></div>
       <div class="legend-grid legend-grid-morphology">
@@ -46,7 +44,6 @@
         <div class="legend-item"><span>Mingi Tau</span><span class="legend-count" data-role-count="unique_mountain">0</span></div>
       </div>
     </section>
-
     <aside id="feature-card" class="feature-card" aria-live="polite" hidden>
       <button type="button" class="feature-card-close" data-action="close-feature" aria-label="Закрыть карточку">×</button>
       <div class="feature-role" data-feature-role></div>
@@ -54,7 +51,6 @@
       <div class="feature-elevation" data-feature-elevation></div>
       <p class="feature-note" data-feature-note hidden></p>
     </aside>
-
     <div id="loading" class="loading" role="status" aria-live="polite">
       <div class="loading-card">
         <div class="loading-title">Alan Map 12.1.8</div>
@@ -63,6 +59,10 @@
     </div>
   </main>
   <script src="assets/maplibre-12.1.5.js"></script>
-  <script src="assets/app-12.1.8.js"></script>
+  <script src="src/config.js"></script>
+  <script src="src/data.js"></script>
+  <script src="src/map.js"></script>
+  <script src="src/map-compat.js"></script>
+  <script src="src/app.js"></script>
 </body>
 </html>
