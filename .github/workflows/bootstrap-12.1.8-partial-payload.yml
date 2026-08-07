@@ -1,0 +1,137 @@
+name: Install Alan Map 12.1.8 partial payload
+
+on:
+  push:
+    branches:
+      - agent/12.1.8-morphology-gold-points
+
+permissions:
+  contents: write
+
+jobs:
+  install:
+    if: github.actor != 'github-actions[bot]' && github.event.head_commit.message == 'Run 12.1.8 partial payload bootstrap'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout target branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/12.1.8-morphology-gold-points
+          fetch-depth: 0
+
+      - name: Recover complete files from staged payload prefix
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t parts < <(find tools -maxdepth 1 -type f -name '.12.1.8-payload.part-*' | sort)
+          test "${#parts[@]}" -ge 9
+          cat "${parts[@]}" > /tmp/alan-map-12.1.8-prefix.b64
+          base64 -d /tmp/alan-map-12.1.8-prefix.b64 > /tmp/alan-map-12.1.8-prefix.tgz
+          python3 - <<'PY'
+          import io
+          import os
+          import tarfile
+          import zlib
+          from pathlib import Path, PurePosixPath
+
+          compressed = Path('/tmp/alan-map-12.1.8-prefix.tgz').read_bytes()
+          inflater = zlib.decompressobj(16 + zlib.MAX_WBITS)
+          tar_bytes = inflater.decompress(compressed)
+          stream = io.BytesIO(tar_bytes)
+          recovered = []
+
+          try:
+              archive = tarfile.open(fileobj=stream, mode='r:')
+              while True:
+                  try:
+                      member = archive.next()
+                  except (tarfile.ReadError, EOFError, OSError):
+                      break
+                  if member is None:
+                      break
+                  rel = PurePosixPath(member.name)
+                  if rel.is_absolute() or '..' in rel.parts:
+                      raise RuntimeError(f'Unsafe payload path: {member.name}')
+                  target = Path(member.name)
+                  if member.isdir():
+                      target.mkdir(parents=True, exist_ok=True)
+                      continue
+                  if not member.isfile():
+                      continue
+                  try:
+                      source = archive.extractfile(member)
+                      if source is None:
+                          continue
+                      data = source.read()
+                  except (tarfile.ReadError, EOFError, OSError):
+                      break
+                  if len(data) != member.size:
+                      break
+                  target.parent.mkdir(parents=True, exist_ok=True)
+                  target.write_bytes(data)
+                  recovered.append(member.name)
+          except tarfile.ReadError:
+              pass
+
+          required = [
+              'README.md',
+              'index.html',
+              'styles.css',
+              'src/config.js',
+              'src/data.js',
+              'src/map.js',
+              'src/app.js',
+              'tests/12.1-contract.mjs',
+              'tests/12.1-smoke.mjs',
+              'tools/run_stage_12_1.sh',
+              'tools/build_stage_12_1_8.py',
+              '.github/workflows/12.1-validation.yml',
+              'data/mountains/mountain-icon-manifest-12.1.8.json',
+              'assets/mountains/mountain-atlas-12.1.8.png',
+              'tools/.12.1.8-active-morphology.json.gz',
+          ]
+          missing = [path for path in required if not Path(path).is_file() or Path(path).stat().st_size == 0]
+          if missing:
+              raise RuntimeError('Missing complete payload files: ' + ', '.join(missing))
+          print(f'Recovered {len(recovered)} complete payload files')
+          PY
+
+      - name: Materialize portable runtime data
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -w0 assets/mountains/mountain-atlas-12.1.8.png > assets/mountains/mountain-atlas-12.1.8.b64
+          base64 -w0 tools/.12.1.8-active-morphology.json.gz > data/mountains/mountain-morphology-active-12.1.8.json.gz.b64
+          rm -f tools/.12.1.8-active-morphology.json.gz
+          python3 tools/build_stage_12_1_8.py
+
+      - name: Validate restored 12.1.8 source and runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check src/config.js
+          node --check src/data.js
+          node --check src/map.js
+          node --check src/app.js
+          node --check assets/app-12.1.8.js
+          python3 -m py_compile tools/build_stage_12_1_8.py
+          node tests/12.1-contract.mjs
+          test -s assets/mountains/mountain-atlas-12.1.8.b64
+          test -s data/mountains/mountain-morphology-active-12.1.8.json.gz.b64
+          test -s data/mountains/mountain-render-12.1.8.geojson
+          test -s data/mountains/special-mountains-12.1.8.geojson
+
+      - name: Commit complete 12.1.8 and remove bootstrap files
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f .github/workflows/bootstrap-12.1.8-from-prepared-12.1.7.yml
+          rm -f .github/workflows/bootstrap-12.1.8-partial-payload.yml
+          rm -f tools/.12.1.8-payload.part-* tools/.12.1.8-payload.ready
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --quiet && exit 0
+          git commit -m 'Alan Map 12.1.8: morphology icons and gold special mountains'
+          git push origin HEAD:agent/12.1.8-morphology-gold-points
