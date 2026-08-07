@@ -1,0 +1,69 @@
+name: Bootstrap Alan Map 12.1.8 base from prepared 12.1.7
+
+on:
+  push:
+    branches:
+      - agent/12.1.8-morphology-gold-points
+
+permissions:
+  contents: write
+
+jobs:
+  restore:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      SOURCE_TREE_SHA: aea781899c470a2632626e09b2da2ae2c899ffa0
+    steps:
+      - name: Checkout target branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/12.1.8-morphology-gold-points
+          fetch-depth: 0
+
+      - name: Recover prepared 12.1.7 payload
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/git/trees/${SOURCE_TREE_SHA}?recursive=1" > /tmp/tree.json
+          mapfile -t rows < <(jq -r '.tree[] | select(.path | startswith("tools/.12.1.7-patch.part-")) | [.path,.sha] | @tsv' /tmp/tree.json | sort)
+          test "${#rows[@]}" -ge 2
+          : > /tmp/alan-map-12.1.7.b64
+          for row in "${rows[@]}"; do
+            sha="${row#*$'\t'}"
+            gh api "repos/${GITHUB_REPOSITORY}/git/blobs/${sha}" --jq '.content' | tr -d '\n' | base64 -d >> /tmp/alan-map-12.1.7.b64
+          done
+          base64 -d /tmp/alan-map-12.1.7.b64 > /tmp/alan-map-12.1.7.tgz
+          tar -tzf /tmp/alan-map-12.1.7.tgz >/dev/null
+          tar -xzf /tmp/alan-map-12.1.7.tgz -C .
+          rm -f .github/workflows/bootstrap-12.1.8-from-prepared-12.1.7.yml
+          rm -f .github/workflows/bootstrap-12.1.7-morphology-icons.yml
+          rm -f tools/.12.1.7-patch.part-* tools/.12.1.7-payload-* tools/.12.1.7-mini-*
+
+      - name: Validate recovered payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check src/config.js
+          node --check src/data.js
+          node --check src/map.js
+          node --check src/app.js
+          node --check assets/app-12.1.7.js
+          python -m py_compile tools/build_stage_12_1.py
+          test -s assets/mountains/mountain-atlas-12.1.7.b64
+          test -s data/mountains/mountain-icon-manifest-12.1.7.json
+          test -s data/mountains/mountain_morphology_12.1.6.json
+
+      - name: Commit recovered base
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet && exit 0
+          git commit -m "Recover prepared Alan Map 12.1.7 base for 12.1.8"
+          git push origin HEAD:agent/12.1.8-morphology-gold-points
