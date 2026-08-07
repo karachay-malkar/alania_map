@@ -4,9 +4,10 @@
 })(typeof self !== 'undefined' ? self : this, function (config) {
   'use strict';
 
-  const TYPE_ORDER = Object.freeze(['five_thousander', 'main_mountain', 'ridge', 'mountain', 'rock', 'hill']);
-  const ID_PATTERN = /^(mount|rock|ridge|hill)(-(main|5000))?-\d{4}$/;
-  const ICON_PATTERN = /^mount-(?:[2-9]|1\d|2\d|30)$/;
+  const MORPHOLOGY_ORDER = Object.freeze(Object.keys(config.morphologies));
+  const ROLE_ORDER = Object.freeze(['main_mountain', 'five_thousander', 'unique_mountain']);
+  const ORDINARY_ID_PATTERN = /^(mount|rock|ridge|hill)(-(main|5000))?-\d{4}$/;
+  const ICON_PATTERN = /^(rounded_hill|rounded_mountain|steep_mountain|isolated_peak|massif|ridge|rocky_peak|rocky_ridge|plateau)_0[1-4]$/;
 
   function collectCoordinates(value, output) {
     if (!Array.isArray(value)) return;
@@ -39,29 +40,33 @@
   function normalizeRender(collection) {
     if (!collection || collection.type !== 'FeatureCollection' || !Array.isArray(collection.features)) throw new Error('Файл рендера гор имеет неверный формат.');
     const ids = new Set();
-    const counts = Object.fromEntries(TYPE_ORDER.map((type) => [type, 0]));
+    const counts = Object.fromEntries(MORPHOLOGY_ORDER.map((type) => [type, 0]));
     const features = collection.features.map((feature) => {
       const properties = feature?.properties || {};
       const coordinates = feature?.geometry?.type === 'Point' ? feature.geometry.coordinates : null;
       const id = String(properties.point_id || properties.id || '');
-      const type = String(properties.type || '');
+      const morphology = String(properties.morphology || '');
+      const sourceType = String(properties.source_type || '');
       const iconId = String(properties.icon_id || '');
       const longitude = Number(properties.longitude ?? coordinates?.[0]);
       const latitude = Number(properties.latitude ?? coordinates?.[1]);
       const iconScale = Number(properties.icon_scale);
       const baseShift = Number(properties.base_shift);
       const priority = Number(properties.priority);
-      if (!ID_PATTERN.test(id) || !Object.hasOwn(config.categories, type) || ids.has(id)) throw new Error(`Некорректный или повторяющийся ID горного объекта: ${id}`);
-      if (!ICON_PATTERN.test(iconId) || iconId === 'mount-1') throw new Error(`Недопустимая фигурка: ${iconId}`);
+      if (!ORDINARY_ID_PATTERN.test(id) || ids.has(id)) throw new Error(`Некорректный или повторяющийся ID горного объекта: ${id}`);
+      if (!Object.hasOwn(config.morphologies, morphology)) throw new Error(`Неизвестная морфология ${morphology} для ${id}`);
+      if (!['mountain', 'rock', 'ridge', 'hill'].includes(sourceType)) throw new Error(`Недопустимый исходный тип ${sourceType} для ${id}`);
+      if (!ICON_PATTERN.test(iconId) || !iconId.startsWith(`${morphology}_`)) throw new Error(`Фигурка ${iconId} не соответствует морфологии ${morphology}: ${id}`);
       if (![longitude, latitude, iconScale, baseShift, priority].every(Number.isFinite) || iconScale <= 0 || Math.abs(baseShift) > 0.2) throw new Error(`Некорректные параметры рендера: ${id}`);
       ids.add(id);
-      counts[type] += 1;
+      counts[morphology] += 1;
       return {
         type: 'Feature',
         properties: {
           id,
           point_id: id,
-          type,
+          source_type: sourceType,
+          morphology,
           longitude,
           latitude,
           elevation_m: properties.elevation_m === null ? null : Number(properties.elevation_m),
@@ -74,31 +79,82 @@
         geometry: {type: 'Point', coordinates: [longitude, latitude]}
       };
     });
-    if (features.length !== 1000) throw new Error(`Ожидалось 1000 горных фигурок, получено ${features.length}.`);
+    if (features.length !== 975) throw new Error(`Ожидалось 975 PNG-фигурок, получено ${features.length}.`);
+    return {collection: {type: 'FeatureCollection', features}, summary: {total: features.length, counts}};
+  }
+
+  function normalizeSpecialMountains(collection) {
+    if (!collection || collection.type !== 'FeatureCollection' || !Array.isArray(collection.features)) throw new Error('Файл особых гор имеет неверный формат.');
+    const ids = new Set();
+    const counts = Object.fromEntries(ROLE_ORDER.map((role) => [role, 0]));
+    const features = collection.features.map((feature) => {
+      const properties = feature?.properties || {};
+      const coordinates = feature?.geometry?.type === 'Point' ? feature.geometry.coordinates : null;
+      const id = String(properties.id || '');
+      const role = String(properties.role || '');
+      const name = String(properties.name || '').trim();
+      const longitude = Number(properties.longitude ?? coordinates?.[0]);
+      const latitude = Number(properties.latitude ?? coordinates?.[1]);
+      const elevation = Number(properties.elevation_m);
+      const morphology = properties.morphology == null ? null : String(properties.morphology);
+      if ((!ORDINARY_ID_PATTERN.test(id) && id !== 'mingi_tau') || ids.has(id)) throw new Error(`Некорректный или повторяющийся ID особой горы: ${id}`);
+      if (!Object.hasOwn(config.roles, role)) throw new Error(`Неизвестная роль ${role}: ${id}`);
+      if (!name || ![longitude, latitude, elevation].every(Number.isFinite) || elevation <= 0) throw new Error(`Некорректные данные особой горы: ${id}`);
+      if (properties.icon_id != null) throw new Error(`Особая гора не должна иметь PNG: ${id}`);
+      if (morphology !== null && !Object.hasOwn(config.morphologies, morphology)) throw new Error(`Неизвестная справочная морфология ${morphology}: ${id}`);
+      ids.add(id);
+      counts[role] += 1;
+      return {
+        type: 'Feature',
+        properties: {
+          id,
+          role,
+          name,
+          elevation_m: elevation,
+          longitude,
+          latitude,
+          morphology,
+          semantic_note: String(properties.semantic_note || ''),
+          source: String(properties.source || '')
+        },
+        geometry: {type: 'Point', coordinates: [longitude, latitude]}
+      };
+    });
+    if (features.length !== 26) throw new Error(`Ожидалось 26 особых точек, получено ${features.length}.`);
+    if (counts.main_mountain !== 21 || counts.five_thousander !== 4 || counts.unique_mountain !== 1) throw new Error(`Некорректные роли особых гор: ${JSON.stringify(counts)}`);
+    const mingi = features.filter((feature) => feature.properties.id === 'mingi_tau');
+    if (mingi.length !== 1 || mingi[0].properties.role !== 'unique_mountain' || mingi[0].properties.name !== 'Mingi Tau') throw new Error('Mingi Tau должен существовать ровно один раз как unique_mountain.');
     return {collection: {type: 'FeatureCollection', features}, summary: {total: features.length, counts}};
   }
 
   function normalizeIconManifest(source) {
     if (!source || !Array.isArray(source.icons) || !source.atlas) throw new Error('Манифест фигурок имеет неверный формат.');
     if (String(source.version) !== config.version) throw new Error(`Версия манифеста ${source.version} не совпадает с ${config.version}.`);
+    if (String(source.atlas_format) !== 'base64-png') throw new Error('Атлас должен быть base64-png.');
     const ids = new Set();
+    const categoryCounts = Object.fromEntries(MORPHOLOGY_ORDER.map((category) => [category, 0]));
     const icons = source.icons.map((icon) => {
       const id = String(icon.id || '');
+      const category = String(icon.category || '');
+      const variant = Number(icon.variant);
       const x = Number(icon.x);
       const y = Number(icon.y);
       const width = Number(icon.width);
       const height = Number(icon.height);
-      if (!ICON_PATTERN.test(id) || id === 'mount-1' || ids.has(id)) throw new Error(`Недопустимая или повторяющаяся фигурка: ${id}`);
-      if (![x, y, width, height].every(Number.isFinite) || width <= 0 || height <= 0) throw new Error(`Некорректная область фигурки: ${id}`);
+      if (!ICON_PATTERN.test(id) || ids.has(id) || !Object.hasOwn(config.morphologies, category) || !id.startsWith(`${category}_`) || ![1, 2, 3, 4].includes(variant)) throw new Error(`Недопустимая или повторяющаяся фигурка: ${id}`);
+      if (![x, y, width, height].every(Number.isFinite) || x < 0 || y < 0 || width <= 0 || height <= 0) throw new Error(`Некорректная область фигурки: ${id}`);
       ids.add(id);
-      return {id, x, y, width, height, roles: Array.isArray(icon.roles) ? [...icon.roles] : []};
+      categoryCounts[category] += 1;
+      return {id, category, variant, x, y, width, height};
     });
+    if (icons.length !== 36 || Object.values(categoryCounts).some((count) => count !== 4)) throw new Error(`Манифест должен содержать 9 категорий × 4 варианта: ${JSON.stringify(categoryCounts)}`);
     return {
       version: config.version,
       atlas: String(source.atlas),
+      atlas_format: 'base64-png',
       atlas_width: Number(source.atlas_width),
       atlas_height: Number(source.atlas_height),
-      pixel_ratio: Number(source.pixel_ratio || 2),
+      pixel_ratio: Number(source.pixel_ratio || 1),
       icons
     };
   }
@@ -122,32 +178,56 @@
     return {collection: {type: 'FeatureCollection', features}, summary: {features: features.length, representedSystems: 32, tiers}};
   }
 
+  async function loadChunkedText(url) {
+    const chunks = [];
+    for (let index = 0; index < 100; index += 1) {
+      const suffix = String(index).padStart(2, '0');
+      const response = await fetch(`${url}.part-${suffix}`, {cache: 'no-cache'});
+      if (response.status === 404) break;
+      if (!response.ok) throw new Error(`Не загружена часть ${url}.part-${suffix} (HTTP ${response.status}).`);
+      chunks.push(await response.text());
+    }
+    if (!chunks.length) throw new Error(`Не найдены части ${url}.part-*.`);
+    return chunks.join('');
+  }
+
   async function loadJson(url) {
+    if (url === config.mountainRenderUrl) return JSON.parse(await loadChunkedText(url));
     const response = await fetch(url, {cache: 'no-cache'});
     if (!response.ok) throw new Error(`Не загружен ${url} (HTTP ${response.status}).`);
     return response.json();
   }
 
   async function loadStageData() {
-    const [rawBoundary, rawRender, rawManifest, rawRivers] = await Promise.all([
+    const [rawBoundary, rawRender, rawSpecialMountains, rawManifest, rawRivers] = await Promise.all([
       loadJson(config.boundaryUrl),
       loadJson(config.mountainRenderUrl),
+      loadJson(config.specialMountainsUrl),
       loadJson(config.iconManifestUrl),
       loadJson(config.riversUrl)
     ]);
     const boundary = normalizeBoundary(rawBoundary);
     const render = normalizeRender(rawRender);
+    const special = normalizeSpecialMountains(rawSpecialMountains);
     const iconManifest = normalizeIconManifest(rawManifest);
     const rivers = normalizeRivers(rawRivers);
     return {
       boundary,
       icons: render.collection,
+      specialMountains: special.collection,
       iconManifest,
       rivers: rivers.collection,
-      summary: {total: render.summary.total, counts: render.summary.counts, icons: render.summary, rivers: rivers.summary},
+      summary: {
+        total: render.summary.total + special.summary.total,
+        pngTotal: render.summary.total,
+        specialTotal: special.summary.total,
+        counts: render.summary.counts,
+        specialCounts: special.summary.counts,
+        rivers: rivers.summary
+      },
       bounds: calculateBounds(boundary)
     };
   }
 
-  return Object.freeze({TYPE_ORDER, calculateBounds, normalizeBoundary, normalizeRender, normalizeIconManifest, normalizeRivers, loadStageData});
+  return Object.freeze({MORPHOLOGY_ORDER, ROLE_ORDER, calculateBounds, normalizeBoundary, normalizeRender, normalizeSpecialMountains, normalizeIconManifest, normalizeRivers, loadStageData});
 });
