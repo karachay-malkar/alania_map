@@ -7,7 +7,7 @@
     const mapModule = root.ALAN_12_1_MAP;
     if (!config || !dataModule || !mapModule) throw new Error('Модули карты 12.1 подключены не полностью.');
     const status = document.getElementById('map-status');
-    if (status) status.textContent = 'Подготавливаются хребтовые цепи и речные коридоры…';
+    if (status) status.textContent = 'Подготавливаются морфология гор, хребтовые цепи и речные коридоры…';
     const data = await dataModule.loadStageData();
     const map = mapModule.createMap(root.maplibregl, data);
     const resizeObserver = new ResizeObserver(() => map.resize());
