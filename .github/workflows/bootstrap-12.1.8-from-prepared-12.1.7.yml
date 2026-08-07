@@ -30,17 +30,27 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          gh api "repos/${GITHUB_REPOSITORY}/git/trees/${SOURCE_TREE_SHA}?recursive=1" > /tmp/tree.json
-          mapfile -t rows < <(jq -r '.tree[] | select(.path | startswith("tools/.12.1.7-patch.part-")) | [.path,.sha] | @tsv' /tmp/tree.json | sort)
-          test "${#rows[@]}" -ge 2
-          : > /tmp/alan-map-12.1.7.b64
-          for row in "${rows[@]}"; do
-            sha="${row#*$'\t'}"
-            gh api "repos/${GITHUB_REPOSITORY}/git/blobs/${sha}" --jq '.content' | tr -d '\n' | base64 -d >> /tmp/alan-map-12.1.7.b64
-          done
-          base64 -d /tmp/alan-map-12.1.7.b64 > /tmp/alan-map-12.1.7.tgz
-          tar -tzf /tmp/alan-map-12.1.7.tgz >/dev/null
-          tar -xzf /tmp/alan-map-12.1.7.tgz -C .
+          python3 - <<'PY'
+          import base64, json, os, subprocess, tarfile
+          repo = os.environ['GITHUB_REPOSITORY']
+          tree_sha = os.environ['SOURCE_TREE_SHA']
+          tree = json.loads(subprocess.check_output(['gh','api',f'repos/{repo}/git/trees/{tree_sha}?recursive=1'], text=True))
+          rows = sorted((item['path'], item['sha']) for item in tree.get('tree', []) if item['path'].startswith('tools/.12.1.7-patch.part-'))
+          if len(rows) < 2:
+              raise SystemExit(f'Expected at least 2 payload parts, found {len(rows)}')
+          payload_b64 = bytearray()
+          for path, sha in rows:
+              blob = json.loads(subprocess.check_output(['gh','api',f'repos/{repo}/git/blobs/{sha}'], text=True))
+              raw = base64.b64decode(''.join(blob['content'].split()))
+              payload_b64.extend(raw)
+              print(path, len(raw))
+          clean = b''.join(payload_b64.split())
+          tgz = base64.b64decode(clean)
+          open('/tmp/alan-map-12.1.7.tgz','wb').write(tgz)
+          with tarfile.open('/tmp/alan-map-12.1.7.tgz','r:gz') as archive:
+              archive.extractall('.')
+          print('Recovered payload bytes:', len(tgz))
+          PY
           rm -f .github/workflows/bootstrap-12.1.8-from-prepared-12.1.7.yml
           rm -f .github/workflows/bootstrap-12.1.7-morphology-icons.yml
           rm -f tools/.12.1.7-patch.part-* tools/.12.1.7-payload-* tools/.12.1.7-mini-*
