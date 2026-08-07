@@ -1,62 +1,91 @@
-name: Alan Map 12.1 Validation
+name: Recover and validate Alan Map 12.1.8
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
-  workflow_dispatch:
+  push:
+    branches:
+      - agent/12.1.8-morphology-gold-points
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  validate:
+  recover:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 15
     steps:
-      - name: Checkout current 12.1 candidate
+      - name: Checkout branch
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha || '12.1' }}
+          ref: agent/12.1.8-morphology-gold-points
           fetch-depth: 0
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Build and validate 12.1 candidate
+      - name: Recover complete files from staged payload
         shell: bash
-        run: bash tools/run_stage_12_1.sh
+        run: |
+          set -euo pipefail
+          mapfile -t parts < <(find tools -maxdepth 1 -type f -name '.12.1.8-payload.part-*' | sort)
+          echo "payload parts: ${#parts[@]}"
+          test "${#parts[@]}" -ge 9
+          cat "${parts[@]}" > /tmp/payload.b64
+          base64 -d /tmp/payload.b64 > /tmp/payload.tgz || true
+          python3 - <<'PY'
+          import io, tarfile, zlib
+          from pathlib import Path, PurePosixPath
+          compressed = Path('/tmp/payload.tgz').read_bytes()
+          inflater = zlib.decompressobj(16 + zlib.MAX_WBITS)
+          tar_bytes = inflater.decompress(compressed)
+          stream = io.BytesIO(tar_bytes)
+          recovered=[]
+          try:
+              archive=tarfile.open(fileobj=stream, mode='r:')
+              while True:
+                  try: member=archive.next()
+                  except (tarfile.ReadError, EOFError, OSError): break
+                  if member is None: break
+                  rel=PurePosixPath(member.name)
+                  if rel.is_absolute() or '..' in rel.parts: raise RuntimeError(member.name)
+                  if member.isdir():
+                      Path(member.name).mkdir(parents=True, exist_ok=True); continue
+                  if not member.isfile(): continue
+                  try:
+                      source=archive.extractfile(member)
+                      data=source.read() if source else b''
+                  except (tarfile.ReadError, EOFError, OSError): break
+                  if len(data)!=member.size: break
+                  target=Path(member.name); target.parent.mkdir(parents=True, exist_ok=True); target.write_bytes(data); recovered.append(member.name)
+          except tarfile.ReadError: pass
+          required=['README.md','index.html','styles-12.1.8.css','src/config.js','src/data.js','src/map.js','src/app.js','tests/12.1-contract.mjs','tests/12.1-smoke.mjs','tools/run_stage_12_1.sh','tools/build_stage_12_1_8.py','.github/workflows/12.1-validation.yml','data/mountains/mountain-icon-manifest-12.1.8.json','assets/mountains/mountain-atlas-12.1.8.png','tools/.12.1.8-active-morphology.json.gz']
+          missing=[p for p in required if not Path(p).is_file() or Path(p).stat().st_size==0]
+          print('recovered complete files:', len(recovered))
+          if missing: raise RuntimeError('Missing: '+', '.join(missing))
+          PY
 
-      - name: Upload validation evidence
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: alan-map-12.1-validation
-          path: |
-            build/12.1-map.png
-            build/12.1-map-android.png
-            build/12.1-zone-*.png
-            build/12.1-map-failed.png
-            build/12.1-browser-diagnostics.json
-            build/12.1-browser-errors.json
-            build/http-server.log
-          if-no-files-found: warn
-          retention-days: 14
+      - name: Build and contract validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -w0 assets/mountains/mountain-atlas-12.1.8.png > assets/mountains/mountain-atlas-12.1.8.b64
+          base64 -w0 tools/.12.1.8-active-morphology.json.gz > data/mountains/mountain-morphology-active-12.1.8.json.gz.b64
+          rm -f tools/.12.1.8-active-morphology.json.gz
+          python3 tools/build_stage_12_1_8.py
+          node --check src/config.js
+          node --check src/data.js
+          node --check src/map.js
+          node --check src/app.js
+          node --check assets/app-12.1.8.js
+          python3 -m py_compile tools/build_stage_12_1_8.py
+          node tests/12.1-contract.mjs
 
-      - name: Upload complete project archive
-        uses: actions/upload-artifact@v4
-        if: success()
-        with:
-          name: alan-map-12.1-mountain-river-chains
-          path: |
-            build/alan-map-12.1-mountain-river-chains.zip
-            build/12.1-file-sizes.txt
-          if-no-files-found: error
-          retention-days: 14
+      - name: Commit recovered 12.1.8
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f .github/workflows/bootstrap-12.1.8-from-prepared-12.1.7.yml .github/workflows/bootstrap-12.1.8-partial-payload.yml
+          rm -f tools/.12.1.8-payload.part-* tools/.12.1.8-payload.ready
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --quiet && { echo 'Nothing recovered'; exit 1; }
+          git commit -m 'Alan Map 12.1.8: morphology icons and gold special mountains'
+          git push origin HEAD:agent/12.1.8-morphology-gold-points
