@@ -5,18 +5,18 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
   <meta name="theme-color" content="#d8c8a8">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; child-src blob:">
-  <title>Alan Map 12.1.5 — горные цепи и речные ущелья</title>
+  <title>Alan Map 12.1.8 — морфология гор и особые вершины</title>
   <link rel="stylesheet" href="assets/maplibre-12.1.5.css">
-  <link rel="stylesheet" href="styles-12.1.5.css">
+  <link rel="stylesheet" href="styles-12.1.8.css">
 </head>
 <body>
   <main id="map-shell" class="map-shell">
-    <div id="map" class="map" aria-label="Плоская интерактивная карта горных фигурок и рек"></div>
+    <div id="map" class="map" aria-label="Плоская интерактивная карта горных фигурок, особых вершин и рек"></div>
 
     <div class="topbar">
       <section class="title-card" aria-label="Информация о карте">
-        <h1 class="map-title">Alan Map · 12.1.5</h1>
-        <p class="map-subtitle">Плоская Slippy Map · 1000 фигурок · 32 речные системы</p>
+        <h1 class="map-title">Alan Map · 12.1.8</h1>
+        <p class="map-subtitle">Плоская Slippy Map · морфология 12.1.6 · 36 новых фигурок</p>
         <p id="map-status" class="map-status" role="status" aria-live="polite">Загрузка данных…</p>
       </section>
       <nav class="map-controls" aria-label="Управление масштабом">
@@ -27,25 +27,42 @@
     </div>
 
     <section class="legend" aria-label="Категории горных объектов">
-      <div class="legend-title"><span>Фигурки</span><span data-total-icons>0</span></div>
-      <div class="legend-grid">
-        <div class="legend-item"><span class="legend-dot legend-dot-ordinary"></span><span>Горы</span><span class="legend-count" data-count="mountain">0</span></div>
-        <div class="legend-item"><span class="legend-dot legend-dot-ordinary"></span><span>Скалы</span><span class="legend-count" data-count="rock">0</span></div>
-        <div class="legend-item"><span class="legend-dot legend-dot-ridge"></span><span>Хребты</span><span class="legend-count" data-count="ridge">0</span></div>
-        <div class="legend-item"><span class="legend-dot legend-dot-ordinary"></span><span>Холмы</span><span class="legend-count" data-count="hill">0</span></div>
-        <div class="legend-item"><span class="legend-dot legend-dot-main"></span><span>Основные</span><span class="legend-count" data-count="main_mountain">0</span></div>
-        <div class="legend-item"><span class="legend-dot legend-dot-five"></span><span>5000+</span><span class="legend-count" data-count="five_thousander">0</span></div>
+      <div class="legend-title"><span>PNG-фигурки</span><span data-total-icons>0</span></div>
+      <div class="legend-grid legend-grid-morphology">
+        <div class="legend-item"><span>Округл. холм</span><span class="legend-count" data-count="rounded_hill">0</span></div>
+        <div class="legend-item"><span>Округл. гора</span><span class="legend-count" data-count="rounded_mountain">0</span></div>
+        <div class="legend-item"><span>Крутая гора</span><span class="legend-count" data-count="steep_mountain">0</span></div>
+        <div class="legend-item"><span>Одиночный пик</span><span class="legend-count" data-count="isolated_peak">0</span></div>
+        <div class="legend-item"><span>Массив</span><span class="legend-count" data-count="massif">0</span></div>
+        <div class="legend-item"><span>Хребет</span><span class="legend-count" data-count="ridge">0</span></div>
+        <div class="legend-item"><span>Скальный пик</span><span class="legend-count" data-count="rocky_peak">0</span></div>
+        <div class="legend-item"><span>Скальный хребет</span><span class="legend-count" data-count="rocky_ridge">0</span></div>
+        <div class="legend-item"><span>Плато</span><span class="legend-count" data-count="plateau">0</span></div>
+      </div>
+      <div class="legend-title legend-title-special"><span><span class="legend-dot legend-dot-gold"></span>Особые точки</span><span data-total-special>0</span></div>
+      <div class="legend-grid legend-grid-special">
+        <div class="legend-item"><span>Главные</span><span class="legend-count" data-role-count="main_mountain">0</span></div>
+        <div class="legend-item"><span>5000+</span><span class="legend-count" data-role-count="five_thousander">0</span></div>
+        <div class="legend-item"><span>Mingi Tau</span><span class="legend-count" data-role-count="unique_mountain">0</span></div>
       </div>
     </section>
 
+    <aside id="feature-card" class="feature-card" aria-live="polite" hidden>
+      <button type="button" class="feature-card-close" data-action="close-feature" aria-label="Закрыть карточку">×</button>
+      <div class="feature-role" data-feature-role></div>
+      <h2 class="feature-name" data-feature-name></h2>
+      <div class="feature-elevation" data-feature-elevation></div>
+      <p class="feature-note" data-feature-note hidden></p>
+    </aside>
+
     <div id="loading" class="loading" role="status" aria-live="polite">
       <div class="loading-card">
-        <div class="loading-title">Alan Map 12.1.5</div>
-        <div class="loading-text">Подготавливаются хребтовые цепи и локальные речные коридоры.</div>
+        <div class="loading-title">Alan Map 12.1.8</div>
+        <div class="loading-text">Подготавливаются морфологические фигурки, особые вершины и речные коридоры.</div>
       </div>
     </div>
   </main>
   <script src="assets/maplibre-12.1.5.js"></script>
-  <script src="assets/app-12.1.5.js"></script>
+  <script src="assets/app-12.1.8.js"></script>
 </body>
 </html>
