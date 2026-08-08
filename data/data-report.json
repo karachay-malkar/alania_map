@@ -1,0 +1,32 @@
+{
+  "version": "Slippy Map 1.0",
+  "source": {
+    "morphology": "GitHub Actions artifact alan-map-terrain-morphology-audit, run 31028658433 (#12), 2026-08-05",
+    "source_points": 3797,
+    "terrain": "Copernicus DEM GLO-30",
+    "boundary": "approved working contour used by the 7.0.23 map lineage"
+  },
+  "output_points": 3798,
+  "categories": {
+    "isolated_peak": 72,
+    "massif": 77,
+    "plateau": 609,
+    "ridge": 451,
+    "rocky_peak": 599,
+    "rocky_ridge": 302,
+    "rounded_hill": 415,
+    "rounded_mountain": 834,
+    "steep_mountain": 439
+  },
+  "main": 26,
+  "five_thousander": 5,
+  "mingi_tau": {
+    "count": 1,
+    "name": "Минги-тау",
+    "alias_ru": "Эльбрус",
+    "elevation_m": 5642
+  },
+  "outside_boundary_count": 0,
+  "outside_boundary_ids": [],
+  "duplicate_ids": 0
+}
