@@ -8,18 +8,18 @@ const stats = document.getElementById('stats');
 function renderSummary(summary) {
   const categories = Object.entries(CONFIG.categories).map(([key, definition]) => {
     const count = summary.categories[key] || 0;
-    return `<div class="category-item"><span class="category-dot" style="background:${definition.color}"></span><span class="category-label">${definition.label}</span><span class="category-count">${count}</span></div>`;
+    return `<div class="category-item"><span class="category-label">${definition.label}</span><span class="category-count">${count}</span></div>`;
   }).join('');
-  stats.innerHTML = `<div class="stats-summary">${summary.total} точек · главных: ${summary.main} · 5000+: ${summary.five}</div><div class="category-grid">${categories}</div>`;
+  stats.innerHTML = `<div class="stats-summary">PNG: ${summary.iconTotal} · главных: ${summary.main} · 5000+: ${summary.five}</div><div class="category-grid">${categories}</div>`;
 }
 
 (async () => {
   try {
     const data = await loadCanonicalData();
-    const summary = summarizeMountains(data.mountains);
-    createMap(data);
+    const summary = summarizeMountains(data.mountains, data.iconMountains);
+    await createMap(data);
     renderSummary(summary);
-    status.textContent = 'Геометрия загружена. Север внизу, юг вверху.';
+    status.textContent = '1500 горных фигурок загружены. Север внизу, юг вверху.';
   } catch (error) {
     console.error(error);
     status.textContent = `Ошибка: ${error.message || error}`;
