@@ -23,17 +23,36 @@ jobs:
             p=$(printf '%03d' "$i")
             git show "origin/agent/13-0-north-down-morphology-atlas:assets/mountains/mountain-atlas-13.0.chunk-${p}.b64" > "/tmp/slippy-atlas/chunk-${p}.b64"
           done
-          cat /tmp/slippy-atlas/chunk-*.b64 | base64 -d > assets/mountains/mountain-atlas.png
-          echo 'c6a567297fc069f954996fcd36bd60d96f2dbcc80ecc452b2e1eacbf8e8fe8af  assets/mountains/mountain-atlas.png' | sha256sum -c -
           python3 - <<'PY'
+          import base64, hashlib, re, struct
           from pathlib import Path
-          import struct
-          p=Path('assets/mountains/mountain-atlas.png')
-          b=p.read_bytes()
-          if b[:8] != b'\x89PNG\r\n\x1a\n': raise RuntimeError('Atlas is not PNG')
-          w,h=struct.unpack('>II', b[16:24])
-          if (w,h)!=(800,1350): raise RuntimeError(f'Atlas dimensions {(w,h)}')
-          print({'atlas_bytes':len(b),'width':w,'height':h})
+          expected='c6a567297fc069f954996fcd36bd60d96f2dbcc80ecc452b2e1eacbf8e8fe8af'
+          chunks=[]
+          for p in sorted(Path('/tmp/slippy-atlas').glob('chunk-*.b64')):
+              text=re.sub(r'\s+', '', p.read_text(encoding='utf-8'))
+              chunks.append(text)
+          candidates=[]
+          try:
+              candidates.append(('joined', base64.b64decode(''.join(chunks), validate=False)))
+          except Exception:
+              pass
+          try:
+              candidates.append(('per-chunk', b''.join(base64.b64decode(c, validate=False) for c in chunks)))
+          except Exception:
+              pass
+          for mode, blob in candidates:
+              digest=hashlib.sha256(blob).hexdigest()
+              print(mode, len(blob), digest)
+              if digest != expected:
+                  continue
+              if blob[:8] != b'\x89PNG\r\n\x1a\n': raise RuntimeError('Atlas is not PNG')
+              w,h=struct.unpack('>II', blob[16:24])
+              if (w,h)!=(800,1350): raise RuntimeError(f'Atlas dimensions {(w,h)}')
+              Path('assets/mountains/mountain-atlas.png').write_bytes(blob)
+              print({'mode':mode,'atlas_bytes':len(blob),'width':w,'height':h})
+              break
+          else:
+              raise RuntimeError('No atlas reconstruction matched the verified SHA-256')
           PY
 
       - name: Build deterministic 1500-point icon layer
