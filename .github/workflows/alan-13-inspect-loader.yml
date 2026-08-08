@@ -12,55 +12,48 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-      - name: Fetch previous morphology branch
-        shell: bash
-        run: |
-          set -euo pipefail
-          git fetch --no-tags --depth=1 origin agent/12.1.6-terrain-morphology-run:refs/remotes/origin/agent/12.1.6-terrain-morphology-run
-          rm -rf /tmp/morph126
-          mkdir -p /tmp/morph126
-          git archive origin/agent/12.1.6-terrain-morphology-run | tar -x -C /tmp/morph126
-      - name: Inspect previous mountain source data
-        shell: bash
-        run: |
-          set -euo pipefail
-          echo '=== candidate files in 12.1.6 morphology branch ==='
-          find /tmp/morph126 -type f \( -iname '*mount*' -o -iname '*peak*' -o -iname '*ridge*' -o -iname '*terrain*' -o -iname '*morph*' \) -printf '%P | %s bytes\n' | sort
-      - name: Validate previous candidate data
+      - name: Strictly validate every requested Base64 resource
         shell: python
         run: |
-          import base64, gzip, json
+          import base64, gzip, hashlib, json
           from pathlib import Path
-          root = Path('/tmp/morph126')
-          for path in sorted(root.rglob('*')):
-              if not path.is_file():
-                  continue
-              low = path.name.lower()
-              if not any(token in low for token in ('mount','ridge','peak','terrain','morph')):
-                  continue
-              rel = path.relative_to(root)
-              if path.suffix == '.geojson':
+
+          resources = [
+              ('app', Path('assets/app-12.1.8.js.gz.b64'), True, False),
+              ('mountain-render', Path('data/mountains/mountain-render-12.1.8.geojson.gz.b64'), True, True),
+              ('rivers', Path('data/hydrography/rivers-12.1.5.geojson.gz.b64'), True, True),
+          ]
+
+          for label, path, is_gzip, is_json in resources:
+              compact = ''.join(path.read_text(encoding='utf-8').split())
+              print(f'\n{label}: chars={len(compact)} mod4={len(compact)%4} sha256_text={hashlib.sha256(compact.encode()).hexdigest()}')
+              try:
+                  raw = base64.b64decode(compact, validate=True)
+                  print(f'  base64 PASS bytes={len(raw)} prefix={raw[:12].hex()}')
+              except Exception as e:
+                  print(f'  base64 FAIL {type(e).__name__}: {e}')
+                  raise
+              if is_gzip:
                   try:
-                      obj = json.loads(path.read_text(encoding='utf-8'))
-                      feats = obj.get('features', []) if isinstance(obj, dict) else []
-                      keys = sorted({k for f in feats[:50] for k in (f.get('properties') or {})})
-                      print(f'GEOJSON {rel}: features={len(feats)} keys={keys}')
-                      if feats:
-                          print(' sample=', json.dumps(feats[0].get('properties') or {}, ensure_ascii=False)[:1200])
+                      raw = gzip.decompress(raw)
+                      print(f'  gzip PASS bytes={len(raw)}')
                   except Exception as e:
-                      print(f'GEOJSON FAIL {rel}: {type(e).__name__}: {e}')
-              elif str(path).endswith('.gz.b64'):
-                  try:
-                      compact = ''.join(path.read_text(encoding='utf-8').split())
-                      payload = base64.b64decode(compact, validate=True)
-                      decoded = gzip.decompress(payload)
-                      obj = json.loads(decoded)
-                      feats = obj.get('features', []) if isinstance(obj, dict) else []
-                      keys = sorted({k for f in feats[:50] for k in (f.get('properties') or {})})
-                      print(f'B64 {rel}: PASS features={len(feats)} keys={keys}')
-                      if feats:
-                          print(' sample=', json.dumps(feats[0].get('properties') or {}, ensure_ascii=False)[:1200])
-                  except Exception as e:
-                      print(f'B64 FAIL {rel}: {type(e).__name__}: {e}')
+                      print(f'  gzip FAIL {type(e).__name__}: {e}')
+                      raise
+              if is_json:
+                  obj = json.loads(raw)
+                  feats = obj.get('features', [])
+                  keys = sorted({k for f in feats[:100] for k in (f.get('properties') or {})})
+                  print(f'  json PASS type={obj.get("type")} features={len(feats)} keys={keys}')
+                  if label == 'mountain-render':
+                      assert len(feats) == 1000, len(feats)
+                      morph = sorted({str((f.get('properties') or {}).get('morphology','')) for f in feats})
+                      icons = sum(bool((f.get('properties') or {}).get('icon_id')) for f in feats)
+                      print(f'  mountain morphology={morph} icon_id_count={icons}')
+
+          manifest = json.loads(Path('data/mountains/mountain-icon-manifest-13.0.json').read_text(encoding='utf-8'))
+          atlas_text = ''.join(Path(p).read_text(encoding='utf-8').strip() for p in manifest['atlas_parts'])
+          atlas = base64.b64decode(atlas_text, validate=True)
+          print(f'\natlas: base64 PASS bytes={len(atlas)} png={atlas[:8].hex()} sha256={hashlib.sha256(atlas).hexdigest()}')
+          assert atlas[:8] == b'\x89PNG\r\n\x1a\n'
+          assert hashlib.sha256(atlas).hexdigest() == manifest['sha256_png']
