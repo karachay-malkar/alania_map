@@ -25,7 +25,7 @@ jobs:
           grep -q "bearing: 180" src/config.js
           grep -q "pitch: 25" src/config.js
           ! grep -R -E 'app-12|bootstrap-12|map-frame-12|mountain-render-12|part-[0-9]{3}\.bin|force-cache' index.html styles.css src
-      - name: Browser diagnostic in Chrome
+      - name: Browser smoke test in Chrome
         run: |
           set -euo pipefail
           python3 -m http.server 4173 --bind 127.0.0.1 >/tmp/slippy-http.log 2>&1 &
@@ -38,36 +38,56 @@ jobs:
           cat > smoke.cjs <<'EOF'
           const { chromium } = require('playwright-core');
           const fs = require('fs');
+          const crypto = require('crypto');
+          const assert = (v, m) => { if (!v) throw new Error(m); };
+          const hash = p => crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex');
           (async () => {
-            const browser = await chromium.launch({headless:true, executablePath:process.env.CHROME, args:['--no-sandbox','--disable-dev-shm-usage','--use-gl=swiftshader']});
+            const browser = await chromium.launch({headless:true, executablePath:process.env.CHROME, args:['--no-sandbox','--disable-dev-shm-usage','--use-angle=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist']});
             const page = await browser.newPage({viewport:{width:1440,height:900}});
-            const messages=[]; const errors=[]; const failed=[];
-            page.on('console', m => messages.push(`${m.type()}: ${m.text()}`));
+            const errors=[]; const failed=[];
+            page.on('console', m => { if (m.type()==='error') errors.push(m.text()); });
             page.on('pageerror', e => errors.push(String(e)));
             page.on('requestfailed', r => failed.push(`${r.url()} :: ${r.failure()?.errorText || ''}`));
             const response = await page.goto('http://127.0.0.1:4173', {waitUntil:'networkidle', timeout:30000});
-            await page.waitForTimeout(3500);
-            const diagnostic = {
-              http: response?.status(),
-              status: await page.locator('#status').innerText(),
-              stats: await page.locator('#stats').innerText(),
-              canvas: await page.locator('canvas').count(),
-              maplibre: await page.evaluate(() => typeof maplibregl),
-              messages, errors, failed,
-              resources: await page.evaluate(() => performance.getEntriesByType('resource').map(e => e.name))
-            };
-            console.log(JSON.stringify(diagnostic, null, 2));
-            await page.screenshot({path:process.env.GITHUB_WORKSPACE + '/browser-diagnostic.png'});
+            assert(response && response.ok(), 'HTTP page load failed');
+            await page.waitForFunction(() => document.querySelector('#status')?.textContent.includes('Геометрия загружена'), null, {timeout:30000});
+            assert(await page.locator('canvas').count() === 1, 'MapLibre canvas missing');
+            const size = await page.locator('canvas').evaluate(c => ({w:c.clientWidth,h:c.clientHeight}));
+            assert(size.w > 1000 && size.h > 700, `Canvas too small ${JSON.stringify(size)}`);
+            const text = await page.locator('#stats').innerText();
+            assert(text.includes('3798 точек'), 'Canonical point count not rendered');
+            const resources = await page.evaluate(() => performance.getEntriesByType('resource').map(e => e.name));
+            assert(resources.every(u => !/12\.1|7\.0\.23|part-\d{3}\.bin|mountain-render/i.test(u)), `Old runtime request detected: ${resources.join('\n')}`);
+            await page.screenshot({path:'/tmp/before.png'});
+            await page.mouse.move(820,500); await page.mouse.wheel(0,-900); await page.waitForTimeout(700);
+            await page.screenshot({path:'/tmp/after-zoom.png'});
+            assert(hash('/tmp/before.png') !== hash('/tmp/after-zoom.png'), 'Zoom produced no visual change');
+            await page.mouse.move(900,500); await page.mouse.down(); await page.mouse.move(740,570,{steps:12}); await page.mouse.up(); await page.waitForTimeout(500);
+            await page.screenshot({path:'/tmp/after-drag.png'});
+            assert(hash('/tmp/after-zoom.png') !== hash('/tmp/after-drag.png'), 'Drag produced no visual change');
+            assert(errors.length === 0, `Browser errors: ${errors.join('\n')}`);
+            assert(failed.length === 0, `Failed requests: ${failed.join('\n')}`);
+            fs.copyFileSync('/tmp/after-drag.png', process.env.GITHUB_WORKSPACE + '/browser-qa.png');
+            console.log(JSON.stringify({ok:true, canvas:size, resources, status:await page.locator('#status').innerText()}, null, 2));
             await browser.close();
-            if (!diagnostic.status.includes('Геометрия загружена')) process.exit(2);
           })().catch(e => { console.error(e); process.exit(1); });
           EOF
           CHROME="$CHROME" node smoke.cjs
-      - name: Upload diagnostic
-        if: always()
+          cd "$GITHUB_WORKSPACE"
+      - name: Package exact branch runtime
+        run: |
+          set -euo pipefail
+          mkdir -p build
+          zip -9 -r build/slippy-map-1.0.zip \
+            index.html styles.css README.md \
+            src data vendor tools/validate.mjs \
+            -x '*.DS_Store'
+      - name: Upload QA package
         uses: actions/upload-artifact@v4
         with:
-          name: slippy-map-browser-diagnostic
-          path: browser-diagnostic.png
+          name: slippy-map-1.0-final-qa
+          path: |
+            build/slippy-map-1.0.zip
+            browser-qa.png
           retention-days: 14
-          if-no-files-found: warn
+          if-no-files-found: error
