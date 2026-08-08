@@ -77,6 +77,28 @@ jobs:
           node --check assets/atlas-part-adapter-13.0.js
           node --check assets/bootstrap-13.0.js
 
+      - name: Inspect 12.1.8 core resource loading
+        shell: python
+        run: |
+          import base64, gzip, re
+          from pathlib import Path
+          raw = ''.join(Path('assets/app-12.1.8.js.gz.b64').read_text(encoding='utf-8').split())
+          code = gzip.decompress(base64.b64decode(raw, validate=True)).decode('utf-8')
+          for needle in ['mountain-render-12.1.8', 'rivers-12.1.5', 'mountain-icon-manifest-12.1.8', 'mountain-atlas-12.1.8']:
+              print(f'\n===== {needle} =====')
+              start = 0
+              found = False
+              while True:
+                  pos = code.find(needle, start)
+                  if pos < 0: break
+                  found = True
+                  lo = max(0, pos - 900)
+                  hi = min(len(code), pos + 1400)
+                  print(code[lo:hi])
+                  start = pos + len(needle)
+              if not found:
+                  print('<not found>')
+
       - name: Run page in headless Chrome
         shell: bash
         run: |
@@ -157,38 +179,12 @@ jobs:
             http://127.0.0.1:8000/ > /tmp/alan13-mobile.html 2>/tmp/chrome-mobile.stderr
           check_dom /tmp/alan13-mobile.html
 
-          "$CHROME" \
-            --headless=new \
-            --no-sandbox \
-            --disable-dev-shm-usage \
-            --use-angle=swiftshader \
-            --enable-webgl \
-            --ignore-gpu-blocklist \
-            --window-size=1440,1000 \
-            --virtual-time-budget=45000 \
-            --screenshot=/tmp/alan-map-13-desktop.png \
-            http://127.0.0.1:8000/
-
-          "$CHROME" \
-            --headless=new \
-            --no-sandbox \
-            --disable-dev-shm-usage \
-            --use-angle=swiftshader \
-            --enable-webgl \
-            --ignore-gpu-blocklist \
-            --window-size=412,915 \
-            --virtual-time-budget=45000 \
-            --screenshot=/tmp/alan-map-13-mobile.png \
-            http://127.0.0.1:8000/
-
       - name: Upload visual QA
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: alan-map-13-visual-qa
           path: |
-            /tmp/alan-map-13-desktop.png
-            /tmp/alan-map-13-mobile.png
             /tmp/alan13-desktop.html
             /tmp/alan13-mobile.html
             /tmp/alan-server.log
