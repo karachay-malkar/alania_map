@@ -1,0 +1,29 @@
+{
+  "version": "Slippy Map 1.0 mountain icons",
+  "algorithm": "category-weighted deterministic farthest-point thinning",
+  "source_ordinary_points": 3772,
+  "selected_points": 1500,
+  "category_counts": {
+    "isolated_peak": 35,
+    "massif": 18,
+    "plateau": 258,
+    "ridge": 280,
+    "rocky_peak": 141,
+    "rocky_ridge": 166,
+    "rounded_hill": 177,
+    "rounded_mountain": 266,
+    "steep_mountain": 159
+  },
+  "reveal_tiers": {
+    "1": 500,
+    "2": 500,
+    "3": 500
+  },
+  "min_selected_spacing_m": 1596.3,
+  "max_source_to_selected_m": 1850.9,
+  "p95_source_to_selected_m": 1605.3,
+  "root_safety_ratio": 0.78,
+  "reference_zoom": 9.5,
+  "atlas_cell_width_px": 200,
+  "selection_sha256": "1805bbd858248b3679907ee2f1efd6e86c81ae8130d31e80bc39f5e42163f20f"
+}
