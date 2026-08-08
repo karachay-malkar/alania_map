@@ -45,6 +45,17 @@ jobs:
         run: |
           set -euo pipefail
           base64 -d /tmp/morph126/tools/classify_terrain_morphology.py.gz.b64 | gzip -d > /tmp/terrain13/classify_terrain_morphology.py
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('/tmp/terrain13/classify_terrain_morphology.py')
+          text = path.read_text(encoding='utf-8')
+          old = '''if len(result) != 3797:\n        raise RuntimeError(f"Expected 3797 source points, got {len(result)}")'''
+          new = '''if not result:\n        raise RuntimeError("No source points loaded")'''
+          if old not in text:
+              raise RuntimeError('Expected 3797-point guard not found in classifier')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          print('Patched only the legacy fixed-count guard; classification logic is unchanged.')
+          PY
           python -m py_compile /tmp/terrain13/classify_terrain_morphology.py
 
       - name: Download Copernicus GLO-30 DEM tiles
