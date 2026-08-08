@@ -91,8 +91,29 @@ jobs:
           CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
           test -n "$CHROME"
 
+          diagnose_dom() {
+            local file="$1"
+            python3 - "$file" <<'PY'
+          from pathlib import Path
+          import re, sys
+          dom = Path(sys.argv[1]).read_text(encoding='utf-8')
+          def one(pattern):
+              m = re.search(pattern, dom, re.S)
+              return re.sub(r'<[^>]+>', '', m.group(1)).strip() if m else '<missing>'
+          print('DOM status:', one(r'id="map-status"[^>]*>(.*?)</p>'))
+          print('DOM loading:', one(r'class="loading-text"[^>]*>(.*?)</div>'))
+          pos = dom.find('id="loading"')
+          print('DOM loading tag:', dom[pos:dom.find('>', pos)+1] if pos >= 0 else '<missing>')
+          PY
+          }
+
           check_dom() {
             local file="$1"
+            diagnose_dom "$file"
+            echo '--- server requests ---'
+            cat /tmp/alan-server.log || true
+            echo '--- chrome stderr tail ---'
+            tail -80 /tmp/chrome.stderr || true
             ! grep -q 'data-failed' "$file"
             ! grep -q 'Карта не загрузилась' "$file"
             ! grep -q "Failed to execute 'atob'" "$file"
@@ -120,7 +141,7 @@ jobs:
             --window-size=1440,1000 \
             --virtual-time-budget=45000 \
             --dump-dom \
-            http://127.0.0.1:8000/ > /tmp/alan13-desktop.html
+            http://127.0.0.1:8000/ > /tmp/alan13-desktop.html 2>/tmp/chrome.stderr
           check_dom /tmp/alan13-desktop.html
 
           "$CHROME" \
@@ -133,7 +154,7 @@ jobs:
             --window-size=412,915 \
             --virtual-time-budget=45000 \
             --dump-dom \
-            http://127.0.0.1:8000/ > /tmp/alan13-mobile.html
+            http://127.0.0.1:8000/ > /tmp/alan13-mobile.html 2>/tmp/chrome-mobile.stderr
           check_dom /tmp/alan13-mobile.html
 
           "$CHROME" \
@@ -161,10 +182,16 @@ jobs:
             http://127.0.0.1:8000/
 
       - name: Upload visual QA
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: alan-map-13-visual-qa
           path: |
             /tmp/alan-map-13-desktop.png
             /tmp/alan-map-13-mobile.png
-          if-no-files-found: error
+            /tmp/alan13-desktop.html
+            /tmp/alan13-mobile.html
+            /tmp/alan-server.log
+            /tmp/chrome.stderr
+            /tmp/chrome-mobile.stderr
+          if-no-files-found: warn
