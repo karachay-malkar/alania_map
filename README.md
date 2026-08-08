@@ -1,25 +1,34 @@
 # Slippy Map 1.0
 
-Clean rebuild of the Alan map. Runtime code is new and does not load any 7.x/12.x application code.
+Чистая Slippy Map проекта «Алан тил». Runtime написан заново и не загружает код старых карт 7.x/12.x.
 
-## Runtime
+## Текущий слой
 
-- MapLibre GL JS is vendored unchanged as the map engine.
-- `src/` is the new application code.
-- Runtime reads only `data/map-boundary.geojson` and `data/mountains.geojson`.
-- No PMTiles shards, gzip/base64 runtime, `eval`, old bootstrap, or old map application modules are used.
-- Default orientation is bearing 180°: north is down, south is up.
-- Default pitch is 25° and is reserved for the later 2.5D relief stage.
+- MapLibre GL JS — только картографический движок.
+- Север внизу, юг вверху (`bearing: 180°`).
+- Наклон камеры: `25°`.
+- Канонические геоданные: `data/map-boundary.geojson` и `data/mountains.geojson`.
+- Из 3772 обычных гор детерминированно отобраны ровно 1500 точек для художественных фигурок.
+- Отбор выполнен category-weighted farthest-point алгоритмом: плотные скопления прореживаются, редкие участки сохраняются, хребтовые категории получают небольшой приоритет.
+- Максимальное расстояние от любой исходной обычной точки до выбранной — менее 2 км.
+- Размер каждой фигурки ограничивается расстоянием до ближайшей выбранной точки, чтобы основания соседних фигурок не конфликтовали.
+- 36 фигурок: 9 категорий × 4 варианта из `mountain_icons_final_9_categories(1).zip`.
+- Вариант каждой фигурки назначен детерминированно; рядом по возможности не повторяется одна и та же форма.
+- Фигурки не кликабельны, не вращаются вместе с картой и плавно увеличиваются вместе с масштабом карты.
+- 1500 фигурок раскрываются тремя вложенными уровнями по 500 объектов: zoom 7.2 / 8.0 / 8.8.
+- Главные горы, пятитысячники и `mingi_tau` не получают PNG и остаются золотыми интерактивными точками.
+- Подписи главных гор появляются с zoom 9.5 и автоматически скрывают пересекающиеся подписи.
+- `mingi_tau` — единственный объект Минги-тау / Эльбрус, 5642 м.
 
-## Canonical data
+## Runtime files
 
-- Boundary: the approved working contour used by the 7.0.23 map lineage, stored as standalone GeoJSON.
-- Mountain morphology: verified `12.1.6` terrain-audit result from GitHub Actions run `31028658433` (#12, 2026-08-05), calculated for all 3797 source points from Copernicus DEM GLO-30.
-- Runtime dataset contains 3798 points: 3797 audited source points plus one canonical `mingi_tau` object.
-- Nine morphology categories are retained independently from importance flags.
-- Main objects: 26.
-- Real five-thousanders: 5, including `mingi_tau` at 5642 m.
-- `mingi_tau` is the single canonical object for Минги-тау / Эльбрус. Display name: `Минги-тау`; Russian alias: `Эльбрус`.
-- Validation result: 0 duplicate IDs and 0 points outside the approved boundary.
+- `src/config.js` — параметры карты и масштабов.
+- `src/data.js` — загрузка и runtime-валидация данных.
+- `src/map.js` — MapLibre, PNG-слои, золотые точки, интерактивность и подписи.
+- `data/mountain-icons-1500.geojson` — производный слой 1500 фигурок.
+- `assets/mountains/mountain-atlas.png` — единый PNG-атлас 36 фигурок.
+- `assets/mountains/atlas-manifest.json` — координаты фигурок внутри атласа.
+- `tools/build_mountain_icon_layer.py` — воспроизводимый алгоритм отбора и раскладки.
+- `tools/validate.mjs` — контрактная проверка.
 
-Historical sources were used only to create the canonical GeoJSON. They are never requested by the browser.
+Старые карты используются только как проверенный исторический источник геометрии/морфологии и исходного атласа. Браузер не делает runtime-запросов к старым версиям.
