@@ -11,20 +11,19 @@ export const CONFIG = Object.freeze({
     outside: '#d7c5a1',
     territory: '#eadbbc',
     boundary: '#5b4b39',
-    ordinary: '#4d5360',
     main: '#9b772d',
     five: '#7b5617',
     mingi: '#b0862f'
   }),
   categories: Object.freeze({
-    rounded_hill:      {label: 'Округлый холм', minZoom: 8.2},
-    rounded_mountain:  {label: 'Округлая гора', minZoom: 7.6},
-    steep_mountain:    {label: 'Крутая гора', minZoom: 7.1},
-    isolated_peak:     {label: 'Одиночный пик', minZoom: 6.8},
-    massif:            {label: 'Массив', minZoom: 6.8},
-    ridge:             {label: 'Хребет', minZoom: 7.0},
-    rocky_peak:        {label: 'Скальный пик', minZoom: 6.8},
-    rocky_ridge:       {label: 'Скальный хребет', minZoom: 7.0},
-    plateau:           {label: 'Плато', minZoom: 8.0}
+    rounded_hill:     {label: 'Округлый холм', minZoom: 8.2, color: '#8b8172', radiusScale: 0.84},
+    rounded_mountain: {label: 'Округлая гора', minZoom: 7.6, color: '#6f756d', radiusScale: 0.98},
+    steep_mountain:   {label: 'Крутая гора', minZoom: 7.1, color: '#5f6670', radiusScale: 1.08},
+    isolated_peak:    {label: 'Одиночный пик', minZoom: 6.8, color: '#55515c', radiusScale: 1.20},
+    massif:           {label: 'Массив', minZoom: 6.8, color: '#6b5c55', radiusScale: 1.22},
+    ridge:            {label: 'Хребет', minZoom: 7.0, color: '#707467', radiusScale: 1.04},
+    rocky_peak:       {label: 'Скальный пик', minZoom: 6.8, color: '#4d5662', radiusScale: 1.16},
+    rocky_ridge:      {label: 'Скальный хребет', minZoom: 7.0, color: '#505b58', radiusScale: 1.10},
+    plateau:          {label: 'Плато', minZoom: 8.0, color: '#8a7964', radiusScale: 0.90}
   })
 });
