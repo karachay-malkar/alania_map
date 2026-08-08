@@ -24,35 +24,32 @@ jobs:
             git show "origin/agent/13-0-north-down-morphology-atlas:assets/mountains/mountain-atlas-13.0.chunk-${p}.b64" > "/tmp/slippy-atlas/chunk-${p}.b64"
           done
           python3 - <<'PY'
-          import base64, hashlib, re, struct
+          import base64, hashlib, json, re, struct
           from pathlib import Path
           expected='c6a567297fc069f954996fcd36bd60d96f2dbcc80ecc452b2e1eacbf8e8fe8af'
           chunks=[]
           for p in sorted(Path('/tmp/slippy-atlas').glob('chunk-*.b64')):
-              text=re.sub(r'\s+', '', p.read_text(encoding='utf-8'))
-              chunks.append(text)
+              chunks.append(re.sub(r'\s+', '', p.read_text(encoding='utf-8')))
           candidates=[]
-          try:
-              candidates.append(('joined', base64.b64decode(''.join(chunks), validate=False)))
-          except Exception:
-              pass
-          try:
-              candidates.append(('per-chunk', b''.join(base64.b64decode(c, validate=False) for c in chunks)))
-          except Exception:
-              pass
+          try: candidates.append(('joined', base64.b64decode(''.join(chunks), validate=False)))
+          except Exception: pass
+          try: candidates.append(('per-chunk', b''.join(base64.b64decode(c, validate=False) for c in chunks)))
+          except Exception: pass
           for mode, blob in candidates:
               digest=hashlib.sha256(blob).hexdigest()
               print(mode, len(blob), digest)
-              if digest != expected:
-                  continue
+              if digest != expected: continue
               if blob[:8] != b'\x89PNG\r\n\x1a\n': raise RuntimeError('Atlas is not PNG')
               w,h=struct.unpack('>II', blob[16:24])
               if (w,h)!=(800,1350): raise RuntimeError(f'Atlas dimensions {(w,h)}')
               Path('assets/mountains/mountain-atlas.png').write_bytes(blob)
+              manifest_path=Path('assets/mountains/atlas-manifest.json')
+              manifest=json.loads(manifest_path.read_text(encoding='utf-8'))
+              manifest['sha256_png']=expected
+              manifest_path.write_text(json.dumps(manifest,ensure_ascii=False,separators=(',',':')),encoding='utf-8')
               print({'mode':mode,'atlas_bytes':len(blob),'width':w,'height':h})
               break
-          else:
-              raise RuntimeError('No atlas reconstruction matched the verified SHA-256')
+          else: raise RuntimeError('No atlas reconstruction matched the verified SHA-256')
           PY
 
       - name: Build deterministic 1500-point icon layer
@@ -106,12 +103,17 @@ jobs:
             assert(resources.some(u=>u.endsWith('/data/mountain-icons-1500.geojson')),'1500-point layer not requested');
             assert(resources.every(u=>!/12\\.1|7\\.0\\.23|part-\\d{3}\\.bin|mountain-render/i.test(u)),`Old runtime request: ${resources.join('\\n')}`);
             await page.screenshot({path:'/tmp/far.png'});
-            await page.mouse.move(760,470); await page.mouse.wheel(0,-2600); await page.waitForTimeout(1300);
+            await page.mouse.move(760,470);
+            let labelCount=0;
+            for(let i=0;i<8 && labelCount===0;i++){
+              await page.mouse.wheel(0,-1200);
+              await page.waitForTimeout(450);
+              labelCount=await page.locator('.main-label:not([hidden])').count();
+            }
             await page.screenshot({path:'/tmp/near.png'});
             assert(hash('/tmp/far.png')!==hash('/tmp/near.png'),'Zoom produced no visual change');
+            assert(labelCount>0,'Main mountain labels did not appear at close zoom');
             const visibleLabels=page.locator('.main-label:not([hidden])');
-            const labelCount=await visibleLabels.count();
-            assert(labelCount>0,'Main mountain labels did not appear on close zoom');
             const pos=await visibleLabels.first().evaluate(el=>({x:parseFloat(el.style.left),y:parseFloat(el.style.top)+12,name:el.textContent}));
             assert(Number.isFinite(pos.x)&&Number.isFinite(pos.y),'Main label has no projected position');
             await page.mouse.click(pos.x,pos.y); await page.waitForTimeout(250);
@@ -133,7 +135,7 @@ jobs:
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add assets/mountains/mountain-atlas.png data/mountain-icons-1500.geojson data/icon-layer-report.json
+          git add assets/mountains/atlas-manifest.json assets/mountains/mountain-atlas.png data/mountain-icons-1500.geojson data/icon-layer-report.json
           if git diff --cached --quiet; then
             echo 'Generated assets already committed.'
           else
