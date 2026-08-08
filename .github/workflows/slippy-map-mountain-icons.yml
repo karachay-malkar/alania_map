@@ -18,39 +18,23 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p /tmp/slippy-payload /tmp/slippy-recovered assets/mountains
-          for i in $(seq -w 0 8); do
-            curl --fail --location --retry 4 \
-              "https://raw.githubusercontent.com/karachay-malkar/alania_map/42baea343681ddf3847180e228525bfb384bba1d/tools/.12.1.8-payload.part-${i}" \
-              -o "/tmp/slippy-payload/part-${i}"
+          mkdir -p /tmp/slippy-atlas assets/mountains
+          for i in $(seq 0 11); do
+            p=$(printf '%03d' "$i")
+            git show "origin/agent/13-0-north-down-morphology-atlas:assets/mountains/mountain-atlas-13.0.chunk-${p}.b64" > "/tmp/slippy-atlas/chunk-${p}.b64"
           done
-          cat /tmp/slippy-payload/part-* | base64 -d > /tmp/slippy-prefix.tgz
+          cat /tmp/slippy-atlas/chunk-*.b64 | base64 -d > assets/mountains/mountain-atlas.png
+          echo 'c6a567297fc069f954996fcd36bd60d96f2dbcc80ecc452b2e1eacbf8e8fe8af  assets/mountains/mountain-atlas.png' | sha256sum -c -
           python3 - <<'PY'
-          import io, tarfile, zlib
-          from pathlib import Path, PurePosixPath
-          compressed=Path('/tmp/slippy-prefix.tgz').read_bytes()
-          data=zlib.decompressobj(16+zlib.MAX_WBITS).decompress(compressed)
-          archive=tarfile.open(fileobj=io.BytesIO(data), mode='r:')
-          wanted='assets/mountains/mountain-atlas-12.1.8.png'
-          recovered=False
-          while True:
-              try: member=archive.next()
-              except (tarfile.ReadError, EOFError, OSError): break
-              if member is None: break
-              rel=PurePosixPath(member.name)
-              if rel.is_absolute() or '..' in rel.parts: raise RuntimeError(member.name)
-              if member.name != wanted: continue
-              source=archive.extractfile(member)
-              blob=source.read() if source else b''
-              if len(blob) != member.size: raise RuntimeError('Incomplete atlas')
-              target=Path('/tmp/slippy-recovered/mountain-atlas.png')
-              target.write_bytes(blob)
-              recovered=True
-              break
-          if not recovered: raise RuntimeError('Verified mountain atlas was not recovered')
+          from pathlib import Path
+          import struct
+          p=Path('assets/mountains/mountain-atlas.png')
+          b=p.read_bytes()
+          if b[:8] != b'\x89PNG\r\n\x1a\n': raise RuntimeError('Atlas is not PNG')
+          w,h=struct.unpack('>II', b[16:24])
+          if (w,h)!=(800,1350): raise RuntimeError(f'Atlas dimensions {(w,h)}')
+          print({'atlas_bytes':len(b),'width':w,'height':h})
           PY
-          echo 'eca37c7f351bca512fb1a89a438fee789186033351a9c542a812f5037db5c6f7  /tmp/slippy-recovered/mountain-atlas.png' | sha256sum -c -
-          cp /tmp/slippy-recovered/mountain-atlas.png assets/mountains/mountain-atlas.png
 
       - name: Build deterministic 1500-point icon layer
         run: |
@@ -142,8 +126,8 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p build
-          zip -9 -r build/slippy-map-1.0.zip index.html styles.css README.md src data assets vendor tools -x '.github/*' '*.DS_Store'
-          find index.html styles.css README.md src data assets vendor tools -type f -printf '%p %s\n' | sort > build/file-sizes.txt
+          zip -9 -r build/slippy-map-1.0.zip index.html styles.css README.md src data assets vendor tools -x '.github/*' '*.DS_Store' 'tools/__pycache__/*'
+          find index.html styles.css README.md src data assets vendor tools -type f ! -path '*/__pycache__/*' -printf '%p %s\n' | sort > build/file-sizes.txt
 
       - uses: actions/upload-artifact@v4
         with:
