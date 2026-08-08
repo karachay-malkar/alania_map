@@ -12,24 +12,36 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Inspect core compressed-resource loader
+      - name: Validate compressed runtime resources
         shell: python
         run: |
-          import base64, gzip
+          import base64, binascii, gzip, json
           from pathlib import Path
-          raw = ''.join(Path('assets/app-12.1.8.js.gz.b64').read_text(encoding='utf-8').split())
-          code = gzip.decompress(base64.b64decode(raw, validate=True)).decode('utf-8')
-          needles = ['atob(', 'DecompressionStream', '.gz.b64', 'mountainRenderUrl', 'iconManifestUrl', 'riversUrl', 'fetch(']
-          for needle in needles:
-              print(f'\n===== {needle} =====')
-              start = 0
-              count = 0
-              while True:
-                  pos = code.find(needle, start)
-                  if pos < 0: break
-                  count += 1
-                  print(f'--- occurrence {count} at {pos} ---')
-                  print(code[max(0,pos-1200):min(len(code),pos+2200)])
-                  start = pos + len(needle)
-                  if count >= 12: break
-              if count == 0: print('<none>')
+
+          files = [
+              'data/mountains/mountain-render-12.1.8.geojson.gz.b64',
+              'data/hydrography/rivers-12.1.5.geojson.gz.b64',
+          ]
+          for name in files:
+              text = Path(name).read_text(encoding='utf-8')
+              compact = ''.join(text.split())
+              print(f'\n===== {name} =====')
+              print('chars:', len(text), 'compact:', len(compact), 'mod4:', len(compact) % 4)
+              print('prefix:', repr(compact[:32]), 'suffix:', repr(compact[-32:]))
+              try:
+                  payload = base64.b64decode(compact, validate=True)
+                  print('base64: PASS bytes=', len(payload), 'gzip header=', payload[:10].hex())
+              except Exception as e:
+                  print('base64: FAIL', type(e).__name__, str(e))
+                  continue
+              try:
+                  decoded = gzip.decompress(payload)
+                  print('gzip: PASS bytes=', len(decoded))
+              except Exception as e:
+                  print('gzip: FAIL', type(e).__name__, str(e))
+                  continue
+              try:
+                  obj = json.loads(decoded)
+                  print('json: PASS type=', obj.get('type'), 'features=', len(obj.get('features', [])))
+              except Exception as e:
+                  print('json: FAIL', type(e).__name__, str(e))
