@@ -1,59 +1,139 @@
-name: Alan Map 13 loader inspect
+name: Recover 13.0 mountain render
 
 on:
   pull_request:
     branches: [main]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  inspect:
-    runs-on: ubuntu-latest
+  recover:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - name: Strictly validate every requested Base64 resource
+      - name: Checkout 13.0 branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/13-0-north-down-morphology-atlas
+          fetch-depth: 0
+
+      - name: Read prepared 12.1.8 payload from PR 18
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/pr18 /tmp/recovered
+          mkdir -p /tmp/pr18 /tmp/recovered
+          git fetch --no-tags --depth=1 origin refs/pull/18/head:refs/remotes/origin/pr18-head
+          git archive refs/remotes/origin/pr18-head | tar -x -C /tmp/pr18
+          mapfile -t parts < <(find /tmp/pr18/tools -maxdepth 1 -type f -name '.12.1.8-payload.part-*' | sort)
+          echo "payload parts: ${#parts[@]}"
+          test "${#parts[@]}" -ge 9
+          cat "${parts[@]}" > /tmp/payload.b64
+          base64 -d /tmp/payload.b64 > /tmp/payload.tgz || true
+
+      - name: Recover complete source files
         shell: python
         run: |
-          import base64, gzip, hashlib, json
-          from pathlib import Path
-
-          resources = [
-              ('app', Path('assets/app-12.1.8.js.gz.b64'), True, False),
-              ('mountain-render', Path('data/mountains/mountain-render-12.1.8.geojson.gz.b64'), True, True),
-              ('rivers', Path('data/hydrography/rivers-12.1.5.geojson.gz.b64'), True, True),
-          ]
-
-          for label, path, is_gzip, is_json in resources:
-              compact = ''.join(path.read_text(encoding='utf-8').split())
-              print(f'\n{label}: chars={len(compact)} mod4={len(compact)%4} sha256_text={hashlib.sha256(compact.encode()).hexdigest()}')
-              try:
-                  raw = base64.b64decode(compact, validate=True)
-                  print(f'  base64 PASS bytes={len(raw)} prefix={raw[:12].hex()}')
-              except Exception as e:
-                  print(f'  base64 FAIL {type(e).__name__}: {e}')
-                  raise
-              if is_gzip:
+          import io, tarfile, zlib
+          from pathlib import Path, PurePosixPath
+          compressed = Path('/tmp/payload.tgz').read_bytes()
+          inflater = zlib.decompressobj(16 + zlib.MAX_WBITS)
+          tar_bytes = inflater.decompress(compressed)
+          stream = io.BytesIO(tar_bytes)
+          root = Path('/tmp/recovered')
+          recovered = []
+          try:
+              archive = tarfile.open(fileobj=stream, mode='r:')
+              while True:
                   try:
-                      raw = gzip.decompress(raw)
-                      print(f'  gzip PASS bytes={len(raw)}')
-                  except Exception as e:
-                      print(f'  gzip FAIL {type(e).__name__}: {e}')
-                      raise
-              if is_json:
-                  obj = json.loads(raw)
-                  feats = obj.get('features', [])
-                  keys = sorted({k for f in feats[:100] for k in (f.get('properties') or {})})
-                  print(f'  json PASS type={obj.get("type")} features={len(feats)} keys={keys}')
-                  if label == 'mountain-render':
-                      assert len(feats) == 1000, len(feats)
-                      morph = sorted({str((f.get('properties') or {}).get('morphology','')) for f in feats})
-                      icons = sum(bool((f.get('properties') or {}).get('icon_id')) for f in feats)
-                      print(f'  mountain morphology={morph} icon_id_count={icons}')
+                      member = archive.next()
+                  except (tarfile.ReadError, EOFError, OSError):
+                      break
+                  if member is None:
+                      break
+                  rel = PurePosixPath(member.name)
+                  if rel.is_absolute() or '..' in rel.parts:
+                      raise RuntimeError(member.name)
+                  target = root / Path(*rel.parts)
+                  if member.isdir():
+                      target.mkdir(parents=True, exist_ok=True)
+                      continue
+                  if not member.isfile():
+                      continue
+                  try:
+                      source = archive.extractfile(member)
+                      data = source.read() if source else b''
+                  except (tarfile.ReadError, EOFError, OSError):
+                      break
+                  if len(data) != member.size:
+                      break
+                  target.parent.mkdir(parents=True, exist_ok=True)
+                  target.write_bytes(data)
+                  recovered.append(member.name)
+          except tarfile.ReadError:
+              pass
 
-          manifest = json.loads(Path('data/mountains/mountain-icon-manifest-13.0.json').read_text(encoding='utf-8'))
-          atlas_text = ''.join(Path(p).read_text(encoding='utf-8').strip() for p in manifest['atlas_parts'])
-          atlas = base64.b64decode(atlas_text, validate=True)
-          print(f'\natlas: base64 PASS bytes={len(atlas)} png={atlas[:8].hex()} sha256={hashlib.sha256(atlas).hexdigest()}')
-          assert atlas[:8] == b'\x89PNG\r\n\x1a\n'
-          assert hashlib.sha256(atlas).hexdigest() == manifest['sha256_png']
+          required = [
+              'README.md','index.html','styles-12.1.8.css',
+              'src/config.js','src/data.js','src/map.js','src/app.js',
+              'tests/12.1-contract.mjs','tools/run_stage_12_1.sh',
+              'tools/build_stage_12_1_8.py',
+              'data/mountains/mountain-icon-manifest-12.1.8.json',
+              'assets/mountains/mountain-atlas-12.1.8.png',
+              'tools/.12.1.8-active-morphology.json.gz'
+          ]
+          missing = [p for p in required if not (root / p).is_file() or (root / p).stat().st_size == 0]
+          print('recovered complete files:', len(recovered))
+          if missing:
+              raise RuntimeError('Missing: ' + ', '.join(missing))
+
+      - name: Build clean 12.1.8 payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/recovered
+          base64 -w0 assets/mountains/mountain-atlas-12.1.8.png > assets/mountains/mountain-atlas-12.1.8.b64
+          base64 -w0 tools/.12.1.8-active-morphology.json.gz > data/mountains/mountain-morphology-active-12.1.8.json.gz.b64
+          rm -f tools/.12.1.8-active-morphology.json.gz
+          python3 tools/build_stage_12_1_8.py
+
+      - name: Strictly validate rebuilt render
+        shell: python
+        run: |
+          import base64, gzip, json, re
+          from pathlib import Path
+          p = Path('/tmp/recovered/data/mountains/mountain-render-12.1.8.geojson.gz.b64')
+          compact = ''.join(p.read_text(encoding='utf-8').split())
+          assert len(compact) % 4 == 0
+          assert re.fullmatch(r'[A-Za-z0-9+/]*={0,2}', compact)
+          obj = json.loads(gzip.decompress(base64.b64decode(compact, validate=True)))
+          features = obj.get('features', [])
+          assert obj.get('type') == 'FeatureCollection'
+          assert len(features) == 1000, len(features)
+          valid = {'rounded_hill','rounded_mountain','steep_mountain','isolated_peak','massif','ridge','rocky_peak','rocky_ridge','plateau'}
+          invalid = []
+          icon_count = 0
+          for i, feature in enumerate(features):
+              props = feature.get('properties') or {}
+              morphology = str(props.get('morphology') or '')
+              if morphology not in valid:
+                  invalid.append((i, morphology))
+              if props.get('icon_id'):
+                  icon_count += 1
+          assert not invalid, invalid[:20]
+          assert icon_count >= 975, icon_count
+          print('REBUILT RENDER PASS:', len(features), 'features;', icon_count, 'icon ids;', len(compact), 'base64 chars')
+
+      - name: Install rebuilt render into 13.0 branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp /tmp/recovered/data/mountains/mountain-render-12.1.8.geojson.gz.b64 data/mountains/mountain-render-12.1.8.geojson.gz.b64
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data/mountains/mountain-render-12.1.8.geojson.gz.b64
+          git diff --cached --quiet && { echo 'No render change'; exit 1; }
+          git commit -m 'Restore complete 12.1.8 mountain render for 13.0'
+          git push origin HEAD:agent/13-0-north-down-morphology-atlas
