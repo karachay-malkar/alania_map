@@ -10,16 +10,17 @@
     const code = (await Promise.all(names.map(fetchText))).join('');
     (0, eval)(code + '\n//# sourceURL=' + sourceName);
   };
-  const loadScript = (name) => new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    script.src = new URL(name, baseUrl).href;
-    script.onload = resolve;
-    script.onerror = () => reject(new Error('Alan Map: не загружен ' + name + '.'));
-    document.head.appendChild(script);
-  });
+  const executeGzipBase64 = async (name, sourceName) => {
+    const encoded = (await fetchText(name)).trim();
+    const bytes = Uint8Array.from(atob(encoded), (character) => character.charCodeAt(0));
+    if (typeof DecompressionStream !== 'function') throw new Error('Браузер не поддерживает распаковку gzip.');
+    const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+    const code = await new Response(stream).text();
+    (0, eval)(code + '\n//# sourceURL=' + sourceName);
+  };
   (async () => {
     await executeParts(['maplibre.part-000.js', 'maplibre.part-001.js'], 'maplibre-12.1.8.js');
-    await loadScript('app-12.1.8.js?v=12.1.8.1');
+    await executeGzipBase64('app-12.1.8.js.gz.b64?v=12.1.8.2', 'app-12.1.8.js');
   })().catch((error) => {
     console.error(error);
     const loading = document.querySelector('#loading .loading-text');
