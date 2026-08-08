@@ -1,0 +1,147 @@
+name: Alan Map 13.0 QA
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate production mountain payload and atlas
+        shell: python
+        run: |
+          import base64, gzip, hashlib, json, re, struct
+          from collections import Counter, defaultdict
+          from pathlib import Path
+
+          valid = {
+              'rounded_hill', 'rounded_mountain', 'steep_mountain',
+              'isolated_peak', 'massif', 'ridge', 'rocky_peak',
+              'rocky_ridge', 'plateau'
+          }
+          special_roles = {'main_mountain', 'five_thousander', 'unique_mountain'}
+
+          manifest_path = Path('data/mountains/mountain-icon-manifest-13.0.json')
+          manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+          assert manifest['version'] == '13.0'
+          assert len(manifest['icons']) == 36
+          ids = [item['id'] for item in manifest['icons']]
+          assert len(ids) == len(set(ids)) == 36
+          by_category = Counter(item['category'] for item in manifest['icons'])
+          assert set(by_category) == valid
+          assert all(by_category[name] == 4 for name in valid)
+
+          parts = []
+          for path in manifest['atlas_parts']:
+              file = Path(path)
+              assert file.is_file(), f'missing atlas part: {path}'
+              parts.append(file.read_text(encoding='utf-8').strip())
+          png = base64.b64decode(''.join(parts), validate=True)
+          assert png[:8] == b'\x89PNG\r\n\x1a\n'
+          width, height = struct.unpack('>II', png[16:24])
+          assert (width, height) == (800, 1350), (width, height)
+          digest = hashlib.sha256(png).hexdigest()
+          assert digest == manifest['sha256_png'], (digest, manifest['sha256_png'])
+
+          encoded = Path('data/mountains/mountain-render-12.1.8.geojson.gz.b64').read_text(encoding='utf-8')
+          render = json.loads(gzip.decompress(base64.b64decode(''.join(encoded.split()))))
+          assert render['type'] == 'FeatureCollection'
+          invalid = []
+          ordinary = 0
+          morph_counts = Counter()
+          for index, feature in enumerate(render['features']):
+              props = feature.get('properties') or {}
+              fid = str(props.get('id') or props.get('point_id') or feature.get('id') or f'feature-{index}')
+              role = str(props.get('role') or props.get('type') or '')
+              if fid == 'mingi_tau' or role in special_roles:
+                  continue
+              ordinary += 1
+              morphology = str(props.get('morphology') or '').strip()
+              if morphology not in valid:
+                  invalid.append((fid, morphology))
+              else:
+                  morph_counts[morphology] += 1
+          assert ordinary > 0
+          assert not invalid, f'invalid morphology records: {invalid[:20]} (total {len(invalid)})'
+          assert set(morph_counts) == valid, morph_counts
+
+          active = Path('assets/bootstrap-13.0.js').read_text(encoding='utf-8') + '\n' + manifest_path.read_text(encoding='utf-8')
+          assert 'mountain-atlas-12.1.8.s80' not in active
+          assert not re.search(r'\bmount-\d+\b', active)
+          assert 'NORTH_DOWN_BEARING = 180' in active
+          assert "SPECIAL_IDS = new Set(['mingi_tau'])" in active
+
+          print(json.dumps({
+              'ordinary_features': ordinary,
+              'morphology_counts': morph_counts,
+              'atlas_sha256': digest,
+              'atlas_size': [width, height],
+              'icons': len(ids)
+          }, ensure_ascii=False, indent=2))
+
+      - name: Check bootstrap syntax
+        run: node --check assets/bootstrap-13.0.js
+
+      - name: Run page in headless Chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m http.server 8000 >/tmp/alan-server.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID || true' EXIT
+          for i in {1..20}; do
+            if curl -fsS http://127.0.0.1:8000/ >/dev/null; then break; fi
+            sleep 0.25
+          done
+          CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME"
+          "$CHROME" \
+            --headless=new \
+            --no-sandbox \
+            --disable-dev-shm-usage \
+            --use-angle=swiftshader \
+            --enable-webgl \
+            --ignore-gpu-blocklist \
+            --window-size=1440,1000 \
+            --virtual-time-budget=30000 \
+            --dump-dom \
+            http://127.0.0.1:8000/ > /tmp/alan13-dom.html
+          ! grep -q 'data-failed' /tmp/alan13-dom.html
+          ! grep -q 'Карта не загрузилась' /tmp/alan13-dom.html
+          python3 - <<'PY'
+          from pathlib import Path
+          dom = Path('/tmp/alan13-dom.html').read_text(encoding='utf-8')
+          pos = dom.find('id="loading"')
+          assert pos >= 0, 'loading node missing'
+          tag_end = dom.find('>', pos)
+          tag = dom[pos:tag_end]
+          assert 'hidden' in tag, f'map did not finish loading: {tag}'
+          assert 'Alan Map · 13.0' in dom
+          print('Headless page load: PASS')
+          PY
+          "$CHROME" \
+            --headless=new \
+            --no-sandbox \
+            --disable-dev-shm-usage \
+            --use-angle=swiftshader \
+            --enable-webgl \
+            --ignore-gpu-blocklist \
+            --window-size=1440,1000 \
+            --virtual-time-budget=30000 \
+            --screenshot=/tmp/alan-map-13.png \
+            http://127.0.0.1:8000/
+
+      - name: Upload visual QA
+        uses: actions/upload-artifact@v4
+        with:
+          name: alan-map-13-visual-qa
+          path: /tmp/alan-map-13.png
+          if-no-files-found: error
