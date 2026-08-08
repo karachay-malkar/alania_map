@@ -1,0 +1,297 @@
+name: Finalize Alan Map 13.0
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Checkout 13.0
+        uses: actions/checkout@v4
+        with:
+          ref: agent/13-0-north-down-morphology-atlas
+          fetch-depth: 0
+
+      - name: Fetch original morphology inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/m126 /tmp/t13
+          mkdir -p /tmp/m126 /tmp/t13/dem /tmp/t13/osm /tmp/t13/result
+          git fetch --no-tags --depth=1 origin agent/12.1.6-terrain-morphology-run:refs/remotes/origin/m126
+          git archive refs/remotes/origin/m126 | tar -x -C /tmp/m126
+          test -s /tmp/m126/data/mountains/mountain-render-12.1.5.geojson
+          base64 -d /tmp/m126/tools/classify_terrain_morphology.py.gz.b64 | gzip -d > /tmp/t13/classifier.py
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/t13/classifier.py')
+          s=p.read_text(encoding='utf-8')
+          old='''if len(result) != 3797:\n        raise RuntimeError(f"Expected 3797 source points, got {len(result)}")'''
+          new='''if not result:\n        raise RuntimeError("No source points loaded")'''
+          assert old in s
+          p.write_text(s.replace(old,new,1),encoding='utf-8')
+          PY
+          python -m py_compile /tmp/t13/classifier.py
+
+      - name: Setup terrain stack
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install terrain dependencies
+        run: python -m pip install numpy==2.2.6 scipy==1.15.3 rasterio==1.4.3 shapely==2.1.1 pyproj==3.7.1
+
+      - name: Download Copernicus GLO-30
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lat in 42 43 44; do
+            for lon in 40 41 42 43; do
+              stem="Copernicus_DSM_COG_10_N$(printf '%02d' "$lat")_00_E$(printf '%03d' "$lon")_00_DEM"
+              curl --fail --location --retry 5 --retry-delay 2 \
+                --output "/tmp/t13/dem/${stem}.tif" \
+                "https://copernicus-dem-30m.s3.amazonaws.com/${stem}/${stem}.tif"
+            done
+          done
+
+      - name: Download OSM evidence in small tiles
+        shell: bash
+        run: |
+          set -euo pipefail
+          boxes=(
+            '42.80 40.60 43.525 41.40'
+            '42.80 41.40 43.525 42.20'
+            '42.80 42.20 43.525 43.00'
+            '42.80 43.00 43.525 43.80'
+            '43.525 40.60 44.25 41.40'
+            '43.525 41.40 44.25 42.20'
+            '43.525 42.20 44.25 43.00'
+            '43.525 43.00 44.25 43.80'
+          )
+          endpoints=(
+            'https://overpass-api.de/api/interpreter'
+            'https://overpass.kumi.systems/api/interpreter'
+            'https://overpass.private.coffee/api/interpreter'
+          )
+          i=0
+          for box in "${boxes[@]}"; do
+            read -r south west north east <<<"$box"
+            query="[out:json][timeout:300][maxsize:536870912];(nwr[\"natural\"~\"^(bare_rock|cliff|scree|rock|ridge|arete|peak|saddle)$\"](${south},${west},${north},${east}););out geom;"
+            ok=0
+            for endpoint in "${endpoints[@]}"; do
+              echo "OSM tile ${i}: ${box} via ${endpoint}"
+              if curl --fail --location --retry 2 --retry-delay 2 --max-time 360 \
+                --data-urlencode "data=${query}" \
+                --output "/tmp/t13/osm/part-${i}.json" "$endpoint"; then
+                python - "/tmp/t13/osm/part-${i}.json" <<'PY'
+          import json,sys
+          p=sys.argv[1]
+          d=json.load(open(p,encoding='utf-8'))
+          assert isinstance(d.get('elements'),list)
+          print(p,'elements=',len(d['elements']))
+          PY
+                ok=1
+                break
+              fi
+            done
+            test "$ok" -eq 1
+            i=$((i+1))
+          done
+
+      - name: Merge OSM evidence
+        shell: python
+        run: |
+          import json
+          from pathlib import Path
+          elements=[]; seen=set()
+          for path in sorted(Path('/tmp/t13/osm').glob('part-*.json')):
+              data=json.loads(path.read_text(encoding='utf-8'))
+              for item in data.get('elements',[]):
+                  key=(item.get('type'),item.get('id'))
+                  if key in seen: continue
+                  seen.add(key); elements.append(item)
+          out={'version':0.6,'generator':'alan-map-13-merged-overpass','elements':elements}
+          Path('/tmp/t13/osm.json').write_text(json.dumps(out,separators=(',',':')),encoding='utf-8')
+          assert len(elements)>10000,len(elements)
+          print('Merged OSM elements:',len(elements))
+
+      - name: Classify exact 1000 active positions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python /tmp/t13/classifier.py \
+            --points /tmp/m126/data/mountains/mountain-render-12.1.5.geojson \
+            --dem-dir /tmp/t13/dem \
+            --osm /tmp/t13/osm.json \
+            --output-dir /tmp/t13/result
+          python - <<'PY'
+          import csv
+          p='/tmp/t13/result/mountain_morphology_classification.csv'
+          with open(p,encoding='utf-8-sig',newline='') as f: rows=list(csv.DictReader(f))
+          assert len(rows)==1000,len(rows)
+          print('Classified:',len(rows))
+          PY
+
+      - name: Build valid morphology render
+        shell: python
+        run: |
+          import base64,csv,gzip,hashlib,json
+          from collections import Counter,defaultdict
+          from pathlib import Path
+          valid={'rounded_hill','rounded_mountain','steep_mountain','isolated_peak','massif','ridge','rocky_peak','rocky_ridge','plateau'}
+          with open('/tmp/t13/result/mountain_morphology_classification.csv',encoding='utf-8-sig',newline='') as f:
+              rows=list(csv.DictReader(f))
+          by_id={str(r['id']):str(r['morphology']).strip() for r in rows}
+          assert len(by_id)==1000 and set(by_id.values())==valid,(len(by_id),set(by_id.values()))
+          base=json.loads(Path('/tmp/m126/data/mountains/mountain-render-12.1.5.geojson').read_text(encoding='utf-8'))
+          specials=json.loads(Path('data/mountains/special-mountains-12.1.8.geojson').read_text(encoding='utf-8'))
+          special={}
+          for f in specials['features']:
+              p=f.get('properties') or {}
+              sid=str(p.get('point_id') or p.get('id') or f.get('id') or '')
+              if sid: special[sid]=str(p.get('role') or p.get('type') or '')
+          groups=defaultdict(list); special_count=0
+          for f in base['features']:
+              p=f.setdefault('properties',{})
+              pid=str(p.get('point_id') or p.get('id') or f.get('id') or '')
+              morph=by_id.get(pid)
+              assert morph in valid,(pid,morph)
+              p['morphology']=morph
+              role=special.get(pid)
+              if role in {'main_mountain','five_thousander','unique_mountain'}:
+                  p['role']=role; p['type']=role; p['icon_id']=None; p['icon_variant']=None; special_count+=1
+              else:
+                  groups[morph].append((pid,f))
+          ordinary=sum(len(v) for v in groups.values())
+          assert len(base['features'])==1000
+          assert special_count==25 and ordinary==975,(special_count,ordinary)
+          assert set(groups)==valid
+          variant_stats={}
+          for morph,entries in groups.items():
+              entries.sort(key=lambda x:(float(x[1]['properties']['latitude']),float(x[1]['properties']['longitude']),x[0]))
+              counts=Counter()
+              for i,(_,f) in enumerate(entries):
+                  variant=i%4+1
+                  f['properties']['icon_variant']=variant
+                  f['properties']['icon_id']=f'{morph}_{variant:02d}'
+                  counts[variant]+=1
+              assert len(counts)==min(4,len(entries)),(morph,counts)
+              if len(counts)>1: assert max(counts.values())-min(counts.values())<=1,(morph,counts)
+              variant_stats[morph]=dict(counts)
+          base['version']='12.1.8'
+          raw=json.dumps(base,ensure_ascii=False,separators=(',',':')).encode('utf-8')
+          encoded=base64.b64encode(gzip.compress(raw,compresslevel=9,mtime=0)).decode('ascii')
+          decoded=json.loads(gzip.decompress(base64.b64decode(encoded,validate=True)))
+          assert len(decoded['features'])==1000
+          assert all((f.get('properties') or {}).get('morphology') in valid for f in decoded['features'])
+          Path('data/mountains/mountain-render-12.1.8.geojson.gz.b64').write_text(encoded,encoding='utf-8')
+          print('Render PASS ordinary=',ordinary,'special=',special_count)
+          print('Morphology=',{k:len(v) for k,v in sorted(groups.items())})
+          print('Variants=',variant_stats)
+          print('Base64 chars=',len(encoded),'sha256=',hashlib.sha256(encoded.encode()).hexdigest())
+
+      - name: Validate 13.0 data contract
+        shell: python
+        run: |
+          import base64,gzip,hashlib,json,re,struct
+          from collections import Counter
+          from pathlib import Path
+          valid={'rounded_hill','rounded_mountain','steep_mountain','isolated_peak','massif','ridge','rocky_peak','rocky_ridge','plateau'}
+          manifest=json.loads(Path('data/mountains/mountain-icon-manifest-13.0.json').read_text(encoding='utf-8'))
+          assert manifest['version']=='13.0'
+          assert manifest['source']=='mountain_icons_final_9_categories(1).zip'
+          assert len(manifest['icons'])==36
+          counts=Counter(i['category'] for i in manifest['icons'])
+          assert set(counts)==valid and all(v==4 for v in counts.values())
+          atlas_text=''.join(Path(p).read_text(encoding='utf-8').strip() for p in manifest['atlas_parts'])
+          atlas=base64.b64decode(atlas_text,validate=True)
+          assert atlas[:8]==b'\x89PNG\r\n\x1a\n'
+          assert struct.unpack('>II',atlas[16:24])==(800,1350)
+          assert hashlib.sha256(atlas).hexdigest()==manifest['sha256_png']
+          r=''.join(Path('data/mountains/mountain-render-12.1.8.geojson.gz.b64').read_text(encoding='utf-8').split())
+          render=json.loads(gzip.decompress(base64.b64decode(r,validate=True)))
+          assert len(render['features'])==1000
+          assert all((f.get('properties') or {}).get('morphology') in valid for f in render['features'])
+          bootstrap=Path('assets/bootstrap-13.0.js').read_text(encoding='utf-8')
+          index=Path('index.html').read_text(encoding='utf-8')
+          assert 'NORTH_DOWN_BEARING = 180' in bootstrap
+          assert "SPECIAL_IDS = new Set(['mingi_tau'])" in bootstrap
+          assert index.find('atlas-part-adapter-13.0.js') < index.find('bootstrap-13.0.js')
+          assert not re.search(r'\bmount-\d+\b',bootstrap+'\n'+Path('data/mountains/mountain-icon-manifest-13.0.json').read_text(encoding='utf-8'))
+          print('13.0 contract PASS')
+
+      - name: Check JavaScript syntax
+        run: |
+          node --check assets/atlas-part-adapter-13.0.js
+          node --check assets/bootstrap-13.0.js
+
+      - name: Browser QA desktop and mobile
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m http.server 8000 >/tmp/alan-server.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID || true' EXIT
+          for i in {1..30}; do curl -fsS http://127.0.0.1:8000/ >/dev/null && break; sleep .25; done
+          CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME"
+          run_view() {
+            local size="$1" name="$2"
+            "$CHROME" --headless=new --no-sandbox --disable-dev-shm-usage \
+              --use-angle=swiftshader --enable-webgl --ignore-gpu-blocklist \
+              --window-size="$size" --virtual-time-budget=45000 --dump-dom \
+              http://127.0.0.1:8000/ >"/tmp/${name}.html" 2>"/tmp/${name}.stderr"
+            python - "/tmp/${name}.html" <<'PY'
+          from pathlib import Path
+          import sys
+          dom=Path(sys.argv[1]).read_text(encoding='utf-8')
+          assert "Failed to execute 'atob'" not in dom
+          assert 'Карта не загрузилась' not in dom
+          assert 'data-failed' not in dom
+          pos=dom.find('id="loading"'); assert pos>=0
+          tag=dom[pos:dom.find('>',pos)]
+          assert 'hidden' in tag,tag
+          assert 'Alan Map · 13.0' in dom
+          print('Browser PASS',sys.argv[1])
+          PY
+            "$CHROME" --headless=new --no-sandbox --disable-dev-shm-usage \
+              --use-angle=swiftshader --enable-webgl --ignore-gpu-blocklist \
+              --window-size="$size" --virtual-time-budget=45000 \
+              --screenshot="/tmp/${name}.png" http://127.0.0.1:8000/ >/dev/null 2>&1
+          }
+          run_view 1440,1000 alan-map-13-desktop
+          run_view 412,915 alan-map-13-mobile
+
+      - name: Commit verified render and package branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data/mountains/mountain-render-12.1.8.geojson.gz.b64
+          git diff --cached --quiet && { echo 'No render change'; exit 1; }
+          git commit -m 'Finalize verified morphology render for Alan Map 13.0'
+          git push origin HEAD:agent/13-0-north-down-morphology-atlas
+          git archive --format=zip --output=/tmp/alan-map-13.0.zip HEAD
+          find . -type f -not -path './.git/*' -printf '%P\t%s bytes\n' | sort >/tmp/FILE_SIZES_13.0.txt
+
+      - name: Upload verified 13.0 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: alan-map-13-final
+          path: |
+            /tmp/alan-map-13.0.zip
+            /tmp/FILE_SIZES_13.0.txt
+            /tmp/alan-map-13-desktop.png
+            /tmp/alan-map-13-mobile.png
+            /tmp/alan-map-13-desktop.html
+            /tmp/alan-map-13-mobile.html
+            /tmp/alan-server.log
+          if-no-files-found: error
