@@ -12,36 +12,44 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Validate compressed runtime resources
+      - name: Inspect available mountain source data
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '=== data/mountains ==='
+          find data/mountains -maxdepth 2 -type f -printf '%p | %s bytes\n' | sort
+          echo '=== other mountain-like data ==='
+          find data -type f \( -iname '*mount*' -o -iname '*peak*' -o -iname '*ridge*' -o -iname '*terrain*' \) -printf '%p | %s bytes\n' | sort
+      - name: Validate candidate GeoJSON and compressed files
         shell: python
         run: |
-          import base64, binascii, gzip, json
+          import base64, gzip, json
           from pathlib import Path
 
-          files = [
-              'data/mountains/mountain-render-12.1.8.geojson.gz.b64',
-              'data/hydrography/rivers-12.1.5.geojson.gz.b64',
-          ]
-          for name in files:
-              text = Path(name).read_text(encoding='utf-8')
-              compact = ''.join(text.split())
-              print(f'\n===== {name} =====')
-              print('chars:', len(text), 'compact:', len(compact), 'mod4:', len(compact) % 4)
-              print('prefix:', repr(compact[:32]), 'suffix:', repr(compact[-32:]))
-              try:
-                  payload = base64.b64decode(compact, validate=True)
-                  print('base64: PASS bytes=', len(payload), 'gzip header=', payload[:10].hex())
-              except Exception as e:
-                  print('base64: FAIL', type(e).__name__, str(e))
+          for path in sorted(Path('data').rglob('*')):
+              if not path.is_file():
                   continue
-              try:
-                  decoded = gzip.decompress(payload)
-                  print('gzip: PASS bytes=', len(decoded))
-              except Exception as e:
-                  print('gzip: FAIL', type(e).__name__, str(e))
+              name = str(path)
+              if not any(token in path.name.lower() for token in ('mount', 'ridge', 'peak', 'terrain')):
                   continue
-              try:
-                  obj = json.loads(decoded)
-                  print('json: PASS type=', obj.get('type'), 'features=', len(obj.get('features', [])))
-              except Exception as e:
-                  print('json: FAIL', type(e).__name__, str(e))
+              if path.suffix == '.geojson':
+                  try:
+                      obj = json.loads(path.read_text(encoding='utf-8'))
+                      feats = obj.get('features', []) if isinstance(obj, dict) else []
+                      props = (feats[0].get('properties') or {}) if feats else {}
+                      print(f'GEOJSON PASS {name}: features={len(feats)} sample_props={sorted(props)[:30]}')
+                  except Exception as e:
+                      print(f'GEOJSON FAIL {name}: {type(e).__name__}: {e}')
+              elif name.endswith('.gz.b64'):
+                  text = path.read_text(encoding='utf-8')
+                  compact = ''.join(text.split())
+                  print(f'B64 {name}: chars={len(compact)} mod4={len(compact)%4} suffix={compact[-40:]!r}')
+                  try:
+                      payload = base64.b64decode(compact, validate=True)
+                      decoded = gzip.decompress(payload)
+                      obj = json.loads(decoded)
+                      feats = obj.get('features', []) if isinstance(obj, dict) else []
+                      props = (feats[0].get('properties') or {}) if feats else {}
+                      print(f'  PASS features={len(feats)} decoded={len(decoded)} sample_props={sorted(props)[:30]}')
+                  except Exception as e:
+                      print(f'  FAIL {type(e).__name__}: {e}')
