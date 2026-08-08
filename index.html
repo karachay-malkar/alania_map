@@ -11,10 +11,18 @@
 <body>
   <main class="app-shell">
     <div id="map" class="map" aria-label="Интерактивная Slippy Map"></div>
+    <div id="main-labels" class="main-labels" aria-hidden="true"></div>
     <section class="status-card" aria-live="polite">
       <div class="status-title">Slippy Map 1.0</div>
       <div id="status">Загрузка геоданных…</div>
       <div id="stats" class="stats"></div>
+    </section>
+    <section id="feature-card" class="feature-card" hidden>
+      <button id="feature-card-close" class="feature-card-close" type="button" aria-label="Закрыть">×</button>
+      <div id="feature-role" class="feature-role"></div>
+      <h2 id="feature-name" class="feature-name"></h2>
+      <div id="feature-elevation" class="feature-elevation"></div>
+      <div id="feature-note" class="feature-note" hidden></div>
     </section>
     <div class="orientation" aria-label="Ориентация карты">
       <span>ЮГ ↑</span><span>СЕВЕР ↓</span>
