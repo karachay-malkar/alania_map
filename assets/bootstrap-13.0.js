@@ -301,10 +301,72 @@
     map.on?.('styledata', apply);
   };
 
+  const rotateAndReverseMountainVertices = (source) => {
+    if (!(source instanceof Float32Array) || source.length === 0 || source.length % 24 !== 0) return source;
+    const groupSize = 24;
+    const groups = [];
+    for (let offset = 0; offset < source.length; offset += groupSize) {
+      const group = source.slice(offset, offset + groupSize);
+      let minX = Infinity;
+      let maxX = -Infinity;
+      let minY = Infinity;
+      let maxY = -Infinity;
+      for (let vertex = 0; vertex < 6; vertex += 1) {
+        const base = vertex * 4;
+        minX = Math.min(minX, group[base]);
+        maxX = Math.max(maxX, group[base]);
+        minY = Math.min(minY, group[base + 1]);
+        maxY = Math.max(maxY, group[base + 1]);
+      }
+      const centerX = (minX + maxX) / 2;
+      const centerY = (minY + maxY) / 2;
+      for (let vertex = 0; vertex < 6; vertex += 1) {
+        const base = vertex * 4;
+        group[base] = 2 * centerX - group[base];
+        group[base + 1] = 2 * centerY - group[base + 1];
+      }
+      groups.push(group);
+    }
+    groups.reverse();
+    const output = new Float32Array(source.length);
+    groups.forEach((group, index) => output.set(group, index * groupSize));
+    return output;
+  };
+
+  const installMountainLayerAdapter = (map) => {
+    const originalAddLayer = map.addLayer?.bind(map);
+    if (!originalAddLayer) return;
+    map.addLayer = (layer, beforeId) => {
+      if (layer?.type === 'custom' && layer?.id === 'mountain-images' && typeof layer.onAdd === 'function') {
+        const originalOnAdd = layer.onAdd;
+        layer.onAdd = function onAddNorthDown(mapInstance, gl) {
+          const glProxy = new Proxy(gl, {
+            get(target, property) {
+              if (property === 'bufferData') {
+                return (targetEnum, data, usage) => {
+                  const payload = data instanceof Float32Array ? rotateAndReverseMountainVertices(data) : data;
+                  return target.bufferData(targetEnum, payload, usage);
+                };
+              }
+              const value = Reflect.get(target, property, target);
+              return typeof value === 'function' ? value.bind(target) : value;
+            }
+          });
+          const result = originalOnAdd.call(this, mapInstance, glProxy);
+          if (Array.isArray(this.drawOrder)) this.drawOrder.reverse();
+          this.northDownCompensated = true;
+          return result;
+        };
+      }
+      return originalAddLayer(layer, beforeId);
+    };
+  };
+
   const lockNorthDown = (map) => {
     map.dragRotate?.disable?.();
     map.touchZoomRotate?.disableRotation?.();
     map.touchPitch?.disable?.();
+    installMountainLayerAdapter(map);
 
     const original = {
       fitBounds: map.fitBounds?.bind(map),
