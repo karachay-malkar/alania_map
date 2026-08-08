@@ -32,3 +32,4 @@ jobs:
           git add data/mountains.geojson data/data-report.json
           git commit -m 'Build canonical Slippy Map 1.0 mountain data'
           git push origin HEAD:slippy-map
+# Slippy Map 1.0 canonical extraction only; never used by browser runtime.
