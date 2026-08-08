@@ -1,50 +1,40 @@
-name: Build Slippy Map canonical data
+name: Slippy Map 1.0 QA package
 on:
   pull_request:
     branches: [slippy-map]
 permissions:
-  contents: write
-  actions: read
+  contents: read
 jobs:
-  canonical-data:
+  qa-package:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: slippy-map
-      - name: Restore verified 12.1.6 morphology audit artifact
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Validate source and canonical data
         run: |
           set -euo pipefail
-          mkdir -p /tmp/morphology-outer /tmp/morphology-inner
-          curl --fail --location --retry 3 \
-            -H "Authorization: Bearer ${GH_TOKEN}" \
-            -H "Accept: application/vnd.github+json" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/8939797200/zip" \
-            -o /tmp/morphology-artifact.zip
-          unzip -q /tmp/morphology-artifact.zip -d /tmp/morphology-outer
-          unzip -q /tmp/morphology-outer/alan-map-terrain-morphology-audit.zip -d /tmp/morphology-inner
-          test -f /tmp/morphology-inner/mountain_points_morphology.geojson
-      - name: Build and validate canonical data
-        run: |
-          set -euo pipefail
-          python3 tools/extract_historical_data.py \
-            --audit /tmp/morphology-inner/mountain_points_morphology.geojson \
-            --boundary data/map-boundary.geojson \
-            --output data/mountains.geojson \
-            --report data/data-report.json
+          node --check src/config.js
+          node --check src/data.js
+          node --check src/map.js
+          node --check src/main.js
           node tools/validate.mjs
-      - name: Commit canonical data to slippy-map
+          test -s vendor/maplibre-gl.js
+          test -s data/map-boundary.geojson
+          test -s data/mountains.geojson
+          ! grep -R -E 'app-12|bootstrap-12|map-frame-12|mountain-render-12|part-[0-9]{3}\.bin|force-cache' index.html styles.css src
+      - name: Package exact branch runtime
         run: |
           set -euo pipefail
-          if [ -z "$(git status --porcelain -- data/mountains.geojson data/data-report.json)" ]; then
-            echo 'Canonical data already committed.'
-            exit 0
-          fi
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add data/mountains.geojson data/data-report.json
-          git commit -m 'Add verified Slippy Map 1.0 mountain data'
-          git push origin HEAD:slippy-map
+          mkdir -p build
+          zip -9 -r build/slippy-map-1.0.zip \
+            index.html styles.css README.md \
+            src data vendor tools/validate.mjs \
+            -x '*.DS_Store'
+      - name: Upload QA package
+        uses: actions/upload-artifact@v4
+        with:
+          name: slippy-map-1.0-qa-package
+          path: build/slippy-map-1.0.zip
+          retention-days: 14
+          if-no-files-found: error
