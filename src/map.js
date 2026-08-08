@@ -51,19 +51,16 @@ async function installAtlas(map, manifest) {
   }
 }
 
-function zoomScaleExpression() {
+function iconSizeExpression() {
   const expression = ['interpolate', ['linear'], ['zoom']];
   const stops = [];
   for (let zoom = CONFIG.minZoom; zoom <= CONFIG.maxZoom + 0.001; zoom += 0.5) stops.push(Number(zoom.toFixed(2)));
   if (stops.at(-1) !== CONFIG.maxZoom) stops.push(CONFIG.maxZoom);
   for (const zoom of stops) {
-    expression.push(zoom, Math.pow(2, zoom - CONFIG.iconReferenceZoom));
+    const scale = Math.pow(2, zoom - CONFIG.iconReferenceZoom);
+    expression.push(zoom, ['*', ['get', 'icon_size_ref'], scale]);
   }
   return expression;
-}
-
-function iconSizeExpression() {
-  return ['*', ['get', 'icon_size_ref'], zoomScaleExpression()];
 }
 
 function addIconLayers(map, iconMountains) {
