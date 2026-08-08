@@ -30,12 +30,14 @@ jobs:
           paths = [Path(p) for p in manifest['atlas_parts']]
           assert len(paths) == 12, len(paths)
 
+          texts = [''.join(path.read_text(encoding='utf-8').split()) for path in paths]
           binary_parts = []
-          for path in paths:
-              compact = ''.join(path.read_text(encoding='utf-8').split())
-              decoded = base64.b64decode(compact, validate=True)
-              assert decoded, path
+          for index in range(0, len(texts), 2):
+              pair = texts[index] + texts[index + 1]
+              decoded = base64.b64decode(pair, validate=True)
+              assert decoded, (index, index + 1)
               binary_parts.append(decoded)
+              print('Legacy pair', index // 2, 'chars=', len(pair), 'bytes=', len(decoded), 'suffix=', repr(pair[-8:]))
 
           png = b''.join(binary_parts)
           assert png[:8] == b'\x89PNG\r\n\x1a\n'
@@ -76,7 +78,7 @@ jobs:
           print('Base64 chars:', len(stream))
           print('SHA256:', digest)
           print('Chunk chars:', [len(s) for s in slices])
-          print('Chunk padding:', [s[-4:] for s in slices])
+          print('Chunk suffixes:', [s[-8:] for s in slices])
 
       - name: Validate concatenated storage and runtime pairing
         shell: python
