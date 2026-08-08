@@ -15,8 +15,13 @@ function baseStyle(boundary) {
   };
 }
 
-function ordinaryRadius() {
-  return ['interpolate', ['linear'], ['zoom'], 6, 1.8, 9, 3.3, 13, 5.2, 15.5, 7.0];
+function ordinaryRadius(scale) {
+  return ['interpolate', ['linear'], ['zoom'],
+    6, 1.8 * scale,
+    9, 3.3 * scale,
+    13, 5.2 * scale,
+    15.5, 7.0 * scale
+  ];
 }
 
 function addMountainLayers(map, mountains) {
@@ -30,9 +35,9 @@ function addMountainLayers(map, mountains) {
       minzoom: definition.minZoom,
       filter: ['all', ['==', ['get', 'category'], category], ['!=', ['get', 'main'], true]],
       paint: {
-        'circle-radius': ordinaryRadius(),
-        'circle-color': CONFIG.colors.ordinary,
-        'circle-opacity': ['interpolate', ['linear'], ['zoom'], definition.minZoom, .25, definition.minZoom + .55, .82],
+        'circle-radius': ordinaryRadius(definition.radiusScale),
+        'circle-color': definition.color,
+        'circle-opacity': ['interpolate', ['linear'], ['zoom'], definition.minZoom, .25, definition.minZoom + .55, .84],
         'circle-stroke-color': '#efe2c5',
         'circle-stroke-width': .7
       }
