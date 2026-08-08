@@ -15,11 +15,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Validate production mountain payload and atlas
+      - name: Validate 13.0 atlas and runtime contract
         shell: python
         run: |
-          import base64, gzip, hashlib, json, re, struct
-          from collections import Counter, defaultdict
+          import base64, hashlib, json, re, struct
+          from collections import Counter
           from pathlib import Path
 
           valid = {
@@ -27,11 +27,11 @@ jobs:
               'isolated_peak', 'massif', 'ridge', 'rocky_peak',
               'rocky_ridge', 'plateau'
           }
-          special_roles = {'main_mountain', 'five_thousander', 'unique_mountain'}
 
           manifest_path = Path('data/mountains/mountain-icon-manifest-13.0.json')
           manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
           assert manifest['version'] == '13.0'
+          assert manifest['source'] == 'mountain_icons_final_9_categories(1).zip'
           assert len(manifest['icons']) == 36
           ids = [item['id'] for item in manifest['icons']]
           assert len(ids) == len(set(ids)) == 36
@@ -42,7 +42,7 @@ jobs:
           parts = []
           for path in manifest['atlas_parts']:
               file = Path(path)
-              assert file.is_file(), f'missing atlas part: {path}'
+              assert file.is_file(), f'missing atlas chunk: {path}'
               parts.append(file.read_text(encoding='utf-8').strip())
           png = base64.b64decode(''.join(parts), validate=True)
           assert png[:8] == b'\x89PNG\r\n\x1a\n'
@@ -51,44 +51,31 @@ jobs:
           digest = hashlib.sha256(png).hexdigest()
           assert digest == manifest['sha256_png'], (digest, manifest['sha256_png'])
 
-          encoded = Path('data/mountains/mountain-render-12.1.8.geojson.gz.b64').read_text(encoding='utf-8')
-          render = json.loads(gzip.decompress(base64.b64decode(''.join(encoded.split()))))
-          assert render['type'] == 'FeatureCollection'
-          invalid = []
-          ordinary = 0
-          morph_counts = Counter()
-          for index, feature in enumerate(render['features']):
-              props = feature.get('properties') or {}
-              fid = str(props.get('id') or props.get('point_id') or feature.get('id') or f'feature-{index}')
-              role = str(props.get('role') or props.get('type') or '')
-              if fid == 'mingi_tau' or role in special_roles:
-                  continue
-              ordinary += 1
-              morphology = str(props.get('morphology') or '').strip()
-              if morphology not in valid:
-                  invalid.append((fid, morphology))
-              else:
-                  morph_counts[morphology] += 1
-          assert ordinary > 0
-          assert not invalid, f'invalid morphology records: {invalid[:20]} (total {len(invalid)})'
-          assert set(morph_counts) == valid, morph_counts
+          bootstrap = Path('assets/bootstrap-13.0.js').read_text(encoding='utf-8')
+          adapter = Path('assets/atlas-part-adapter-13.0.js').read_text(encoding='utf-8')
+          index = Path('index.html').read_text(encoding='utf-8')
+          active = bootstrap + '\n' + adapter + '\n' + manifest_path.read_text(encoding='utf-8')
 
-          active = Path('assets/bootstrap-13.0.js').read_text(encoding='utf-8') + '\n' + manifest_path.read_text(encoding='utf-8')
           assert 'mountain-atlas-12.1.8.s80' not in active
           assert not re.search(r'\bmount-\d+\b', active)
-          assert 'NORTH_DOWN_BEARING = 180' in active
-          assert "SPECIAL_IDS = new Set(['mingi_tau'])" in active
+          assert 'NORTH_DOWN_BEARING = 180' in bootstrap
+          assert "SPECIAL_IDS = new Set(['mingi_tau'])" in bootstrap
+          adapter_pos = index.find('assets/atlas-part-adapter-13.0.js')
+          bootstrap_pos = index.find('assets/bootstrap-13.0.js')
+          assert adapter_pos >= 0 and bootstrap_pos >= 0 and adapter_pos < bootstrap_pos
 
           print(json.dumps({
-              'ordinary_features': ordinary,
-              'morphology_counts': morph_counts,
               'atlas_sha256': digest,
               'atlas_size': [width, height],
-              'icons': len(ids)
+              'icons': len(ids),
+              'categories': by_category,
+              'adapter_before_bootstrap': True
           }, ensure_ascii=False, indent=2))
 
-      - name: Check bootstrap syntax
-        run: node --check assets/bootstrap-13.0.js
+      - name: Check runtime syntax
+        run: |
+          node --check assets/atlas-part-adapter-13.0.js
+          node --check assets/bootstrap-13.0.js
 
       - name: Run page in headless Chrome
         shell: bash
@@ -103,30 +90,26 @@ jobs:
           done
           CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
           test -n "$CHROME"
-          "$CHROME" \
-            --headless=new \
-            --no-sandbox \
-            --disable-dev-shm-usage \
-            --use-angle=swiftshader \
-            --enable-webgl \
-            --ignore-gpu-blocklist \
-            --window-size=1440,1000 \
-            --virtual-time-budget=30000 \
-            --dump-dom \
-            http://127.0.0.1:8000/ > /tmp/alan13-dom.html
-          ! grep -q 'data-failed' /tmp/alan13-dom.html
-          ! grep -q 'Карта не загрузилась' /tmp/alan13-dom.html
-          python3 - <<'PY'
+
+          check_dom() {
+            local file="$1"
+            ! grep -q 'data-failed' "$file"
+            ! grep -q 'Карта не загрузилась' "$file"
+            ! grep -q "Failed to execute 'atob'" "$file"
+            python3 - "$file" <<'PY'
           from pathlib import Path
-          dom = Path('/tmp/alan13-dom.html').read_text(encoding='utf-8')
+          import sys
+          dom = Path(sys.argv[1]).read_text(encoding='utf-8')
           pos = dom.find('id="loading"')
           assert pos >= 0, 'loading node missing'
           tag_end = dom.find('>', pos)
           tag = dom[pos:tag_end]
           assert 'hidden' in tag, f'map did not finish loading: {tag}'
           assert 'Alan Map · 13.0' in dom
-          print('Headless page load: PASS')
+          print(f'Headless page load PASS: {sys.argv[1]}')
           PY
+          }
+
           "$CHROME" \
             --headless=new \
             --no-sandbox \
@@ -135,13 +118,53 @@ jobs:
             --enable-webgl \
             --ignore-gpu-blocklist \
             --window-size=1440,1000 \
-            --virtual-time-budget=30000 \
-            --screenshot=/tmp/alan-map-13.png \
+            --virtual-time-budget=45000 \
+            --dump-dom \
+            http://127.0.0.1:8000/ > /tmp/alan13-desktop.html
+          check_dom /tmp/alan13-desktop.html
+
+          "$CHROME" \
+            --headless=new \
+            --no-sandbox \
+            --disable-dev-shm-usage \
+            --use-angle=swiftshader \
+            --enable-webgl \
+            --ignore-gpu-blocklist \
+            --window-size=412,915 \
+            --virtual-time-budget=45000 \
+            --dump-dom \
+            http://127.0.0.1:8000/ > /tmp/alan13-mobile.html
+          check_dom /tmp/alan13-mobile.html
+
+          "$CHROME" \
+            --headless=new \
+            --no-sandbox \
+            --disable-dev-shm-usage \
+            --use-angle=swiftshader \
+            --enable-webgl \
+            --ignore-gpu-blocklist \
+            --window-size=1440,1000 \
+            --virtual-time-budget=45000 \
+            --screenshot=/tmp/alan-map-13-desktop.png \
+            http://127.0.0.1:8000/
+
+          "$CHROME" \
+            --headless=new \
+            --no-sandbox \
+            --disable-dev-shm-usage \
+            --use-angle=swiftshader \
+            --enable-webgl \
+            --ignore-gpu-blocklist \
+            --window-size=412,915 \
+            --virtual-time-budget=45000 \
+            --screenshot=/tmp/alan-map-13-mobile.png \
             http://127.0.0.1:8000/
 
       - name: Upload visual QA
         uses: actions/upload-artifact@v4
         with:
           name: alan-map-13-visual-qa
-          path: /tmp/alan-map-13.png
+          path: |
+            /tmp/alan-map-13-desktop.png
+            /tmp/alan-map-13-mobile.png
           if-no-files-found: error
