@@ -12,44 +12,55 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Inspect available mountain source data
+        with:
+          fetch-depth: 1
+      - name: Fetch previous morphology branch
         shell: bash
         run: |
           set -euo pipefail
-          echo '=== data/mountains ==='
-          find data/mountains -maxdepth 2 -type f -printf '%p | %s bytes\n' | sort
-          echo '=== other mountain-like data ==='
-          find data -type f \( -iname '*mount*' -o -iname '*peak*' -o -iname '*ridge*' -o -iname '*terrain*' \) -printf '%p | %s bytes\n' | sort
-      - name: Validate candidate GeoJSON and compressed files
+          git fetch --no-tags --depth=1 origin agent/12.1.6-terrain-morphology-run:refs/remotes/origin/agent/12.1.6-terrain-morphology-run
+          rm -rf /tmp/morph126
+          mkdir -p /tmp/morph126
+          git archive origin/agent/12.1.6-terrain-morphology-run | tar -x -C /tmp/morph126
+      - name: Inspect previous mountain source data
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '=== candidate files in 12.1.6 morphology branch ==='
+          find /tmp/morph126 -type f \( -iname '*mount*' -o -iname '*peak*' -o -iname '*ridge*' -o -iname '*terrain*' -o -iname '*morph*' \) -printf '%P | %s bytes\n' | sort
+      - name: Validate previous candidate data
         shell: python
         run: |
           import base64, gzip, json
           from pathlib import Path
-
-          for path in sorted(Path('data').rglob('*')):
+          root = Path('/tmp/morph126')
+          for path in sorted(root.rglob('*')):
               if not path.is_file():
                   continue
-              name = str(path)
-              if not any(token in path.name.lower() for token in ('mount', 'ridge', 'peak', 'terrain')):
+              low = path.name.lower()
+              if not any(token in low for token in ('mount','ridge','peak','terrain','morph')):
                   continue
+              rel = path.relative_to(root)
               if path.suffix == '.geojson':
                   try:
                       obj = json.loads(path.read_text(encoding='utf-8'))
                       feats = obj.get('features', []) if isinstance(obj, dict) else []
-                      props = (feats[0].get('properties') or {}) if feats else {}
-                      print(f'GEOJSON PASS {name}: features={len(feats)} sample_props={sorted(props)[:30]}')
+                      keys = sorted({k for f in feats[:50] for k in (f.get('properties') or {})})
+                      print(f'GEOJSON {rel}: features={len(feats)} keys={keys}')
+                      if feats:
+                          print(' sample=', json.dumps(feats[0].get('properties') or {}, ensure_ascii=False)[:1200])
                   except Exception as e:
-                      print(f'GEOJSON FAIL {name}: {type(e).__name__}: {e}')
-              elif name.endswith('.gz.b64'):
-                  text = path.read_text(encoding='utf-8')
-                  compact = ''.join(text.split())
-                  print(f'B64 {name}: chars={len(compact)} mod4={len(compact)%4} suffix={compact[-40:]!r}')
+                      print(f'GEOJSON FAIL {rel}: {type(e).__name__}: {e}')
+              elif str(path).endswith('.gz.b64'):
                   try:
+                      compact = ''.join(path.read_text(encoding='utf-8').split())
                       payload = base64.b64decode(compact, validate=True)
                       decoded = gzip.decompress(payload)
                       obj = json.loads(decoded)
                       feats = obj.get('features', []) if isinstance(obj, dict) else []
-                      props = (feats[0].get('properties') or {}) if feats else {}
-                      print(f'  PASS features={len(feats)} decoded={len(decoded)} sample_props={sorted(props)[:30]}')
+                      keys = sorted({k for f in feats[:50] for k in (f.get('properties') or {})})
+                      print(f'B64 {rel}: PASS features={len(feats)} keys={keys}')
+                      if feats:
+                          print(' sample=', json.dumps(feats[0].get('properties') or {}, ensure_ascii=False)[:1200])
                   except Exception as e:
-                      print(f'  FAIL {type(e).__name__}: {e}')
+                      print(f'B64 FAIL {rel}: {type(e).__name__}: {e}')
