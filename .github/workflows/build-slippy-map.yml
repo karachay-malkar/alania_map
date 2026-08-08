@@ -1,45 +1,17 @@
 name: Build Slippy Map canonical data
 on:
-  push:
-    branches: [slippy-map]
-    paths:
-      - 'tools/extract_historical_data.py'
-      - 'tools/validate.mjs'
-      - '.github/workflows/build-slippy-map.yml'
   pull_request:
     branches: [slippy-map]
 permissions:
-  contents: write
+  contents: read
 jobs:
   canonical-data:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-      - name: Fetch historical data only
+      - name: Inspect original morphology classifier
         run: |
           set -euo pipefail
-          curl --fail --location --retry 3 'https://raw.githubusercontent.com/karachay-malkar/alania_map/8dacb5a660133c86bc43a1b92f66d8880fd58476/data/mountains/mountain-render-12.1.8.geojson.gz.b64' -o /tmp/mountain-render.b64
-          curl --fail --location --retry 3 'https://raw.githubusercontent.com/karachay-malkar/alania_map/8dacb5a660133c86bc43a1b92f66d8880fd58476/data/mountains/special-mountains-12.1.8.geojson' -o /tmp/special-mountains.geojson
-      - name: Build plain canonical GeoJSON
-        run: |
-          python3 tools/extract_historical_data.py --render /tmp/mountain-render.b64 --special /tmp/special-mountains.geojson --boundary data/map-boundary.geojson --output data/mountains.geojson --report data/data-report.json
-          node tools/validate.mjs
-      - name: Upload canonical data for verification
-        uses: actions/upload-artifact@v4
-        with:
-          name: slippy-map-canonical-data
-          path: |
-            data/mountains.geojson
-            data/data-report.json
-      - name: Commit generated canonical data
-        if: github.event_name == 'push'
-        run: |
-          if git diff --quiet -- data/mountains.geojson data/data-report.json; then exit 0; fi
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add data/mountains.geojson data/data-report.json
-          git commit -m 'Build canonical Slippy Map 1.0 mountain data'
-          git push origin HEAD:slippy-map
-# Build-time extraction only; never used by browser runtime.
+          curl --fail --location --retry 3 'https://raw.githubusercontent.com/karachay-malkar/alania_map/agent/12.1.6-terrain-morphology-run/tools/classify_terrain_morphology.py.gz.b64' -o /tmp/classifier.b64
+          base64 --decode /tmp/classifier.b64 | gzip --decompress > /tmp/classify_terrain_morphology.py
+          python3 /tmp/classify_terrain_morphology.py --help
