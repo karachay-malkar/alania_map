@@ -15,34 +15,87 @@ function baseStyle(boundary) {
   };
 }
 
-function ordinaryRadius(scale) {
-  return ['interpolate', ['linear'], ['zoom'],
-    6, 1.8 * scale,
-    9, 3.3 * scale,
-    13, 5.2 * scale,
-    15.5, 7.0 * scale
-  ];
+function waitForLoad(map) {
+  return new Promise((resolve, reject) => {
+    map.once('load', resolve);
+    map.once('error', (event) => reject(event?.error || new Error('Ошибка MapLibre')));
+  });
 }
 
-function addMountainLayers(map, mountains) {
-  map.addSource('mountains', {type: 'geojson', data: mountains, promoteId: 'id'});
+function loadHtmlImage(url) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.decoding = 'async';
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error(`Не удалось загрузить атлас: ${url}`));
+    image.src = url;
+  });
+}
 
-  for (const [category, definition] of Object.entries(CONFIG.categories)) {
+async function installAtlas(map, manifest) {
+  const atlas = await loadHtmlImage(CONFIG.iconAtlasUrl);
+  if (atlas.naturalWidth !== manifest.atlas_width || atlas.naturalHeight !== manifest.atlas_height) {
+    throw new Error(`Размер атласа ${atlas.naturalWidth}×${atlas.naturalHeight} не совпадает с manifest.`);
+  }
+  const canvas = document.createElement('canvas');
+  canvas.width = manifest.cell_width;
+  canvas.height = manifest.cell_height;
+  const context = canvas.getContext('2d', {willReadFrequently: true});
+  if (!context) throw new Error('Canvas 2D недоступен для атласа гор.');
+
+  for (const icon of manifest.icons) {
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(atlas, icon.x, icon.y, icon.width, icon.height, 0, 0, canvas.width, canvas.height);
+    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+    if (!map.hasImage(icon.id)) map.addImage(icon.id, imageData, {pixelRatio: manifest.pixel_ratio || 1});
+  }
+}
+
+function zoomScaleExpression() {
+  const expression = ['interpolate', ['linear'], ['zoom']];
+  const stops = [];
+  for (let zoom = CONFIG.minZoom; zoom <= CONFIG.maxZoom + 0.001; zoom += 0.5) stops.push(Number(zoom.toFixed(2)));
+  if (stops.at(-1) !== CONFIG.maxZoom) stops.push(CONFIG.maxZoom);
+  for (const zoom of stops) {
+    expression.push(zoom, Math.pow(2, zoom - CONFIG.iconReferenceZoom));
+  }
+  return expression;
+}
+
+function iconSizeExpression() {
+  return ['*', ['get', 'icon_size_ref'], zoomScaleExpression()];
+}
+
+function addIconLayers(map, iconMountains) {
+  map.addSource('mountain-icons', {type: 'geojson', data: iconMountains, promoteId: 'id'});
+  for (const definition of CONFIG.revealTiers) {
+    const fadeStart = definition.zoom - 0.32;
+    const fadeEnd = definition.zoom + 0.08;
     map.addLayer({
-      id: `mountains-${category}`,
-      type: 'circle',
-      source: 'mountains',
-      minzoom: definition.minZoom,
-      filter: ['all', ['==', ['get', 'category'], category], ['!=', ['get', 'main'], true]],
+      id: `mountain-icons-tier-${definition.tier}`,
+      type: 'symbol',
+      source: 'mountain-icons',
+      minzoom: fadeStart,
+      filter: ['==', ['get', 'reveal_tier'], definition.tier],
+      layout: {
+        'icon-image': ['get', 'icon'],
+        'icon-size': iconSizeExpression(),
+        'icon-anchor': 'bottom',
+        'icon-rotation-alignment': 'viewport',
+        'icon-pitch-alignment': 'viewport',
+        'icon-allow-overlap': true,
+        'icon-ignore-placement': true,
+        'symbol-sort-key': ['get', 'sort_key']
+      },
       paint: {
-        'circle-radius': ordinaryRadius(definition.radiusScale),
-        'circle-color': definition.color,
-        'circle-opacity': ['interpolate', ['linear'], ['zoom'], definition.minZoom, .25, definition.minZoom + .55, .84],
-        'circle-stroke-color': '#efe2c5',
-        'circle-stroke-width': .7
+        'icon-opacity': ['interpolate', ['linear'], ['zoom'], fadeStart, 0, fadeEnd, 1]
       }
     });
   }
+}
+
+function addMainLayers(map, mountains) {
+  map.addSource('mountains', {type: 'geojson', data: mountains, promoteId: 'id'});
 
   map.addLayer({
     id: 'mountains-main',
@@ -87,7 +140,100 @@ function addMountainLayers(map, mountains) {
   });
 }
 
-export function createMap({boundary, mountains}) {
+function setupMainLabels(map, mountains) {
+  const host = document.getElementById('main-labels');
+  const entries = mountains.features
+    .filter((feature) => feature.properties?.main && feature.properties?.name)
+    .map((feature) => {
+      const element = document.createElement('div');
+      element.className = 'main-label';
+      element.textContent = feature.properties.name;
+      host.appendChild(element);
+      return {feature, element};
+    })
+    .sort((a, b) => {
+      const ap = a.feature.properties;
+      const bp = b.feature.properties;
+      const aPriority = ap.id === 'mingi_tau' ? 3 : ap.five_thousander ? 2 : 1;
+      const bPriority = bp.id === 'mingi_tau' ? 3 : bp.five_thousander ? 2 : 1;
+      return bPriority - aPriority || Number(bp.elevation_m || 0) - Number(ap.elevation_m || 0) || String(ap.id).localeCompare(String(bp.id));
+    });
+
+  let scheduled = false;
+  const render = () => {
+    scheduled = false;
+    const zoom = map.getZoom();
+    if (zoom < CONFIG.labelMinZoom) {
+      entries.forEach(({element}) => { element.hidden = true; });
+      return;
+    }
+    const canvas = map.getCanvas();
+    const placed = [];
+    for (const {feature, element} of entries) {
+      const point = map.project(feature.geometry.coordinates);
+      if (point.x < -120 || point.y < -40 || point.x > canvas.clientWidth + 120 || point.y > canvas.clientHeight + 40) {
+        element.hidden = true;
+        continue;
+      }
+      const name = String(feature.properties.name || '');
+      const width = Math.min(190, Math.max(58, 18 + name.length * 7.1));
+      const height = 22;
+      const box = {left: point.x - width / 2 - 4, right: point.x + width / 2 + 4, top: point.y - 42, bottom: point.y - 42 + height + 8};
+      const collides = placed.some((other) => !(box.right < other.left || box.left > other.right || box.bottom < other.top || box.top > other.bottom));
+      if (collides) {
+        element.hidden = true;
+        continue;
+      }
+      placed.push(box);
+      element.hidden = false;
+      element.style.left = `${point.x}px`;
+      element.style.top = `${point.y - 12}px`;
+    }
+  };
+  const schedule = () => {
+    if (scheduled) return;
+    scheduled = true;
+    requestAnimationFrame(render);
+  };
+  map.on('move', schedule);
+  map.on('zoom', schedule);
+  map.on('resize', schedule);
+  render();
+}
+
+function setupMainInteraction(map) {
+  const card = document.getElementById('feature-card');
+  const close = document.getElementById('feature-card-close');
+  const role = document.getElementById('feature-role');
+  const name = document.getElementById('feature-name');
+  const elevation = document.getElementById('feature-elevation');
+  const note = document.getElementById('feature-note');
+
+  const hide = () => { card.hidden = true; };
+  close.addEventListener('click', hide);
+
+  const show = (feature) => {
+    const p = feature.properties || {};
+    role.textContent = p.id === 'mingi_tau' ? 'Особая гора' : p.five_thousander ? 'Пятитысячник' : 'Главная гора';
+    name.textContent = p.name || p.id || 'Гора';
+    elevation.textContent = Number(p.elevation_m) ? `${Math.round(Number(p.elevation_m))} м` : '';
+    note.textContent = p.id === 'mingi_tau' ? 'Минги-тау · Эльбрус' : '';
+    note.hidden = !note.textContent;
+    card.hidden = false;
+  };
+
+  const layers = ['mountains-main', 'mingi-tau'];
+  for (const layer of layers) {
+    map.on('mouseenter', layer, () => { map.getCanvas().style.cursor = 'pointer'; });
+    map.on('mouseleave', layer, () => { map.getCanvas().style.cursor = ''; });
+    map.on('click', layer, (event) => {
+      const feature = event.features?.[0];
+      if (feature) show(feature);
+    });
+  }
+}
+
+export async function createMap({boundary, mountains, iconMountains, atlasManifest}) {
   const bounds = boundsOf(boundary);
   const map = new maplibregl.Map({
     container: 'map',
@@ -105,15 +251,18 @@ export function createMap({boundary, mountains}) {
   });
 
   map.touchZoomRotate.disableRotation();
-  map.on('load', () => {
-    addMountainLayers(map, mountains);
-    map.fitBounds([[bounds[0], bounds[1]], [bounds[2], bounds[3]]], {
-      padding: CONFIG.fitPadding,
-      bearing: CONFIG.bearing,
-      pitch: CONFIG.pitch,
-      duration: 0
-    });
-    map.setMaxBounds([[bounds[0] - .25, bounds[1] - .20], [bounds[2] + .25, bounds[3] + .20]]);
+  await waitForLoad(map);
+  await installAtlas(map, atlasManifest);
+  addIconLayers(map, iconMountains);
+  addMainLayers(map, mountains);
+  map.fitBounds([[bounds[0], bounds[1]], [bounds[2], bounds[3]]], {
+    padding: CONFIG.fitPadding,
+    bearing: CONFIG.bearing,
+    pitch: CONFIG.pitch,
+    duration: 0
   });
+  map.setMaxBounds([[bounds[0] - .25, bounds[1] - .20], [bounds[2] + .25, bounds[3] + .20]]);
+  setupMainLabels(map, mountains);
+  setupMainInteraction(map);
   return map;
 }
