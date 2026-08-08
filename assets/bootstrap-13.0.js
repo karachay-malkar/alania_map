@@ -179,8 +179,6 @@
       );
     }
 
-    // North is at the bottom in 13.0. Drawing south -> north makes the visually
-    // lower (more northern) mountain figures paint later and therefore sit in front.
     collection.features.sort((left, right) => {
       const a = getPoint(left);
       const b = getPoint(right);
@@ -230,15 +228,13 @@
       const pathname = url.pathname;
 
       if (pathname.endsWith('/data/mountains/mountain-icon-manifest-12.1.8.json')) {
-        const manifestUrl = new URL('data/mountains/mountain-icon-manifest-13.0.json?v=13.0.1', document.baseURI);
+        const manifestUrl = new URL('data/mountains/mountain-icon-manifest-13.0.json?v=13.0.2', document.baseURI);
         const response = await nativeFetch(manifestUrl, {cache: 'no-store'});
         if (!response.ok) throw new Error(`Alan Map 13.0: не загружен новый manifest (${response.status}).`);
         const manifest = await response.json();
         if (manifest.version !== RELEASE || !Array.isArray(manifest.icons) || manifest.icons.length !== 36) {
           throw new Error('Alan Map 13.0: manifest не содержит подтверждённые 36 фигурок версии 13.0.');
         }
-        // 12.1.8 core validates its own data-contract version. Keep that internal
-        // compatibility field only in the in-memory response; the repository manifest remains 13.0.
         return makeJsonResponse({...manifest, version: CORE_RELEASE}, response);
       }
 
@@ -252,21 +248,9 @@
         return makeTextResponse(repacked);
       }
 
-      const atlasPartMatch = pathname.match(/\/assets\/mountains\/mountain-atlas-13\.0\.part-(\d{3})\.b64$/);
-      if (atlasPartMatch) {
-        const partIndex = Number(atlasPartMatch[1]);
-        if (!Number.isInteger(partIndex) || partIndex < 0 || partIndex > 5) {
-          throw new Error(`Alan Map 13.0: недопустимая часть atlas ${atlasPartMatch[1]}.`);
-        }
-        const sourceName = `assets/mountains/mountain-atlas-12.1.8.s80-${String(partIndex).padStart(3, '0')}.b64?v=13.0.1`;
-        const response = await nativeFetch(new URL(sourceName, document.baseURI), {cache: 'no-store'});
-        if (!response.ok) throw new Error(`Alan Map 13.0: не загружена atlas-часть ${partIndex} (${response.status}).`);
-        return makeTextResponse((await response.text()).trim());
-      }
-
       if (pathname.endsWith('/assets/mountains/mountain-atlas-13.0.b64')) {
         const parts = await Promise.all(Array.from({length: 6}, async (_, partIndex) => {
-          const sourceName = `assets/mountains/mountain-atlas-12.1.8.s80-${String(partIndex).padStart(3, '0')}.b64?v=13.0.1`;
+          const sourceName = `assets/mountains/mountain-atlas-13.0.part-${String(partIndex).padStart(3, '0')}.b64?v=13.0.2`;
           const response = await nativeFetch(new URL(sourceName, document.baseURI), {cache: 'no-store'});
           if (!response.ok) throw new Error(`Alan Map 13.0: не загружена atlas-часть ${partIndex} (${response.status}).`);
           return (await response.text()).trim();
@@ -426,7 +410,7 @@
   };
 
   const executeCore = async () => {
-    const encoded = (await fetchText('app-12.1.8.js.gz.b64?v=13.0-core')).trim();
+    const encoded = (await fetchText('app-12.1.8.js.gz.b64?v=13.0-core.2')).trim();
     const code = await decodeGzipBase64Text(encoded);
     (0, eval)(`${code}\n//# sourceURL=app-13.0-core.js`);
   };
