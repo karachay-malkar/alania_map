@@ -1,4 +1,4 @@
-name: Recover 13.0 mountain render
+name: Rebuild 13.0 mountain render
 
 on:
   pull_request:
@@ -8,10 +8,10 @@ permissions:
   contents: write
 
 jobs:
-  recover:
+  rebuild:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 90
     steps:
       - name: Checkout 13.0 branch
         uses: actions/checkout@v4
@@ -19,121 +19,215 @@ jobs:
           ref: agent/13-0-north-down-morphology-atlas
           fetch-depth: 0
 
-      - name: Read prepared 12.1.8 payload from PR 18
+      - name: Fetch original 12.1.6 morphology sources
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf /tmp/pr18 /tmp/recovered
-          mkdir -p /tmp/pr18 /tmp/recovered
-          git fetch --no-tags --depth=1 origin refs/pull/18/head:refs/remotes/origin/pr18-head
-          git archive refs/remotes/origin/pr18-head | tar -x -C /tmp/pr18
-          mapfile -t parts < <(find /tmp/pr18/tools -maxdepth 1 -type f -name '.12.1.8-payload.part-*' | sort)
-          echo "payload parts: ${#parts[@]}"
-          test "${#parts[@]}" -ge 9
-          cat "${parts[@]}" > /tmp/payload.b64
-          base64 -d /tmp/payload.b64 > /tmp/payload.tgz || true
+          rm -rf /tmp/morph126 /tmp/terrain13
+          mkdir -p /tmp/morph126 /tmp/terrain13/dem /tmp/terrain13/result
+          git fetch --no-tags --depth=1 origin agent/12.1.6-terrain-morphology-run:refs/remotes/origin/agent/12.1.6-terrain-morphology-run
+          git archive refs/remotes/origin/agent/12.1.6-terrain-morphology-run | tar -x -C /tmp/morph126
+          test -s /tmp/morph126/data/mountains/mountain-render-12.1.5.geojson
+          test -s /tmp/morph126/tools/classify_terrain_morphology.py.gz.b64
 
-      - name: Recover complete source files
-        shell: python
+      - name: Setup Python terrain stack
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install terrain dependencies
         run: |
-          import io, tarfile, zlib
-          from pathlib import Path, PurePosixPath
-          compressed = Path('/tmp/payload.tgz').read_bytes()
-          inflater = zlib.decompressobj(16 + zlib.MAX_WBITS)
-          tar_bytes = inflater.decompress(compressed)
-          stream = io.BytesIO(tar_bytes)
-          root = Path('/tmp/recovered')
-          recovered = []
-          try:
-              archive = tarfile.open(fileobj=stream, mode='r:')
-              while True:
-                  try:
-                      member = archive.next()
-                  except (tarfile.ReadError, EOFError, OSError):
-                      break
-                  if member is None:
-                      break
-                  rel = PurePosixPath(member.name)
-                  if rel.is_absolute() or '..' in rel.parts:
-                      raise RuntimeError(member.name)
-                  target = root / Path(*rel.parts)
-                  if member.isdir():
-                      target.mkdir(parents=True, exist_ok=True)
-                      continue
-                  if not member.isfile():
-                      continue
-                  try:
-                      source = archive.extractfile(member)
-                      data = source.read() if source else b''
-                  except (tarfile.ReadError, EOFError, OSError):
-                      break
-                  if len(data) != member.size:
-                      break
-                  target.parent.mkdir(parents=True, exist_ok=True)
-                  target.write_bytes(data)
-                  recovered.append(member.name)
-          except tarfile.ReadError:
-              pass
+          python -m pip install --upgrade pip
+          python -m pip install numpy==2.2.6 scipy==1.15.3 rasterio==1.4.3 shapely==2.1.1 pyproj==3.7.1
 
-          required = [
-              'README.md','index.html','styles-12.1.8.css',
-              'src/config.js','src/data.js','src/map.js','src/app.js',
-              'tests/12.1-contract.mjs','tools/run_stage_12_1.sh',
-              'tools/build_stage_12_1_8.py',
-              'data/mountains/mountain-icon-manifest-12.1.8.json',
-              'assets/mountains/mountain-atlas-12.1.8.png',
-              'tools/.12.1.8-active-morphology.json.gz'
-          ]
-          missing = [p for p in required if not (root / p).is_file() or (root / p).stat().st_size == 0]
-          print('recovered complete files:', len(recovered))
-          if missing:
-              raise RuntimeError('Missing: ' + ', '.join(missing))
-
-      - name: Build clean 12.1.8 payload
+      - name: Restore original morphology classifier
         shell: bash
         run: |
           set -euo pipefail
-          cd /tmp/recovered
-          base64 -w0 assets/mountains/mountain-atlas-12.1.8.png > assets/mountains/mountain-atlas-12.1.8.b64
-          base64 -w0 tools/.12.1.8-active-morphology.json.gz > data/mountains/mountain-morphology-active-12.1.8.json.gz.b64
-          rm -f tools/.12.1.8-active-morphology.json.gz
-          python3 tools/build_stage_12_1_8.py
+          base64 -d /tmp/morph126/tools/classify_terrain_morphology.py.gz.b64 | gzip -d > /tmp/terrain13/classify_terrain_morphology.py
+          python -m py_compile /tmp/terrain13/classify_terrain_morphology.py
 
-      - name: Strictly validate rebuilt render
+      - name: Download Copernicus GLO-30 DEM tiles
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lat in 42 43 44; do
+            for lon in 40 41 42 43; do
+              north="N$(printf '%02d' "$lat")_00"
+              east="E$(printf '%03d' "$lon")_00"
+              stem="Copernicus_DSM_COG_10_${north}_${east}_DEM"
+              url="https://copernicus-dem-30m.s3.amazonaws.com/${stem}/${stem}.tif"
+              echo "Downloading ${stem}"
+              curl --fail --location --retry 5 --retry-delay 3 --output "/tmp/terrain13/dem/${stem}.tif" "$url"
+            done
+          done
+          du -sh /tmp/terrain13/dem
+
+      - name: Download OSM geomorphology features
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > /tmp/terrain13/osm-query.txt <<'EOF'
+          [out:json][timeout:900][maxsize:1073741824];
+          (
+            nwr["natural"~"^(bare_rock|cliff|scree|rock|ridge|arete|peak|saddle)$"](42.80,40.60,44.25,43.80);
+          );
+          out geom;
+          EOF
+          success=0
+          for endpoint in \
+            https://overpass-api.de/api/interpreter \
+            https://overpass.kumi.systems/api/interpreter \
+            https://overpass.nchc.org.tw/api/interpreter; do
+            echo "Trying ${endpoint}"
+            if curl --fail --location --retry 2 --max-time 1200 \
+              --data-urlencode "data@/tmp/terrain13/osm-query.txt" \
+              --output /tmp/terrain13/osm-natural.json "$endpoint"; then
+              success=1
+              break
+            fi
+          done
+          test "$success" -eq 1
+          python - <<'PY'
+          import json
+          d=json.load(open('/tmp/terrain13/osm-natural.json', encoding='utf-8'))
+          print('OSM elements:', len(d.get('elements', [])))
+          PY
+
+      - name: Classify the exact 1000 active mountain positions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python /tmp/terrain13/classify_terrain_morphology.py \
+            --points /tmp/morph126/data/mountains/mountain-render-12.1.5.geojson \
+            --dem-dir /tmp/terrain13/dem \
+            --osm /tmp/terrain13/osm-natural.json \
+            --output-dir /tmp/terrain13/result
+          python - <<'PY'
+          import csv
+          p='/tmp/terrain13/result/mountain_morphology_classification.csv'
+          with open(p, encoding='utf-8-sig', newline='') as f:
+              rows=list(csv.DictReader(f))
+          print('classified rows:', len(rows))
+          print('columns:', list(rows[0]) if rows else [])
+          print('sample:', rows[0] if rows else {})
+          assert len(rows) == 1000
+          PY
+
+      - name: Build valid 13.0 render from classification
         shell: python
         run: |
-          import base64, gzip, json, re
+          import base64, csv, gzip, hashlib, json
+          from collections import Counter, defaultdict
           from pathlib import Path
-          p = Path('/tmp/recovered/data/mountains/mountain-render-12.1.8.geojson.gz.b64')
-          compact = ''.join(p.read_text(encoding='utf-8').split())
-          assert len(compact) % 4 == 0
-          assert re.fullmatch(r'[A-Za-z0-9+/]*={0,2}', compact)
-          obj = json.loads(gzip.decompress(base64.b64decode(compact, validate=True)))
-          features = obj.get('features', [])
-          assert obj.get('type') == 'FeatureCollection'
-          assert len(features) == 1000, len(features)
-          valid = {'rounded_hill','rounded_mountain','steep_mountain','isolated_peak','massif','ridge','rocky_peak','rocky_ridge','plateau'}
-          invalid = []
-          icon_count = 0
-          for i, feature in enumerate(features):
-              props = feature.get('properties') or {}
-              morphology = str(props.get('morphology') or '')
-              if morphology not in valid:
-                  invalid.append((i, morphology))
-              if props.get('icon_id'):
-                  icon_count += 1
-          assert not invalid, invalid[:20]
-          assert icon_count >= 975, icon_count
-          print('REBUILT RENDER PASS:', len(features), 'features;', icon_count, 'icon ids;', len(compact), 'base64 chars')
 
-      - name: Install rebuilt render into 13.0 branch
+          valid = {'rounded_hill','rounded_mountain','steep_mountain','isolated_peak','massif','ridge','rocky_peak','rocky_ridge','plateau'}
+          csv_path = Path('/tmp/terrain13/result/mountain_morphology_classification.csv')
+          with csv_path.open(encoding='utf-8-sig', newline='') as f:
+              reader = csv.DictReader(f)
+              rows = list(reader)
+              fields = reader.fieldnames or []
+
+          def pick(candidates):
+              for name in candidates:
+                  if name in fields:
+                      return name
+              return None
+
+          id_col = pick(['id','point_id','source_id','mountain_id'])
+          morph_col = pick(['morphology','terrain_morphology','morphology_class','category','classification'])
+          if not id_col or not morph_col:
+              raise RuntimeError(f'Cannot identify classification columns: {fields}')
+          by_id = {str(r[id_col]): str(r[morph_col]).strip() for r in rows}
+          bad_rows = [(k,v) for k,v in by_id.items() if v not in valid]
+          if bad_rows:
+              raise RuntimeError(f'Invalid morphology rows: {bad_rows[:20]}')
+
+          base = json.loads(Path('/tmp/morph126/data/mountains/mountain-render-12.1.5.geojson').read_text(encoding='utf-8'))
+          special_data = json.loads(Path('data/mountains/special-mountains-12.1.8.geojson').read_text(encoding='utf-8'))
+          special = {}
+          for feature in special_data.get('features', []):
+              p = feature.get('properties') or {}
+              sid = str(p.get('point_id') or p.get('id') or feature.get('id') or '')
+              if not sid:
+                  continue
+              role = str(p.get('role') or p.get('type') or '')
+              special[sid] = role
+
+          ordinary_groups = defaultdict(list)
+          missing = []
+          special_in_render = 0
+          for index, feature in enumerate(base.get('features', [])):
+              p = feature.get('properties') or {}
+              feature['properties'] = p
+              pid = str(p.get('point_id') or p.get('id') or feature.get('id') or '')
+              morphology = by_id.get(pid)
+              if morphology not in valid:
+                  missing.append(pid)
+                  continue
+              p['morphology'] = morphology
+              role = special.get(pid)
+              if role in {'main_mountain','five_thousander','unique_mountain'}:
+                  p['role'] = role
+                  p['type'] = role
+                  p['icon_id'] = None
+                  p['icon_variant'] = None
+                  special_in_render += 1
+              else:
+                  ordinary_groups[morphology].append((pid, feature))
+
+          if missing:
+              raise RuntimeError(f'Classification missing for {len(missing)} active ids: {missing[:20]}')
+
+          variant_counts = {}
+          for morphology, entries in ordinary_groups.items():
+              entries.sort(key=lambda item: (
+                  float((item[1].get('properties') or {}).get('latitude') or item[1].get('geometry',{}).get('coordinates',[0,0])[1]),
+                  float((item[1].get('properties') or {}).get('longitude') or item[1].get('geometry',{}).get('coordinates',[0,0])[0]),
+                  item[0]
+              ))
+              counts = Counter()
+              for idx, (pid, feature) in enumerate(entries):
+                  variant = idx % 4 + 1
+                  p = feature['properties']
+                  p['icon_variant'] = variant
+                  p['icon_id'] = f'{morphology}_{variant:02d}'
+                  counts[variant] += 1
+              variant_counts[morphology] = dict(counts)
+
+          features = base.get('features', [])
+          assert len(features) == 1000, len(features)
+          ordinary_count = sum(len(v) for v in ordinary_groups.values())
+          assert ordinary_count + special_in_render == 1000
+          assert special_in_render == 25, special_in_render
+          assert ordinary_count == 975, ordinary_count
+          assert set(ordinary_groups) == valid, sorted(ordinary_groups)
+          assert all(len(set(v.keys())) == 4 for v in variant_counts.values()), variant_counts
+
+          base['version'] = '12.1.8'
+          text = json.dumps(base, ensure_ascii=False, separators=(',', ':')).encode('utf-8')
+          compressed = gzip.compress(text, compresslevel=9, mtime=0)
+          encoded = base64.b64encode(compressed).decode('ascii')
+          out = Path('data/mountains/mountain-render-12.1.8.geojson.gz.b64')
+          out.write_text(encoded, encoding='utf-8')
+
+          decoded = json.loads(gzip.decompress(base64.b64decode(encoded, validate=True)))
+          assert len(decoded['features']) == 1000
+          assert all((f.get('properties') or {}).get('morphology') in valid for f in decoded['features'])
+          assert '[...trimmed' not in encoded
+          print('13.0 render PASS')
+          print('ordinary:', ordinary_count, 'special:', special_in_render)
+          print('morphology counts:', {k: len(v) for k,v in sorted(ordinary_groups.items())})
+          print('variant counts:', variant_counts)
+          print('encoded chars:', len(encoded), 'sha256:', hashlib.sha256(encoded.encode()).hexdigest())
+
+      - name: Commit rebuilt render to 13.0 branch
         shell: bash
         run: |
           set -euo pipefail
-          cp /tmp/recovered/data/mountains/mountain-render-12.1.8.geojson.gz.b64 data/mountains/mountain-render-12.1.8.geojson.gz.b64
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add data/mountains/mountain-render-12.1.8.geojson.gz.b64
           git diff --cached --quiet && { echo 'No render change'; exit 1; }
-          git commit -m 'Restore complete 12.1.8 mountain render for 13.0'
+          git commit -m 'Rebuild complete morphology render for Alan Map 13.0'
           git push origin HEAD:agent/13-0-north-down-morphology-atlas
