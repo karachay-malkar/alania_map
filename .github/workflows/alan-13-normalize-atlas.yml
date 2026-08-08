@@ -1,0 +1,107 @@
+name: Normalize Alan Map 13 atlas chunks
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  normalize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout 13.0 branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/13-0-north-down-morphology-atlas
+          fetch-depth: 0
+
+      - name: Normalize physical atlas chunks to one Base64 stream
+        shell: python
+        run: |
+          import base64, hashlib, json, struct
+          from pathlib import Path
+
+          manifest_path = Path('data/mountains/mountain-icon-manifest-13.0.json')
+          manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+          paths = [Path(p) for p in manifest['atlas_parts']]
+          assert len(paths) == 12, len(paths)
+
+          binary_parts = []
+          for path in paths:
+              compact = ''.join(path.read_text(encoding='utf-8').split())
+              decoded = base64.b64decode(compact, validate=True)
+              assert decoded, path
+              binary_parts.append(decoded)
+
+          png = b''.join(binary_parts)
+          assert png[:8] == b'\x89PNG\r\n\x1a\n'
+          width, height = struct.unpack('>II', png[16:24])
+          assert (width, height) == (800, 1350), (width, height)
+          digest = hashlib.sha256(png).hexdigest()
+
+          stream = base64.b64encode(png).decode('ascii')
+          assert base64.b64decode(stream, validate=True) == png
+
+          base = (len(stream) // len(paths) // 4) * 4
+          assert base > 0
+          offset = 0
+          slices = []
+          for index, path in enumerate(paths):
+              if index == len(paths) - 1:
+                  text = stream[offset:]
+              else:
+                  text = stream[offset:offset + base]
+                  offset += base
+              assert text
+              if index < len(paths) - 1:
+                  assert len(text) % 4 == 0
+                  assert '=' not in text
+              path.write_text(text, encoding='utf-8')
+              slices.append(text)
+
+          rejoined = ''.join(slices)
+          assert rejoined == stream
+          assert base64.b64decode(rejoined, validate=True) == png
+
+          manifest['sha256_png'] = digest
+          manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
+
+          print('Atlas normalization PASS')
+          print('PNG:', width, 'x', height)
+          print('PNG bytes:', len(png))
+          print('Base64 chars:', len(stream))
+          print('SHA256:', digest)
+          print('Chunk chars:', [len(s) for s in slices])
+          print('Chunk padding:', [s[-4:] for s in slices])
+
+      - name: Validate concatenated storage and runtime pairing
+        shell: python
+        run: |
+          import base64, hashlib, json, struct
+          from pathlib import Path
+          manifest = json.loads(Path('data/mountains/mountain-icon-manifest-13.0.json').read_text(encoding='utf-8'))
+          texts = [Path(p).read_text(encoding='utf-8').strip() for p in manifest['atlas_parts']]
+          joined = ''.join(texts)
+          png = base64.b64decode(joined, validate=True)
+          assert png[:8] == b'\x89PNG\r\n\x1a\n'
+          assert struct.unpack('>II', png[16:24]) == (800, 1350)
+          assert hashlib.sha256(png).hexdigest() == manifest['sha256_png']
+          virtual = [texts[i] + texts[i + 1] for i in range(0, 12, 2)]
+          assert ''.join(virtual) == joined
+          assert all('=' not in part for part in virtual[:-1])
+          print('Concatenated atlas contract PASS')
+
+      - name: Commit normalized atlas to 13.0
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add assets/mountains/mountain-atlas-13.0.chunk-*.b64 data/mountains/mountain-icon-manifest-13.0.json
+          git diff --cached --quiet && { echo 'Atlas already normalized'; exit 0; }
+          git commit -m 'Normalize Alan Map 13.0 atlas Base64 chunks'
+          git push origin HEAD:agent/13-0-north-down-morphology-atlas
