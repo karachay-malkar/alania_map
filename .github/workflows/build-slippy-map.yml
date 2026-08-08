@@ -39,7 +39,7 @@ jobs:
       - name: Commit canonical data to slippy-map
         run: |
           set -euo pipefail
-          if git diff --quiet -- data/mountains.geojson data/data-report.json; then
+          if [ -z "$(git status --porcelain -- data/mountains.geojson data/data-report.json)" ]; then
             echo 'Canonical data already committed.'
             exit 0
           fi
