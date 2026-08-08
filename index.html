@@ -2,64 +2,25 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-  <meta name="theme-color" content="#d8c8a8">
-  <title>Alan Map 12.1.8 — морфология гор и особые вершины</title>
-  <link rel="stylesheet" href="styles-12.1.8.css?v=12.1.8.1">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#d7c5a1">
+  <title>Slippy Map 1.0</title>
+  <link rel="stylesheet" href="vendor/maplibre-gl.css">
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <main id="map-shell" class="map-shell">
-    <div id="map" class="map" aria-label="Плоская интерактивная карта горных фигурок, особых вершин и рек"></div>
-
-    <div class="topbar">
-      <section class="title-card" aria-label="Информация о карте">
-        <h1 class="map-title">Alan Map · 12.1.8</h1>
-        <p class="map-subtitle">Плоская Slippy Map · морфология 12.1.6 · 36 новых фигурок</p>
-        <p id="map-status" class="map-status" role="status" aria-live="polite">Загрузка данных…</p>
-      </section>
-      <nav class="map-controls" aria-label="Управление масштабом">
-        <button type="button" data-action="zoom-in" aria-label="Приблизить">+</button>
-        <button type="button" data-action="zoom-out" aria-label="Отдалить">−</button>
-        <button type="button" data-action="reset" aria-label="Показать всю территорию">⌂</button>
-      </nav>
-    </div>
-
-    <section class="legend" aria-label="Категории горных объектов">
-      <div class="legend-title"><span>PNG-фигурки</span><span data-total-icons>0</span></div>
-      <div class="legend-grid legend-grid-morphology">
-        <div class="legend-item"><span>Округл. холм</span><span class="legend-count" data-count="rounded_hill">0</span></div>
-        <div class="legend-item"><span>Округл. гора</span><span class="legend-count" data-count="rounded_mountain">0</span></div>
-        <div class="legend-item"><span>Крутая гора</span><span class="legend-count" data-count="steep_mountain">0</span></div>
-        <div class="legend-item"><span>Одиночный пик</span><span class="legend-count" data-count="isolated_peak">0</span></div>
-        <div class="legend-item"><span>Массив</span><span class="legend-count" data-count="massif">0</span></div>
-        <div class="legend-item"><span>Хребет</span><span class="legend-count" data-count="ridge">0</span></div>
-        <div class="legend-item"><span>Скальный пик</span><span class="legend-count" data-count="rocky_peak">0</span></div>
-        <div class="legend-item"><span>Скальный хребет</span><span class="legend-count" data-count="rocky_ridge">0</span></div>
-        <div class="legend-item"><span>Плато</span><span class="legend-count" data-count="plateau">0</span></div>
-      </div>
-      <div class="legend-title legend-title-special"><span><span class="legend-dot legend-dot-gold"></span>Особые точки</span><span data-total-special>0</span></div>
-      <div class="legend-grid legend-grid-special">
-        <div class="legend-item"><span>Главные</span><span class="legend-count" data-role-count="main_mountain">0</span></div>
-        <div class="legend-item"><span>5000+</span><span class="legend-count" data-role-count="five_thousander">0</span></div>
-        <div class="legend-item"><span>Mingi Tau</span><span class="legend-count" data-role-count="unique_mountain">0</span></div>
-      </div>
+  <main class="app-shell">
+    <div id="map" class="map" aria-label="Интерактивная Slippy Map"></div>
+    <section class="status-card" aria-live="polite">
+      <div class="status-title">Slippy Map 1.0</div>
+      <div id="status">Загрузка геоданных…</div>
+      <div id="stats" class="stats"></div>
     </section>
-
-    <aside id="feature-card" class="feature-card" aria-live="polite" hidden>
-      <button type="button" class="feature-card-close" data-action="close-feature" aria-label="Закрыть карточку">×</button>
-      <div class="feature-role" data-feature-role></div>
-      <h2 class="feature-name" data-feature-name></h2>
-      <div class="feature-elevation" data-feature-elevation></div>
-      <p class="feature-note" data-feature-note hidden></p>
-    </aside>
-
-    <div id="loading" class="loading" role="status" aria-live="polite">
-      <div class="loading-card">
-        <div class="loading-title">Alan Map 12.1.8</div>
-        <div class="loading-text">Подготавливаются морфологические фигурки, особые вершины и речные коридоры.</div>
-      </div>
+    <div class="orientation" aria-label="Ориентация карты">
+      <span>ЮГ ↑</span><span>СЕВЕР ↓</span>
     </div>
   </main>
-  <script src="assets/bootstrap-12.1.8.js?v=12.1.8.1"></script>
+  <script src="vendor/maplibre-gl.js"></script>
+  <script type="module" src="src/main.js"></script>
 </body>
 </html>
