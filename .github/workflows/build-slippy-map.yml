@@ -6,6 +6,8 @@ on:
       - 'tools/extract_historical_data.py'
       - 'tools/validate.mjs'
       - '.github/workflows/build-slippy-map.yml'
+  pull_request:
+    branches: [slippy-map]
 permissions:
   contents: write
 jobs:
@@ -24,7 +26,15 @@ jobs:
         run: |
           python3 tools/extract_historical_data.py --render /tmp/mountain-render.b64 --special /tmp/special-mountains.geojson --boundary data/map-boundary.geojson --output data/mountains.geojson --report data/data-report.json
           node tools/validate.mjs
+      - name: Upload canonical data for verification
+        uses: actions/upload-artifact@v4
+        with:
+          name: slippy-map-canonical-data
+          path: |
+            data/mountains.geojson
+            data/data-report.json
       - name: Commit generated canonical data
+        if: github.event_name == 'push'
         run: |
           if git diff --quiet -- data/mountains.geojson data/data-report.json; then exit 0; fi
           git config user.name 'github-actions[bot]'
@@ -32,4 +42,4 @@ jobs:
           git add data/mountains.geojson data/data-report.json
           git commit -m 'Build canonical Slippy Map 1.0 mountain data'
           git push origin HEAD:slippy-map
-# Slippy Map 1.0 canonical extraction only; never used by browser runtime.
+# Build-time extraction only; never used by browser runtime.
