@@ -19,7 +19,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p assets/mountains
-          base64 -d tools/.mountain-atlas-upload.b64 > assets/mountains/mountain-atlas.png
+          cat assets/mountains/atlas-b64/part-*.b64 | tr -d '\r\n' | base64 -d > assets/mountains/mountain-atlas.png
           echo 'f0f668fabd6d21eae0088e84f0fafa61c688b4f6277efd8acb9fef7cd75195fd  assets/mountains/mountain-atlas.png' | sha256sum -c -
           python3 - <<'PY'
           import struct, zlib
