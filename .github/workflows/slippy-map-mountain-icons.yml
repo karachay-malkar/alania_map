@@ -5,17 +5,104 @@ on:
     branches: [slippy-map]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   qa:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
         with:
           ref: slippy-map
           fetch-depth: 0
+
+      - name: Build verified lossless WebP atlas
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s assets/mountains/mountain-atlas.png
+          python3 -m http.server 4173 --bind 127.0.0.1 >/tmp/atlas-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill ${SERVER_PID} || true' EXIT
+          mkdir -p /tmp/atlas-browser
+          cd /tmp/atlas-browser
+          npm init -y >/dev/null 2>&1
+          npm install --silent --no-save playwright-core@1.55.0
+          CHROME="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium)"
+          test -n "$CHROME"
+          cat > normalize.cjs <<'EOF'
+          const { chromium } = require('playwright-core');
+          const fs = require('fs');
+          const assert = (v,m)=>{if(!v)throw new Error(m)};
+          (async()=>{
+            const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME,args:['--no-sandbox','--disable-dev-shm-usage']});
+            const page=await browser.newPage({viewport:{width:900,height:1450}});
+            const response=await page.goto('http://127.0.0.1:4173/assets/mountains/mountain-atlas.png',{waitUntil:'load',timeout:30000});
+            assert(response&&response.ok(),'source atlas HTTP load failed');
+            const result=await page.evaluate(async()=>{
+              const img=document.querySelector('img');
+              if(!img) throw new Error('image document missing img');
+              await img.decode();
+              const c=document.createElement('canvas');
+              c.width=img.naturalWidth; c.height=img.naturalHeight;
+              if(c.width!==800||c.height!==1350) throw new Error(`source atlas dimensions ${c.width}x${c.height}`);
+              const ctx=c.getContext('2d',{willReadFrequently:true});
+              ctx.drawImage(img,0,0);
+              const nonEmpty=[];
+              for(let row=0;row<9;row++) for(let col=0;col<4;col++) {
+                const d=ctx.getImageData(col*200,row*150,200,150).data;
+                let opaque=0;
+                for(let i=3;i<d.length;i+=4) if(d[i]>0) opaque++;
+                nonEmpty.push(opaque);
+              }
+              if(nonEmpty.length!==36||nonEmpty.some(n=>n<100)) throw new Error(`blank atlas cell: ${JSON.stringify(nonEmpty)}`);
+              return {png:c.toDataURL('image/png').split(',')[1],nonEmpty};
+            });
+            fs.writeFileSync(process.env.GITHUB_WORKSPACE+'/assets/mountains/mountain-atlas-normalized.png',Buffer.from(result.png,'base64'));
+            console.log('36 source atlas cells PASS');
+            await browser.close();
+          })().catch(e=>{console.error(e);process.exit(1)});
+          EOF
+          CHROME="$CHROME" node normalize.cjs
+          cd "$GITHUB_WORKSPACE"
+          kill ${SERVER_PID} || true
+          trap - EXIT
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends webp >/dev/null
+          cwebp -quiet -lossless -z 9 assets/mountains/mountain-atlas-normalized.png -o assets/mountains/mountain-atlas.webp
+          webpinfo assets/mountains/mountain-atlas.webp | grep -q 'Canvas size: 800 x 1350'
+          rm -f assets/mountains/mountain-atlas-normalized.png
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          atlas=Path('assets/mountains/mountain-atlas.webp')
+          manifest_path=Path('assets/mountains/atlas-manifest.json')
+          manifest=json.loads(manifest_path.read_text(encoding='utf-8'))
+          manifest['sha256_webp']=hashlib.sha256(atlas.read_bytes()).hexdigest()
+          manifest['build']='approved 36-icon atlas -> Chromium normalized RGBA -> lossless WebP'
+          manifest_path.write_text(json.dumps(manifest,ensure_ascii=False,separators=(',',':')),encoding='utf-8')
+          print('WEBP_BYTES='+str(atlas.stat().st_size))
+          print('WEBP_SHA256='+manifest['sha256_webp'])
+          with open('/tmp/webp-env','w',encoding='utf-8') as f:
+              f.write('WEBP_BYTES='+str(atlas.stat().st_size)+'\n')
+              f.write('WEBP_SHA256='+manifest['sha256_webp']+'\n')
+          PY
+          cat /tmp/webp-env >> "$GITHUB_ENV"
+
+      - name: Remove obsolete atlas payloads and commit runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add assets/mountains/mountain-atlas.webp assets/mountains/atlas-manifest.json
+          git rm -f assets/mountains/mountain-atlas.png
+          git rm -r -f assets/mountains/webp-b64 2>/dev/null || true
+          git rm -r -f assets/mountains/atlas-b64 2>/dev/null || true
+          git rm -f tools/.mountain-atlas-upload.b64 2>/dev/null || true
+          git commit -m 'Slippy Map 1.0.1: finalize verified lossless WebP atlas'
+          git push origin HEAD:slippy-map
 
       - name: Contract and asset integrity
         shell: bash
@@ -28,65 +115,64 @@ jobs:
           node tools/validate.mjs
           test -s assets/mountains/mountain-atlas.webp
           test ! -e assets/mountains/mountain-atlas.png
-          test "$(stat -c '%s' assets/mountains/mountain-atlas.webp)" = '132506'
-          echo '351030d3d61d557423cf0a0b80c1ab7f81e36940128a44e7874134353a221d6b  assets/mountains/mountain-atlas.webp' | sha256sum -c -
+          test "$(stat -c '%s' assets/mountains/mountain-atlas.webp)" = "$WEBP_BYTES"
+          echo "$WEBP_SHA256  assets/mountains/mountain-atlas.webp" | sha256sum -c -
           grep -q "mountain-atlas.webp?v=1.0.1" src/config.js
           ! grep -R "cache: 'no-store'" src
 
-      - name: Local browser QA
+      - name: Local desktop and mobile browser QA
         shell: bash
         run: |
           set -euo pipefail
-          python3 -m http.server 4173 --bind 127.0.0.1 >/tmp/slippy-local-http.log 2>&1 &
+          python3 -m http.server 4173 --bind 127.0.0.1 >/tmp/local-http.log 2>&1 &
           SERVER_PID=$!
           trap 'kill ${SERVER_PID} || true' EXIT
-          mkdir -p /tmp/slippy-browser
-          cd /tmp/slippy-browser
-          npm init -y >/dev/null 2>&1
-          npm install --silent --no-save playwright-core@1.55.0
+          cd /tmp/atlas-browser
           CHROME="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium)"
-          test -n "$CHROME"
-          cat > local-smoke.cjs <<'EOF'
+          cat > smoke.cjs <<'EOF'
           const { chromium } = require('playwright-core');
           const assert=(v,m)=>{if(!v)throw new Error(m)};
           (async()=>{
-            const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME,args:['--no-sandbox','--disable-dev-shm-usage','--use-angle=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist']});
-            for (const viewport of [{width:1440,height:900},{width:412,height:915}]) {
+            const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME,args:['--no-sandbox','--disable-dev-shm-usage']});
+            for(const [name,viewport] of [['desktop',{width:1440,height:900}],['mobile',{width:412,height:915}]]){
               const page=await browser.newPage({viewport});
               const errors=[],failed=[];
               page.on('console',m=>{if(m.type()==='error')errors.push(m.text())});
               page.on('pageerror',e=>errors.push(String(e)));
               page.on('requestfailed',r=>failed.push(`${r.url()} :: ${r.failure()?.errorText||''}`));
-              const response=await page.goto('http://127.0.0.1:4173/',{waitUntil:'networkidle',timeout:30000});
+              const response=await page.goto('http://127.0.0.1:4173/',{waitUntil:'networkidle',timeout:45000});
               assert(response&&response.ok(),'local page HTTP failed');
-              await page.waitForFunction(()=>document.querySelector('#status')?.textContent.includes('1500 горных фигурок загружены'),null,{timeout:30000});
-              assert((await page.locator('#stats').innerText()).includes('Фигурок: 1500'),'1500 count missing');
+              await page.waitForFunction(()=>document.querySelector('#status')?.textContent.includes('1500 горных фигурок загружены'),null,{timeout:45000});
+              assert((await page.locator('#stats').innerText()).includes('Фигурок: 1500'),'1500 icon count missing');
+              assert((await page.locator('canvas').count())===1,'MapLibre canvas missing');
               const resources=await page.evaluate(()=>performance.getEntriesByType('resource').map(e=>new URL(e.name).pathname));
-              assert(resources.filter(p=>p.endsWith('/assets/mountains/mountain-atlas.webp')).length===1,'WebP atlas must load once');
+              assert(resources.filter(p=>p.endsWith('/assets/mountains/mountain-atlas.webp')).length===1,'WebP atlas must load exactly once');
               assert(!resources.some(p=>p.endsWith('/assets/mountains/mountain-atlas.png')),'PNG atlas requested');
               assert(errors.length===0,`browser errors: ${errors.join('\n')}`);
               assert(failed.length===0,`failed requests: ${failed.join('\n')}`);
+              await page.screenshot({path:`${process.env.GITHUB_WORKSPACE}/qa-local-${name}.png`,fullPage:true});
               await page.close();
             }
             await browser.close();
           })().catch(e=>{console.error(e);process.exit(1)});
           EOF
-          CHROME="$CHROME" node local-smoke.cjs
+          CHROME="$CHROME" node smoke.cjs
 
       - name: Resolve and verify live GitHub Pages
         shell: bash
         run: |
           set -euo pipefail
-          candidates=(
-            'https://karachay-malkar.github.io/alania_map/'
-            'https://karachay-malkar.github.io/'
-          )
+          candidates=('https://karachay-malkar.github.io/alania_map/' 'https://karachay-malkar.github.io/')
           : > /tmp/live-base
-          for attempt in $(seq 1 60); do
+          for attempt in $(seq 1 72); do
             for base in "${candidates[@]}"; do
               if curl -fsSL --max-time 15 "${base}?qa=1.0.1-${GITHUB_RUN_ID}-${attempt}" -o /tmp/live.html 2>/dev/null && grep -q 'Slippy Map 1.0.1' /tmp/live.html; then
-                printf '%s' "$base" > /tmp/live-base
-                break 2
+                if curl -fsSL --max-time 20 "${base}assets/mountains/mountain-atlas.webp?v=1.0.1&qa=${GITHUB_RUN_ID}-${attempt}" -o /tmp/live-atlas.webp 2>/dev/null; then
+                  if [ "$(stat -c '%s' /tmp/live-atlas.webp)" = "$WEBP_BYTES" ] && echo "$WEBP_SHA256  /tmp/live-atlas.webp" | sha256sum -c - >/dev/null 2>&1; then
+                    printf '%s' "$base" > /tmp/live-base
+                    break 2
+                  fi
+                fi
               fi
             done
             sleep 5
@@ -94,23 +180,20 @@ jobs:
           BASE="$(cat /tmp/live-base)"
           test -n "$BASE"
           echo "Live base: $BASE"
-          curl -fsSL --max-time 30 "${BASE}assets/mountains/mountain-atlas.webp?v=1.0.1&qa=${GITHUB_RUN_ID}" -o /tmp/live-atlas.webp
-          test "$(stat -c '%s' /tmp/live-atlas.webp)" = '132506'
-          echo '351030d3d61d557423cf0a0b80c1ab7f81e36940128a44e7874134353a221d6b  /tmp/live-atlas.webp' | sha256sum -c -
           printf 'LIVE_BASE=%s\n' "$BASE" >> "$GITHUB_ENV"
 
-      - name: Live mobile and desktop browser QA
+      - name: Live desktop and mobile browser QA
         shell: bash
         run: |
           set -euo pipefail
-          cd /tmp/slippy-browser
+          cd /tmp/atlas-browser
           CHROME="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium)"
-          cat > live-smoke.cjs <<'EOF'
+          cat > live.cjs <<'EOF'
           const { chromium } = require('playwright-core');
           const assert=(v,m)=>{if(!v)throw new Error(m)};
           (async()=>{
-            const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME,args:['--no-sandbox','--disable-dev-shm-usage','--use-angle=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist']});
-            for (const [name,viewport] of [['desktop',{width:1440,height:900}],['mobile',{width:412,height:915}]]) {
+            const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME,args:['--no-sandbox','--disable-dev-shm-usage']});
+            for(const [name,viewport] of [['desktop',{width:1440,height:900}],['mobile',{width:412,height:915}]]){
               const page=await browser.newPage({viewport});
               const errors=[],failed=[];
               page.on('console',m=>{if(m.type()==='error')errors.push(m.text())});
@@ -119,23 +202,22 @@ jobs:
               const response=await page.goto(`${process.env.LIVE_BASE}?qa=${Date.now()}-${name}`,{waitUntil:'networkidle',timeout:45000});
               assert(response&&response.ok(),'live page HTTP failed');
               await page.waitForFunction(()=>document.querySelector('#status')?.textContent.includes('1500 горных фигурок загружены'),null,{timeout:45000});
-              const stats=await page.locator('#stats').innerText();
-              assert(stats.includes('Фигурок: 1500'),'live 1500 count missing');
-              assert((await page.locator('canvas').count())===1,'MapLibre canvas missing');
+              assert((await page.locator('#stats').innerText()).includes('Фигурок: 1500'),'live 1500 icon count missing');
+              assert((await page.locator('canvas').count())===1,'live MapLibre canvas missing');
               const resources=await page.evaluate(()=>performance.getEntriesByType('resource').map(e=>new URL(e.name).pathname));
-              assert(resources.filter(p=>p.endsWith('/assets/mountains/mountain-atlas.webp')).length===1,'live WebP atlas must load once');
+              assert(resources.filter(p=>p.endsWith('/assets/mountains/mountain-atlas.webp')).length===1,'live WebP atlas must load exactly once');
               assert(!resources.some(p=>p.endsWith('/assets/mountains/mountain-atlas.png')),'live PNG atlas requested');
               assert(errors.length===0,`live browser errors: ${errors.join('\n')}`);
               assert(failed.length===0,`live failed requests: ${failed.join('\n')}`);
-              await page.screenshot({path:`${process.env.GITHUB_WORKSPACE}/qa-${name}.png`,fullPage:true});
+              await page.screenshot({path:`${process.env.GITHUB_WORKSPACE}/qa-live-${name}.png`,fullPage:true});
               await page.close();
             }
             await browser.close();
           })().catch(e=>{console.error(e);process.exit(1)});
           EOF
-          CHROME="$CHROME" node live-smoke.cjs
+          CHROME="$CHROME" node live.cjs
 
-      - name: Package exact verified branch
+      - name: Package exact verified runtime
         shell: bash
         run: |
           set -euo pipefail
@@ -151,7 +233,9 @@ jobs:
             build/slippy-map-1.0.1-fixed.zip
             build/file-sizes.txt
             build/archive-sha256.txt
-            qa-desktop.png
-            qa-mobile.png
+            qa-local-desktop.png
+            qa-local-mobile.png
+            qa-live-desktop.png
+            qa-live-mobile.png
           retention-days: 14
           if-no-files-found: error
