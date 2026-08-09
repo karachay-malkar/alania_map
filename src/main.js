@@ -10,7 +10,7 @@ function renderSummary(summary) {
     const count = summary.categories[key] || 0;
     return `<div class="category-item"><span class="category-label">${definition.label}</span><span class="category-count">${count}</span></div>`;
   }).join('');
-  stats.innerHTML = `<div class="stats-summary">PNG: ${summary.iconTotal} · главных: ${summary.main} · 5000+: ${summary.five}</div><div class="category-grid">${categories}</div>`;
+  stats.innerHTML = `<div class="stats-summary">Фигурок: ${summary.iconTotal} · главных: ${summary.main} · 5000+: ${summary.five}</div><div class="category-grid">${categories}</div>`;
 }
 
 (async () => {
