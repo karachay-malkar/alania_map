@@ -19,12 +19,15 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p assets/mountains
-          cat assets/mountains/atlas-b64/part-*.b64 | tr -d '\r\n' | base64 -d > assets/mountains/mountain-atlas.png
-          echo 'f0f668fabd6d21eae0088e84f0fafa61c688b4f6277efd8acb9fef7cd75195fd  assets/mountains/mountain-atlas.png' | sha256sum -c -
           python3 - <<'PY'
-          import struct, zlib
+          import hashlib, json, struct, zlib
           from pathlib import Path
-          b=Path('assets/mountains/mountain-atlas.png').read_bytes()
+          p=Path('assets/mountains/mountain-atlas.png')
+          if not p.is_file(): raise RuntimeError('Checked-in PNG atlas missing')
+          b=p.read_bytes()
+          manifest=json.loads(Path('assets/mountains/atlas-manifest.json').read_text(encoding='utf-8'))
+          if manifest.get('sha256_png') and hashlib.sha256(b).hexdigest() != manifest['sha256_png']:
+              raise RuntimeError('Checked-in PNG atlas hash does not match manifest')
           if b[:8] != b'\x89PNG\r\n\x1a\n': raise RuntimeError('Atlas is not PNG')
           w,h=struct.unpack('>II',b[16:24])
           if (w,h)!=(800,1350): raise RuntimeError(f'Atlas dimensions {(w,h)}')
