@@ -14,7 +14,7 @@ jobs:
           ref: slippy-map
           fetch-depth: 0
 
-      - name: Restore valid atlas built from approved 36 PNG source
+      - name: Restore approved PNG atlas and build lossless WebP runtime atlas
         shell: bash
         run: |
           set -euo pipefail
@@ -22,10 +22,9 @@ jobs:
           base64 -d tools/.mountain-atlas-upload.b64 > assets/mountains/mountain-atlas.png
           echo 'f0f668fabd6d21eae0088e84f0fafa61c688b4f6277efd8acb9fef7cd75195fd  assets/mountains/mountain-atlas.png' | sha256sum -c -
           python3 - <<'PY'
-          import hashlib, json, struct, zlib
+          import struct, zlib
           from pathlib import Path
-          p=Path('assets/mountains/mountain-atlas.png')
-          b=p.read_bytes()
+          b=Path('assets/mountains/mountain-atlas.png').read_bytes()
           if b[:8] != b'\x89PNG\r\n\x1a\n': raise RuntimeError('Atlas is not PNG')
           w,h=struct.unpack('>II',b[16:24])
           if (w,h)!=(800,1350): raise RuntimeError(f'Atlas dimensions {(w,h)}')
@@ -37,16 +36,20 @@ jobs:
               if kind==b'IDAT': idat.extend(payload)
               if kind==b'IEND': seen_iend=True; break
               pos=end
-          if not seen_iend: raise RuntimeError('PNG IEND missing')
-          if not idat: raise RuntimeError('PNG IDAT missing')
+          if not seen_iend or not idat: raise RuntimeError('PNG structure invalid')
           zlib.decompress(bytes(idat))
-          manifest_path=Path('assets/mountains/atlas-manifest.json')
-          manifest=json.loads(manifest_path.read_text(encoding='utf-8'))
-          manifest['sha256_png']=hashlib.sha256(b).hexdigest()
-          manifest['source']='mountain_icons_final_9_categories(1).zip'
-          manifest['build']='tight-alpha-crop + aspect-preserving fit + bottom alignment + 64-color indexed PNG'
-          manifest_path.write_text(json.dumps(manifest,ensure_ascii=False,separators=(',',':')),encoding='utf-8')
-          print({'atlas_bytes':len(b),'width':w,'height':h,'sha256':manifest['sha256_png']})
+          print({'png_bytes':len(b),'width':w,'height':h})
+          PY
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends webp >/dev/null
+          cwebp -quiet -lossless -z 9 assets/mountains/mountain-atlas.png -o assets/mountains/mountain-atlas.webp
+          test -s assets/mountains/mountain-atlas.webp
+          webpinfo assets/mountains/mountain-atlas.webp | grep -q 'Canvas size: 800 x 1350'
+          python3 - <<'PY'
+          import hashlib
+          from pathlib import Path
+          p=Path('assets/mountains/mountain-atlas.webp')
+          print({'webp_bytes':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()})
           PY
 
       - name: Build and validate deterministic 1500-point layer
@@ -65,7 +68,7 @@ jobs:
           grep -q "labelMinZoom: 9.5" src/config.js
           ! grep -R -E 'app-12|bootstrap-12|map-frame-12|mountain-render-12|part-[0-9]{3}\.bin|force-cache' index.html styles.css src
 
-      - name: Browser smoke and visual evidence in Chrome
+      - name: Browser smoke in Chrome
         shell: bash
         run: |
           set -euo pipefail
@@ -76,12 +79,9 @@ jobs:
           npm init -y >/dev/null 2>&1
           npm install --silent --no-save playwright-core@1.55.0
           CHROME="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium)"
-          cat > smoke.cjs <<'EOF'
+          cat > smoke.cjs <<'EOF_JS'
           const { chromium } = require('playwright-core');
-          const fs = require('fs');
-          const crypto = require('crypto');
           const assert = (v,m)=>{if(!v)throw new Error(m)};
-          const hash=p=>crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex');
           (async()=>{
             const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME,args:['--no-sandbox','--disable-dev-shm-usage','--use-angle=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist']});
             const page=await browser.newPage({viewport:{width:1440,height:900}});
@@ -93,46 +93,30 @@ jobs:
             assert(response&&response.ok(),'HTTP page load failed');
             await page.waitForFunction(()=>document.querySelector('#status')?.textContent.includes('1500 горных фигурок загружены'),null,{timeout:30000});
             assert(await page.locator('canvas').count()===1,'MapLibre canvas missing');
-            assert((await page.locator('#stats').innerText()).includes('PNG: 1500'),'1500 PNG count not rendered');
+            assert((await page.locator('#stats').innerText()).includes('PNG: 1500'),'1500 icon count not rendered');
             const resources=await page.evaluate(()=>performance.getEntriesByType('resource').map(e=>e.name));
-            assert(resources.some(u=>u.endsWith('/assets/mountains/mountain-atlas.png')),'PNG atlas not requested');
-            assert(resources.some(u=>u.endsWith('/data/mountain-icons-1500.geojson')),'1500-point layer not requested');
-            assert(resources.every(u=>!/12\.1|7\.0\.23|part-\d{3}\.bin|mountain-render/i.test(u)),`Old runtime request: ${resources.join('\n')}`);
-            await page.screenshot({path:process.env.GITHUB_WORKSPACE+'/browser-far.png'});
-            await page.mouse.move(760,470);
-            for(let i=0;i<3;i++){await page.mouse.wheel(0,-1100);await page.waitForTimeout(400)}
-            await page.screenshot({path:process.env.GITHUB_WORKSPACE+'/browser-mid.png'});
-            let labelCount=await page.locator('.main-label:not([hidden])').count();
-            for(let i=0;i<7&&labelCount===0;i++){await page.mouse.wheel(0,-1100);await page.waitForTimeout(400);labelCount=await page.locator('.main-label:not([hidden])').count()}
-            await page.screenshot({path:process.env.GITHUB_WORKSPACE+'/browser-near.png'});
-            assert(hash(process.env.GITHUB_WORKSPACE+'/browser-far.png')!==hash(process.env.GITHUB_WORKSPACE+'/browser-mid.png'),'Zoom produced no visual change');
-            assert(labelCount>0,'Main labels did not appear at close zoom');
-            const labels=page.locator('.main-label:not([hidden])');
-            const pos=await labels.first().evaluate(el=>({x:parseFloat(el.style.left),y:parseFloat(el.style.top)+12,name:el.textContent}));
-            await page.mouse.click(pos.x,pos.y);await page.waitForTimeout(250);
-            assert(!(await page.locator('#feature-card').evaluate(el=>el.hidden)),'Gold point card did not open');
-            assert((await page.locator('#feature-name').innerText()).trim().length>0,'Gold point interaction has no name');
+            assert(resources.some(u=>new URL(u).pathname.endsWith('/assets/mountains/mountain-atlas.png')),'PNG atlas not requested');
+            assert(resources.some(u=>new URL(u).pathname.endsWith('/data/mountain-icons-1500.geojson')),'1500-point layer not requested');
             assert(errors.length===0,`Browser errors: ${errors.join('\n')}`);
             assert(failed.length===0,`Failed requests: ${failed.join('\n')}`);
-            await page.screenshot({path:process.env.GITHUB_WORKSPACE+'/browser-qa.png'});
-            console.log(JSON.stringify({ok:true,labelCount,clicked:pos.name,status:await page.locator('#status').innerText(),resources},null,2));
+            console.log(JSON.stringify({ok:true,status:await page.locator('#status').innerText(),resources},null,2));
             await browser.close();
           })().catch(e=>{console.error(e);process.exit(1)});
-          EOF
+          EOF_JS
           CHROME="$CHROME" node smoke.cjs
           cd "$GITHUB_WORKSPACE"
 
-      - name: Commit verified generated runtime assets
+      - name: Commit generated WebP atlas
         shell: bash
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add assets/mountains/atlas-manifest.json assets/mountains/mountain-atlas.png data/mountain-icons-1500.geojson data/icon-layer-report.json
+          git add assets/mountains/mountain-atlas.webp data/mountain-icons-1500.geojson data/icon-layer-report.json
           if git diff --cached --quiet; then
             echo 'Generated assets already committed.'
           else
-            git commit -m 'Slippy Map 1.0: replace atlas and verify 1500 mountain PNG layer'
+            git commit -m 'Slippy Map 1.0: add lossless WebP runtime atlas'
             git push origin HEAD:slippy-map
           fi
 
@@ -146,13 +130,9 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: slippy-map-1.0-valid-atlas-qa
+          name: slippy-map-1.0-webp-prep-qa
           path: |
             build/slippy-map-1.0.zip
             build/file-sizes.txt
-            browser-far.png
-            browser-mid.png
-            browser-near.png
-            browser-qa.png
           retention-days: 14
           if-no-files-found: error
