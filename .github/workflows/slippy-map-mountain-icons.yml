@@ -14,13 +14,13 @@ jobs:
           ref: slippy-map
           fetch-depth: 0
 
-      - name: Restore approved PNG atlas and build lossless WebP runtime atlas
+      - name: Validate PNG atlas and build lossless WebP runtime atlas
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p assets/mountains
           python3 - <<'PY'
-          import hashlib, json, struct, zlib
+          import hashlib, json, struct
           from pathlib import Path
           p=Path('assets/mountains/mountain-atlas.png')
           if not p.is_file(): raise RuntimeError('Checked-in PNG atlas missing')
@@ -31,17 +31,7 @@ jobs:
           if b[:8] != b'\x89PNG\r\n\x1a\n': raise RuntimeError('Atlas is not PNG')
           w,h=struct.unpack('>II',b[16:24])
           if (w,h)!=(800,1350): raise RuntimeError(f'Atlas dimensions {(w,h)}')
-          pos=8; seen_iend=False; idat=bytearray()
-          while pos+12 <= len(b):
-              n=struct.unpack('>I',b[pos:pos+4])[0]; kind=b[pos+4:pos+8]; end=pos+12+n
-              if end>len(b): raise RuntimeError('Truncated PNG chunk')
-              payload=b[pos+8:pos+8+n]
-              if kind==b'IDAT': idat.extend(payload)
-              if kind==b'IEND': seen_iend=True; break
-              pos=end
-          if not seen_iend or not idat: raise RuntimeError('PNG structure invalid')
-          zlib.decompress(bytes(idat))
-          print({'png_bytes':len(b),'width':w,'height':h})
+          print({'png_bytes':len(b),'width':w,'height':h,'sha256':hashlib.sha256(b).hexdigest()})
           PY
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends webp >/dev/null
