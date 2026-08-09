@@ -4,7 +4,7 @@ const CATEGORY_SET = new Set(Object.keys(CONFIG.categories));
 const ICON_ID = /^(rounded_hill|rounded_mountain|steep_mountain|isolated_peak|massif|ridge|rocky_peak|rocky_ridge|plateau)_0[1-4]$/;
 
 async function loadJson(url) {
-  const response = await fetch(url, {cache: 'no-store'});
+  const response = await fetch(url);
   if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
   return response.json();
 }
@@ -45,23 +45,23 @@ function validateMountains(value) {
 
 function validateIconMountains(value, mountains) {
   if (value?.type !== 'FeatureCollection' || !Array.isArray(value.features) || value.features.length !== 1500) {
-    throw new Error(`Ожидалось ровно 1500 PNG-точек, получено ${value?.features?.length ?? 0}.`);
+    throw new Error(`Ожидалось ровно 1500 точек фигурок, получено ${value?.features?.length ?? 0}.`);
   }
   const canonical = new Map(mountains.features.map((feature) => [feature.properties.id, feature]));
   const ids = new Set();
   for (const feature of value.features) {
     const p = feature.properties || {};
-    if (feature?.geometry?.type !== 'Point') throw new Error(`PNG-объект ${p.id || '?'} не Point.`);
-    if (!p.id || ids.has(p.id)) throw new Error(`Повторный PNG id: ${p.id || '?'}`);
-    if (!CATEGORY_SET.has(p.category)) throw new Error(`Неизвестная PNG-категория ${p.category}: ${p.id}`);
+    if (feature?.geometry?.type !== 'Point') throw new Error(`Объект фигурки ${p.id || '?'} не Point.`);
+    if (!p.id || ids.has(p.id)) throw new Error(`Повторный id фигурки: ${p.id || '?'}`);
+    if (!CATEGORY_SET.has(p.category)) throw new Error(`Неизвестная категория фигурки ${p.category}: ${p.id}`);
     if (!ICON_ID.test(String(p.icon || '')) || !String(p.icon).startsWith(`${p.category}_`)) {
       throw new Error(`Неверная иконка ${p.icon}: ${p.id}`);
     }
     if (![1, 2, 3].includes(Number(p.reveal_tier))) throw new Error(`Неверный reveal_tier: ${p.id}`);
     if (!(Number(p.icon_size_ref) > 0)) throw new Error(`Неверный icon_size_ref: ${p.id}`);
     const source = canonical.get(p.id);
-    if (!source || source.properties.main) throw new Error(`PNG-точка не является обычной канонической горой: ${p.id}`);
-    if (source.properties.category !== p.category) throw new Error(`Категория PNG не совпадает с каноном: ${p.id}`);
+    if (!source || source.properties.main) throw new Error(`Точка фигурки не является обычной канонической горой: ${p.id}`);
+    if (source.properties.category !== p.category) throw new Error(`Категория фигурки не совпадает с каноном: ${p.id}`);
     ids.add(p.id);
   }
   return value;
@@ -72,7 +72,13 @@ function validateAtlasManifest(value) {
     throw new Error('Некорректная геометрия atlas-manifest.json');
   }
   if (value.source !== 'mountain_icons_final_9_categories(1).zip') {
-    throw new Error('Неверный источник атласа гор.');
+    throw new Error('Неверный исходный источник атласа гор.');
+  }
+  if (value.optimization_reference !== 'mountain_icons_final_9_categories_optimized_webp_768(1).zip') {
+    throw new Error('Неверная ссылка на оптимизированную библиотеку гор.');
+  }
+  if (value.atlas !== 'assets/mountains/mountain-atlas.webp') {
+    throw new Error('Runtime должен использовать единый WebP-атлас.');
   }
   if (!Array.isArray(value.icons) || value.icons.length !== 36) throw new Error('Атлас должен содержать 36 фигурок.');
   const ids = new Set();
