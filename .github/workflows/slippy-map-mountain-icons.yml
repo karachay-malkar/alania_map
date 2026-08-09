@@ -1,50 +1,157 @@
-name: Slippy Map 1.0.1 WebP atlas integrity QA
+name: Slippy Map 1.0.1 live QA
+
 on:
   pull_request:
     branches: [slippy-map]
+
 permissions:
   contents: read
+
 jobs:
   qa:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with:
           ref: slippy-map
           fetch-depth: 0
 
-      - name: Verify uploaded WebP payload parts
+      - name: Contract and asset integrity
         shell: bash
         run: |
           set -euo pipefail
-          cat > /tmp/webp-parts.sha256 <<'EOF'
-          9388ee919a80911135b94ee95056aff2b3693603343d5885ea44a8dc1fe69c6b  assets/mountains/webp-b64/part-00.b64
-          4eb4bd68b7c4a70ada968fcc6833569c0ea59ce21269de0a3ed135557df545f8  assets/mountains/webp-b64/part-01.b64
-          33511c8f944962e8e7fd7ff37bb2ca353de889620c3ac0e192d94907fa26fee7  assets/mountains/webp-b64/part-02.b64
-          2840995c42d020758257a2bde1d47cac2a186a097f7978de32c91dd072f1d766  assets/mountains/webp-b64/part-03.b64
-          2a94e31cb7ba4af6f2f7368b346440007ce9f8dac4eaa6e0ac491d63619b4c35  assets/mountains/webp-b64/part-04.b64
-          4a30f5901a43ab33fa74a1c673c5c39b9f0e2b407f8936d14bb642b01fb6e4ef  assets/mountains/webp-b64/part-05a.b64
-          b801c27903ceb03e571cff310be4def6f375f3896ccf26eb1f6d42afcdf0bcdf  assets/mountains/webp-b64/part-05b.b64
-          f51f4d9093998106f50746fcea18d2bfc0f506800a58f955ffd8608b3a150238  assets/mountains/webp-b64/part-05c.b64
-          05540faecac0e6cb709134a21d904da9d935d6f224d8878f8bcd03171b6efad5  assets/mountains/webp-b64/part-05d.b64
-          3b91a93a9e056a60ff986a6c13f4b9f8fc5ccf51254b3e7428bb3bb22d93738c  assets/mountains/webp-b64/part-06a.b64
-          9263601814928f09bfa5be186fbd22c1f6b0b6af9d19ab927e31a1768db64a15  assets/mountains/webp-b64/part-06b.b64
-          96f86345f0d86d54c20a8c9650f1b8722a4339754650b9779664962918bdaeaf  assets/mountains/webp-b64/part-06c.b64
-          f53c04e156522467af00f7dee00c3aed64c844c73e28b0a42f23800b97404f1f  assets/mountains/webp-b64/part-06d.b64
-          d54764d7636ec8525878f0ab00f388d67da13418285adac949fc422ab97022df  assets/mountains/webp-b64/part-07a.b64
-          779a6f555c21efbd39a0533a60e9299d3d85bcbf0260b42410594c8c20b75b43  assets/mountains/webp-b64/part-07b.b64
-          EOF
-          sha256sum -c /tmp/webp-parts.sha256
+          node --check src/config.js
+          node --check src/data.js
+          node --check src/map.js
+          node --check src/main.js
+          node tools/validate.mjs
+          test -s assets/mountains/mountain-atlas.webp
+          test ! -e assets/mountains/mountain-atlas.png
+          test "$(stat -c '%s' assets/mountains/mountain-atlas.webp)" = '132506'
+          echo '351030d3d61d557423cf0a0b80c1ab7f81e36940128a44e7874134353a221d6b  assets/mountains/mountain-atlas.webp' | sha256sum -c -
+          grep -q "mountain-atlas.webp?v=1.0.1" src/config.js
+          ! grep -R "cache: 'no-store'" src
 
-      - name: Reconstruct and validate exact atlas
+      - name: Local browser QA
         shell: bash
         run: |
           set -euo pipefail
-          cat assets/mountains/webp-b64/part-*.b64 | tr -d '\r\n' | base64 -d > /tmp/mountain-atlas.webp
-          echo '0aaf616dfd6441abf01e6c48675c64aedb767413798ad130c53146241fa3066f  /tmp/mountain-atlas.webp' | sha256sum -c -
-          test "$(stat -c '%s' /tmp/mountain-atlas.webp)" = '109454'
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends webp >/dev/null
-          webpinfo /tmp/mountain-atlas.webp | grep -q 'Canvas size: 800 x 1350'
-          echo 'WebP atlas payload integrity PASS'
+          python3 -m http.server 4173 --bind 127.0.0.1 >/tmp/slippy-local-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill ${SERVER_PID} || true' EXIT
+          mkdir -p /tmp/slippy-browser
+          cd /tmp/slippy-browser
+          npm init -y >/dev/null 2>&1
+          npm install --silent --no-save playwright-core@1.55.0
+          CHROME="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium)"
+          test -n "$CHROME"
+          cat > local-smoke.cjs <<'EOF'
+          const { chromium } = require('playwright-core');
+          const assert=(v,m)=>{if(!v)throw new Error(m)};
+          (async()=>{
+            const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME,args:['--no-sandbox','--disable-dev-shm-usage','--use-angle=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist']});
+            for (const viewport of [{width:1440,height:900},{width:412,height:915}]) {
+              const page=await browser.newPage({viewport});
+              const errors=[],failed=[];
+              page.on('console',m=>{if(m.type()==='error')errors.push(m.text())});
+              page.on('pageerror',e=>errors.push(String(e)));
+              page.on('requestfailed',r=>failed.push(`${r.url()} :: ${r.failure()?.errorText||''}`));
+              const response=await page.goto('http://127.0.0.1:4173/',{waitUntil:'networkidle',timeout:30000});
+              assert(response&&response.ok(),'local page HTTP failed');
+              await page.waitForFunction(()=>document.querySelector('#status')?.textContent.includes('1500 горных фигурок загружены'),null,{timeout:30000});
+              assert((await page.locator('#stats').innerText()).includes('Фигурок: 1500'),'1500 count missing');
+              const resources=await page.evaluate(()=>performance.getEntriesByType('resource').map(e=>new URL(e.name).pathname));
+              assert(resources.filter(p=>p.endsWith('/assets/mountains/mountain-atlas.webp')).length===1,'WebP atlas must load once');
+              assert(!resources.some(p=>p.endsWith('/assets/mountains/mountain-atlas.png')),'PNG atlas requested');
+              assert(errors.length===0,`browser errors: ${errors.join('\n')}`);
+              assert(failed.length===0,`failed requests: ${failed.join('\n')}`);
+              await page.close();
+            }
+            await browser.close();
+          })().catch(e=>{console.error(e);process.exit(1)});
+          EOF
+          CHROME="$CHROME" node local-smoke.cjs
+
+      - name: Resolve and verify live GitHub Pages
+        shell: bash
+        run: |
+          set -euo pipefail
+          candidates=(
+            'https://karachay-malkar.github.io/alania_map/'
+            'https://karachay-malkar.github.io/'
+          )
+          : > /tmp/live-base
+          for attempt in $(seq 1 60); do
+            for base in "${candidates[@]}"; do
+              if curl -fsSL --max-time 15 "${base}?qa=1.0.1-${GITHUB_RUN_ID}-${attempt}" -o /tmp/live.html 2>/dev/null && grep -q 'Slippy Map 1.0.1' /tmp/live.html; then
+                printf '%s' "$base" > /tmp/live-base
+                break 2
+              fi
+            done
+            sleep 5
+          done
+          BASE="$(cat /tmp/live-base)"
+          test -n "$BASE"
+          echo "Live base: $BASE"
+          curl -fsSL --max-time 30 "${BASE}assets/mountains/mountain-atlas.webp?v=1.0.1&qa=${GITHUB_RUN_ID}" -o /tmp/live-atlas.webp
+          test "$(stat -c '%s' /tmp/live-atlas.webp)" = '132506'
+          echo '351030d3d61d557423cf0a0b80c1ab7f81e36940128a44e7874134353a221d6b  /tmp/live-atlas.webp' | sha256sum -c -
+          printf 'LIVE_BASE=%s\n' "$BASE" >> "$GITHUB_ENV"
+
+      - name: Live mobile and desktop browser QA
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/slippy-browser
+          CHROME="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium)"
+          cat > live-smoke.cjs <<'EOF'
+          const { chromium } = require('playwright-core');
+          const assert=(v,m)=>{if(!v)throw new Error(m)};
+          (async()=>{
+            const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME,args:['--no-sandbox','--disable-dev-shm-usage','--use-angle=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist']});
+            for (const [name,viewport] of [['desktop',{width:1440,height:900}],['mobile',{width:412,height:915}]]) {
+              const page=await browser.newPage({viewport});
+              const errors=[],failed=[];
+              page.on('console',m=>{if(m.type()==='error')errors.push(m.text())});
+              page.on('pageerror',e=>errors.push(String(e)));
+              page.on('requestfailed',r=>failed.push(`${r.url()} :: ${r.failure()?.errorText||''}`));
+              const response=await page.goto(`${process.env.LIVE_BASE}?qa=${Date.now()}-${name}`,{waitUntil:'networkidle',timeout:45000});
+              assert(response&&response.ok(),'live page HTTP failed');
+              await page.waitForFunction(()=>document.querySelector('#status')?.textContent.includes('1500 горных фигурок загружены'),null,{timeout:45000});
+              const stats=await page.locator('#stats').innerText();
+              assert(stats.includes('Фигурок: 1500'),'live 1500 count missing');
+              assert((await page.locator('canvas').count())===1,'MapLibre canvas missing');
+              const resources=await page.evaluate(()=>performance.getEntriesByType('resource').map(e=>new URL(e.name).pathname));
+              assert(resources.filter(p=>p.endsWith('/assets/mountains/mountain-atlas.webp')).length===1,'live WebP atlas must load once');
+              assert(!resources.some(p=>p.endsWith('/assets/mountains/mountain-atlas.png')),'live PNG atlas requested');
+              assert(errors.length===0,`live browser errors: ${errors.join('\n')}`);
+              assert(failed.length===0,`live failed requests: ${failed.join('\n')}`);
+              await page.screenshot({path:`${process.env.GITHUB_WORKSPACE}/qa-${name}.png`,fullPage:true});
+              await page.close();
+            }
+            await browser.close();
+          })().catch(e=>{console.error(e);process.exit(1)});
+          EOF
+          CHROME="$CHROME" node live-smoke.cjs
+
+      - name: Package exact verified branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build
+          find . -type f ! -path './.git/*' ! -path './build/*' -printf '%P\t%s bytes\n' | sort > build/file-sizes.txt
+          zip -9 -r build/slippy-map-1.0.1-fixed.zip . -x '.git/*' 'build/*' '*.DS_Store' >/dev/null
+          sha256sum build/slippy-map-1.0.1-fixed.zip > build/archive-sha256.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: slippy-map-1.0.1-fixed-live-qa
+          path: |
+            build/slippy-map-1.0.1-fixed.zip
+            build/file-sizes.txt
+            build/archive-sha256.txt
+            qa-desktop.png
+            qa-mobile.png
+          retention-days: 14
+          if-no-files-found: error
