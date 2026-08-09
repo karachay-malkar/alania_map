@@ -1,0 +1,185 @@
+name: Slippy Map 1.0.1 WebP build QA
+on:
+  push:
+    branches: [slippy-map]
+permissions:
+  contents: write
+jobs:
+  qa:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: slippy-map
+          fetch-depth: 0
+
+      - name: Build browser-normalized lossless WebP atlas
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -s assets/mountains/mountain-atlas.webp ] && [ ! -e assets/mountains/mountain-atlas.png ]; then
+            echo 'WebP atlas already generated; skipping normalization.'
+            exit 0
+          fi
+          test -s assets/mountains/mountain-atlas.png
+          python3 -m http.server 4173 --bind 127.0.0.1 >/tmp/slippy-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill ${SERVER_PID} || true' EXIT
+          mkdir -p /tmp/slippy-atlas-browser
+          cd /tmp/slippy-atlas-browser
+          npm init -y >/dev/null 2>&1
+          npm install --silent --no-save playwright-core@1.55.0
+          CHROME="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium)"
+          cat > normalize.cjs <<'EOF'
+          const { chromium } = require('playwright-core');
+          const fs = require('fs');
+          const assert = (v,m)=>{if(!v)throw new Error(m)};
+          (async()=>{
+            const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME,args:['--no-sandbox','--disable-dev-shm-usage','--use-angle=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist']});
+            const page=await browser.newPage({viewport:{width:900,height:1450}});
+            const response=await page.goto('http://127.0.0.1:4173/assets/mountains/mountain-atlas.png',{waitUntil:'load',timeout:30000});
+            assert(response&&response.ok(),'PNG atlas HTTP load failed');
+            const result=await page.evaluate(async()=>{
+              const img=document.querySelector('img');
+              if(!img) throw new Error('Chrome image document missing img');
+              await img.decode();
+              const c=document.createElement('canvas');
+              c.width=img.naturalWidth; c.height=img.naturalHeight;
+              const ctx=c.getContext('2d');
+              ctx.drawImage(img,0,0);
+              return {w:c.width,h:c.height,png:c.toDataURL('image/png').split(',')[1]};
+            });
+            assert(result.w===800&&result.h===1350,`Atlas dimensions ${result.w}x${result.h}`);
+            fs.writeFileSync(process.env.GITHUB_WORKSPACE+'/assets/mountains/mountain-atlas-normalized.png',Buffer.from(result.png,'base64'));
+            await browser.close();
+          })().catch(e=>{console.error(e);process.exit(1)});
+          EOF
+          CHROME="$CHROME" node normalize.cjs
+          cd "$GITHUB_WORKSPACE"
+          kill ${SERVER_PID} || true
+          trap - EXIT
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends webp >/dev/null
+          cwebp -quiet -lossless -z 9 assets/mountains/mountain-atlas-normalized.png -o assets/mountains/mountain-atlas.webp
+          webpinfo assets/mountains/mountain-atlas.webp | grep -q 'Canvas size: 800 x 1350'
+          python3 - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          atlas=Path('assets/mountains/mountain-atlas.webp')
+          manifest_path=Path('assets/mountains/atlas-manifest.json')
+          manifest=json.loads(manifest_path.read_text(encoding='utf-8'))
+          manifest['sha256_webp']=hashlib.sha256(atlas.read_bytes()).hexdigest()
+          manifest_path.write_text(json.dumps(manifest,ensure_ascii=False,separators=(',',':')),encoding='utf-8')
+          print({'webp_bytes':atlas.stat().st_size,'sha256_webp':manifest['sha256_webp']})
+          PY
+          rm -f assets/mountains/mountain-atlas-normalized.png
+
+      - name: Build and contract-validate 1500-point layer
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/build_mountain_icon_layer.py
+          python3 -m py_compile tools/build_mountain_icon_layer.py
+          node --check src/config.js
+          node --check src/data.js
+          node --check src/map.js
+          node --check src/main.js
+          node tools/validate.mjs
+          grep -q "'icon-anchor': 'bottom'" src/map.js
+          grep -q "'icon-rotation-alignment': 'viewport'" src/map.js
+          grep -q "'icon-pitch-alignment': 'viewport'" src/map.js
+          grep -q "labelMinZoom: 9.5" src/config.js
+          grep -q "mountain-atlas.webp?v=1.0.1" src/config.js
+          ! grep -R "cache: 'no-store'" src
+
+      - name: Browser smoke and network QA
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m http.server 4173 --bind 127.0.0.1 >/tmp/slippy-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill ${SERVER_PID} || true' EXIT
+          mkdir -p /tmp/slippy-browser
+          cd /tmp/slippy-browser
+          npm init -y >/dev/null 2>&1
+          npm install --silent --no-save playwright-core@1.55.0
+          CHROME="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium)"
+          cat > smoke.cjs <<'EOF'
+          const { chromium } = require('playwright-core');
+          const fs=require('fs');
+          const crypto=require('crypto');
+          const assert=(v,m)=>{if(!v)throw new Error(m)};
+          const hash=p=>crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex');
+          (async()=>{
+            const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME,args:['--no-sandbox','--disable-dev-shm-usage','--use-angle=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist']});
+            const page=await browser.newPage({viewport:{width:1440,height:900}});
+            const errors=[],failed=[];
+            page.on('console',m=>{if(m.type()==='error')errors.push(m.text())});
+            page.on('pageerror',e=>errors.push(String(e)));
+            page.on('requestfailed',r=>failed.push(`${r.url()} :: ${r.failure()?.errorText||''}`));
+            const response=await page.goto('http://127.0.0.1:4173',{waitUntil:'networkidle',timeout:30000});
+            assert(response&&response.ok(),'HTTP page load failed');
+            await page.waitForFunction(()=>document.querySelector('#status')?.textContent.includes('1500 горных фигурок загружены'),null,{timeout:30000});
+            assert(await page.locator('canvas').count()===1,'MapLibre canvas missing');
+            assert((await page.locator('#stats').innerText()).includes('Фигурок: 1500'),'1500 icon count not rendered');
+            const resources=await page.evaluate(()=>performance.getEntriesByType('resource').map(e=>e.name));
+            const paths=resources.map(u=>new URL(u).pathname);
+            assert(paths.filter(p=>p.endsWith('/assets/mountains/mountain-atlas.webp')).length===1,'WebP atlas must be requested exactly once');
+            assert(!paths.some(p=>p.endsWith('/assets/mountains/mountain-atlas.png')),'PNG atlas requested by runtime');
+            assert(paths.some(p=>p.endsWith('/data/mountain-icons-1500.geojson')),'1500-point layer not requested');
+            await page.screenshot({path:process.env.GITHUB_WORKSPACE+'/browser-far.png'});
+            await page.mouse.move(760,470);
+            for(let i=0;i<4;i++){await page.mouse.wheel(0,-1100);await page.waitForTimeout(350)}
+            await page.screenshot({path:process.env.GITHUB_WORKSPACE+'/browser-mid.png'});
+            let labelCount=await page.locator('.main-label:not([hidden])').count();
+            for(let i=0;i<7&&labelCount===0;i++){await page.mouse.wheel(0,-1100);await page.waitForTimeout(350);labelCount=await page.locator('.main-label:not([hidden])').count()}
+            await page.screenshot({path:process.env.GITHUB_WORKSPACE+'/browser-near.png'});
+            assert(hash(process.env.GITHUB_WORKSPACE+'/browser-far.png')!==hash(process.env.GITHUB_WORKSPACE+'/browser-mid.png'),'Zoom produced no visual change');
+            assert(labelCount>0,'Main labels did not appear at close zoom');
+            assert(errors.length===0,`Browser errors: ${errors.join('\n')}`);
+            assert(failed.length===0,`Failed requests: ${failed.join('\n')}`);
+            console.log(JSON.stringify({ok:true,labelCount,status:await page.locator('#status').innerText(),webpRequests:paths.filter(p=>p.endsWith('/assets/mountains/mountain-atlas.webp')).length},null,2));
+            await browser.close();
+          })().catch(e=>{console.error(e);process.exit(1)});
+          EOF
+          CHROME="$CHROME" node smoke.cjs
+          cd "$GITHUB_WORKSPACE"
+
+      - name: Commit verified runtime assets and remove obsolete payloads
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add assets/mountains/atlas-manifest.json assets/mountains/mountain-atlas.webp data/mountain-icons-1500.geojson data/icon-layer-report.json
+          git rm -f assets/mountains/mountain-atlas.png 2>/dev/null || true
+          git rm -r assets/mountains/atlas-b64 2>/dev/null || true
+          git rm -r assets/mountains/webp-b64 2>/dev/null || true
+          git rm -f tools/.mountain-atlas-upload.b64 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo 'Verified WebP runtime already committed.'
+          else
+            git commit -m 'Slippy Map 1.0.1: switch mountain atlas to lossless WebP'
+            git push origin HEAD:slippy-map
+          fi
+
+      - name: Package exact runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build
+          zip -9 -r build/slippy-map-1.0.1.zip index.html styles.css README.md src data assets vendor tools -x '.github/*' '*.DS_Store' 'tools/__pycache__/*'
+          find index.html styles.css README.md src data assets vendor tools -type f ! -path '*/__pycache__/*' -printf '%p %s\n' | sort > build/file-sizes.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: slippy-map-1.0.1-webp-qa
+          path: |
+            build/slippy-map-1.0.1.zip
+            build/file-sizes.txt
+            browser-far.png
+            browser-mid.png
+            browser-near.png
+          retention-days: 14
+          if-no-files-found: error
