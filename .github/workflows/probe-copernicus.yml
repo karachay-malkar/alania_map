@@ -1,0 +1,48 @@
+name: Probe Copernicus data access
+
+on:
+  push:
+    branches: [7.0.24]
+    paths:
+      - '.github/workflows/probe-copernicus.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Probe Copernicus DEM public COG
+        run: |
+          set -euxo pipefail
+          TILE='Copernicus_DSM_COG_10_N43_00_E042_00_DEM'
+          URL="https://copernicus-dem-30m.s3.eu-central-1.amazonaws.com/${TILE}/${TILE}.tif"
+          curl --fail --location --retry 3 --range 0-1023 "$URL" -o /tmp/dem-head.bin
+          test "$(stat -c%s /tmp/dem-head.bin)" -gt 0
+          echo "DEM_PUBLIC_OK=1"
+
+      - name: Inspect official CLMS LCM10 CSV catalogue
+        run: |
+          set -euxo pipefail
+          URL='https://s3.waw3-1.cloudferro.com/swift/v1/CatalogueCSV/landcover_landuse/dynamic_land_cover/lcm_global_10m_yearly_v1/lcm_global_10m_yearly_v1_cog.csv'
+          curl --fail --location --retry 3 "$URL" -o /tmp/lcm.csv
+          wc -c /tmp/lcm.csv
+          head -n 5 /tmp/lcm.csv
+
+      - name: Probe candidate public EODATA paths from catalogue
+        run: |
+          set -euxo pipefail
+          python - <<'PY'
+          import csv
+          from pathlib import Path
+          rows = list(csv.DictReader(Path('/tmp/lcm.csv').open(encoding='utf-8-sig')))
+          print('COLUMNS=', list(rows[0]) if rows else [])
+          print('ROWS=', len(rows))
+          for row in rows[:3]:
+              print('ROW=', row)
+          PY
