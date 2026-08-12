@@ -61,7 +61,6 @@ jobs:
           set -euxo pipefail
           python - <<'PY'
           from pathlib import Path
-
           release=Path('tools/release_7_0_24.py')
           text=release.read_text(encoding='utf-8')
           old="'available':True,'archivePath':DEM_ARCHIVE,'minzoom':7,'maxzoom':13,'tileSize':256,"
@@ -71,18 +70,6 @@ jobs:
           if new not in text:
               raise SystemExit('Could not set regionalDem maxzoom=12')
           release.write_text(text,encoding='utf-8')
-
-          workflow=Path('.github/workflows/rebuild-3d-map-7.0.24.yml')
-          text=workflow.read_text(encoding='utf-8')
-          text=text.replace('rio rgbify -b -10000 -i 0.1 --min-z 7 --max-z 13 -j 4 --format png',
-                            'rio rgbify -b -10000 -i 0.1 --min-z 7 --max-z 12 -j 4 --format png')
-          push_block="on:\n  push:\n    branches: [7.0.24]\n    paths:\n      - '.github/workflows/rebuild-3d-map-7.0.24.yml'\n  workflow_dispatch:\n"
-          manual_block="on:\n  workflow_dispatch:\n"
-          if push_block in text:
-              text=text.replace(push_block,manual_block,1)
-          if '--max-z 12' not in text or push_block in text:
-              raise SystemExit('Canonical rebuild workflow was not normalized to manual z12')
-          workflow.write_text(text,encoding='utf-8')
           PY
 
       - name: Build native-resolution Copernicus DEM GLO-30 Terrain-RGB
