@@ -9,8 +9,8 @@
   "dem": {
     "source": "Copernicus DEM GLO-30",
     "archive": "data/alan-dem-7.0.24.pmtiles",
-    "bytes": 1012873763,
-    "sha256": "803fcb3a97932f2f939bd2af891ac9af38208c98101a5bbe3fb5b9b73c37ca8f"
+    "bytes": 351026904,
+    "sha256": "75f5db7ab10e8c1bbf80779839dfb6c4285e0a644da540ec197d52c6aefe1076"
   },
   "landcover": {
     "source": "Copernicus CLMS LCM-10",

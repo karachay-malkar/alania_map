@@ -286,7 +286,7 @@ def finalize(dem: Path, vector: Path, landcover: Path | None) -> None:
     data['dataVersion']=VERSION+'-copernicus-rectangular.1'
     data['regionalDem']={
         **(data.get('regionalDem') or {}),
-        'available':True,'archivePath':DEM_ARCHIVE,'minzoom':7,'maxzoom':13,'tileSize':256,
+        'available':True,'archivePath':DEM_ARCHIVE,'minzoom':7,'maxzoom':12,'tileSize':256,
         'encoding':'mapbox','bounds':bounds,'source':'Copernicus DEM GLO-30',
         'attribution':'Copernicus DEM GLO-30'
     }
