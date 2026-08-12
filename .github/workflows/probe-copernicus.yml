@@ -25,23 +25,36 @@ jobs:
           curl --fail --location --retry 3 --range 0-1023 "$URL" -o /tmp/dem-head.bin
           test "$(stat -c%s /tmp/dem-head.bin)" -gt 0
 
-      - name: Inspect CLMS product metadata for public services
+      - name: Probe public CLMS EODATA mirrors
         run: |
           set -euxo pipefail
-          URL='https://sdi.eea.europa.eu/catalogue/srv/api/records/602507b2-96c7-47bb-b79d-7ba25e97d0a9/formatters/xml?approved=true'
-          curl --fail --location --retry 3 "$URL" -o /tmp/lcm.xml
           python - <<'PY'
-          import re
-          from pathlib import Path
-          text=Path('/tmp/lcm.xml').read_text(encoding='utf-8', errors='replace')
-          urls=sorted(set(re.findall(r'https?://[^<\s"&]+', text)))
-          for url in urls:
-              if any(key in url.lower() for key in ('wmts','wms','map','service','download','copernicus')):
-                  print(url)
-          print('URL_COUNT=', len(urls))
+          import urllib.request, urllib.error
+          products = [
+              ('LCFM_LCM-10_V100_2020_N42E039_cog','LCFM_LCM-10_V100_2020_N42E039_MAP.tif'),
+              ('LCFM_LCM-10_V100_2020_N42E042_cog','LCFM_LCM-10_V100_2020_N42E042_MAP.tif'),
+          ]
+          bases = [
+              'https://s3.waw3-1.cloudferro.com/swift/v1/EODATA/CLMS/landcover_landuse/dynamic_land_cover/lcm_global_10m_yearly_v1/2020/01/01',
+              'https://eodata.dataspace.copernicus.eu/CLMS/landcover_landuse/dynamic_land_cover/lcm_global_10m_yearly_v1/2020/01/01',
+          ]
+          ok=[]
+          for folder,name in products:
+              for base in bases:
+                  for suffix in (f'{folder}/{name}', f'{folder}/{folder}/{name}'):
+                      url=f'{base}/{suffix}'
+                      req=urllib.request.Request(url, headers={'Range':'bytes=0-1023','User-Agent':'curl/8'})
+                      try:
+                          with urllib.request.urlopen(req, timeout=45) as r:
+                              payload=r.read(1024)
+                              print('OK', r.status, len(payload), r.geturl())
+                              if payload: ok.append(url)
+                      except urllib.error.HTTPError as exc:
+                          print('HTTP', exc.code, url)
+                      except Exception as exc:
+                          print('ERR', type(exc).__name__, str(exc), url)
+          print('SUCCESS_COUNT', len(ok))
+          for url in ok: print('SUCCESS_URL', url)
+          if len(ok) < 2:
+              raise SystemExit('No anonymous full coverage for CLMS 10m')
           PY
-
-      - name: Probe likely WMTS capabilities links
-        run: |
-          set -euxo pipefail
-          grep -Eio 'https?://[^<" ]+' /tmp/lcm.xml | sed 's/&amp;/\&/g' | grep -Ei 'wmts|wms|service' | sort -u | head -n 30 || true
