@@ -58,6 +58,37 @@ jobs:
           set -euxo pipefail
           python tools/release_7_0_24.py prepare
           python tools/build_natural_layers.py prepare
+          python - <<'PY'
+          from pathlib import Path
+
+          page = Path('assets/map-page.js')
+          page_text = page.read_text(encoding='utf-8')
+          page_text = page_text.replace("const VERSION = '7.0.23';", "const VERSION = '7.0.24';", 1)
+          if "const VERSION = '7.0.24';" not in page_text:
+              raise SystemExit('map-page runtime version was not upgraded to 7.0.24')
+          page.write_text(page_text, encoding='utf-8')
+
+          ui = Path('assets/map-ui.js')
+          ui_text = ui.read_text(encoding='utf-8')
+          ui_text = ui_text.replace("const DEFAULT_STORAGE_KEY = 'alan-map-stage7.0.23-view';", "const DEFAULT_STORAGE_KEY = 'alan-map-stage7.0.24-view';", 1)
+          if "const VERSION = '7.0.24';" not in ui_text or "alan-map-stage7.0.24-view" not in ui_text:
+              raise SystemExit('map-ui runtime/storage version was not upgraded to 7.0.24')
+          ui.write_text(ui_text, encoding='utf-8')
+
+          smoke = Path('tests/map-smoke.mjs')
+          smoke_text = smoke.read_text(encoding='utf-8')
+          smoke_text = smoke_text.replace(
+              "await page.waitForFunction(()=>Boolean(window.AlanMap && document.querySelector('.maplibregl-canvas')),{timeout:30000});",
+              "await page.waitForFunction(()=>Boolean(window.ALAN_MAP_INSTANCE?.map?.isStyleLoaded?.()),{timeout:60000});"
+          )
+          smoke_text = smoke_text.replace(
+              "window.AlanMap?.map?.getStyle?.().sources",
+              "window.ALAN_MAP_INSTANCE?.map?.getStyle?.().sources"
+          )
+          if 'window.AlanMap?.map?.getStyle' in smoke_text:
+              raise SystemExit('smoke test still targets the AlanMap module instead of the mounted instance')
+          smoke.write_text(smoke_text, encoding='utf-8')
+          PY
           cat build/rectangular-bounds.json
 
       - name: Download current Geofabrik snapshot
@@ -178,6 +209,17 @@ jobs:
           else
             python tools/release_7_0_24.py finalize --dem build/alan-dem-7.0.24.pmtiles --vector build/alan-vector-7.0.24.pmtiles
           fi
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path('data/vector-build-manifest.json')
+          manifest = json.loads(path.read_text(encoding='utf-8'))
+          manifest['version'] = '7.0.24'
+          if isinstance(manifest.get('archive'), dict):
+              manifest['archive']['logical_path'] = 'data/alan-vector-7.0.24.pmtiles'
+          manifest['physical_clip'] = 'minimal rectangular mapFrame bbox before tile packaging'
+          path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding='utf-8')
+          PY
           rm -f data/alan-dem-7.0.24.pmtiles data/alan-vector-7.0.24.pmtiles data/alan-landcover-7.0.24.pmtiles
           rm -rf data/shards/dem-7.0.21 data/shards/vector-7.0.23 data/shards/dem data/shards/vector
           cat > README.md <<'EOF'
@@ -199,8 +241,12 @@ jobs:
           set -euxo pipefail
           python tools/release_7_0_24.py validate
           node tests/runtime-contract.mjs
-          if grep -RniE 'fantasy-style|fantasy-relief|Fantasy Hybrid|data-fantasy-toggle' assets index.html tests README.md; then
+          if grep -RniE 'fantasy-style|fantasy-relief|Fantasy Hybrid|data-fantasy-toggle' assets index.html README.md; then
             echo 'Fantasy runtime reference remains' >&2
+            exit 1
+          fi
+          if grep -RniE "Alan Map 7\.0\.23|const VERSION = '7\.0\.23'|alan-map-stage7\.0\.23-view" assets index.html; then
+            echo '7.0.23 runtime reference remains in published assets' >&2
             exit 1
           fi
 
