@@ -6,8 +6,8 @@
 })(typeof self !== 'undefined' ? self : this, function (root) {
   'use strict';
 
-  const VERSION = '7.0.23';
-  const DEFAULT_STORAGE_KEY = 'alan-map-stage7.0.23-view';
+  const VERSION = '7.0.24';
+  const DEFAULT_STORAGE_KEY = 'alan-map-stage7.0.24-view';
   const STATE_SCHEMA_VERSION = 1;
   const STATE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
   const LEGACY_STORAGE_KEYS = [
@@ -480,17 +480,19 @@
       const localArchiveUrl = (archivePath) => `pmtiles://${new URL(archivePath, document.baseURI).href}`;
       const demTemplate = localArchiveUrl(data.regionalDem.archivePath);
       const vectorTemplate = localArchiveUrl(data.regionalVector.archivePath);
+      const landcoverTemplate = data.regionalLandcover?.archivePath ? localArchiveUrl(data.regionalLandcover.archivePath) : null;
       const glyphsTemplate = new URL('data/fonts/', document.baseURI).href + '{fontstack}/{range}.pbf';
       activeDemTemplate = demTemplate;
       activeDemMode = 'local-pmtiles';
       activeVectorMode = 'local-pmtiles';
       const sources = {
-        'terrain-dem': {type:'raster-dem',url:demTemplate,tileSize:demTileSize,minzoom:Number(data.regionalDem.minzoom),maxzoom:Number(data.regionalDem.maxzoom),encoding:'terrarium',bounds:data.regionalDem.bounds,attribution:data.regionalDem.attribution},
+        'terrain-dem': {type:'raster-dem',url:demTemplate,tileSize:demTileSize,minzoom:Number(data.regionalDem.minzoom),maxzoom:Number(data.regionalDem.maxzoom),encoding:String(data.regionalDem.encoding || 'terrarium'),bounds:data.regionalDem.bounds,attribution:data.regionalDem.attribution},
         polygons: {type:'geojson',data:runtimeSources.polygons,maxzoom:14,tolerance:0.25,buffer:64},
         lines: {type:'geojson',data:runtimeSources.lines,maxzoom:14,tolerance:0.35,buffer:128},
         points: {type:'geojson',data:runtimeSources.points,maxzoom:14,tolerance:0.1,buffer:64}
       };
       if (natureEnabled) sources.openmaptiles = {type:'vector',url:vectorTemplate,minzoom:Number(data.regionalVector.minzoom),maxzoom:Number(data.regionalVector.maxzoom),bounds:data.regionalVector.bounds,attribution:data.regionalVector.attribution};
+      if (landcoverTemplate) sources['copernicus-landcover'] = {type:'raster',url:landcoverTemplate,tileSize:Number(data.regionalLandcover.tileSize || 256),minzoom:Number(data.regionalLandcover.minzoom),maxzoom:Number(data.regionalLandcover.maxzoom),bounds:data.regionalLandcover.bounds,attribution:data.regionalLandcover.attribution};
 
       const baseLayers = [
         {id:'background',type:'background',paint:{'background-color':'#25282a'}},
@@ -498,6 +500,7 @@
         {id:'terrain-hillshade',type:'hillshade',source:'terrain-dem',paint:{'hillshade-illumination-anchor':'viewport','hillshade-illumination-direction':315,'hillshade-exaggeration':0.62,'hillshade-shadow-color':'#294252','hillshade-highlight-color':'#f8efd9','hillshade-accent-color':'#806b50'}},
         {id:'ridge-lines',type:'line',source:'lines',filter:['all',sourceFilter('ridges'),['==',['get','visible'],1]],paint:{'line-color':'#675f55','line-width':['interpolate',['linear'],['zoom'],6,0.48,10,1.12],'line-opacity':['interpolate',['linear'],['zoom'],6,0.24,10,0.40],'line-dasharray':[1.2,2.1]}}
       ];
+      if (landcoverTemplate) baseLayers.splice(2,0,{id:'copernicus-landcover',type:'raster',source:'copernicus-landcover',minzoom:Number(data.regionalLandcover.minzoom),maxzoom:Number(data.regionalLandcover.maxzoom),paint:{'raster-opacity':['interpolate',['linear'],['zoom'],7,0.54,10,0.62,13,0.68],'raster-fade-duration':100}});
 
       const natureLayers = [];
       const roadLayers = [];
@@ -506,11 +509,13 @@
         const majorRoadAboveGround = ['all',roadClassFilter,['!=',['get','brunnel'],'tunnel']];
         const majorRoadTunnel = ['all',roadClassFilter,['==',['get','brunnel'],'tunnel']];
         const majorRoadBridge = ['all',roadClassFilter,['==',['get','brunnel'],'bridge']];
+        if (!landcoverTemplate) natureLayers.push(
+          {id:'forest-fill',type:'fill',source:'openmaptiles','source-layer':'landcover',minzoom:VISIBILITY_ZOOM.DISTANT,filter:['==',['get','class'],'wood'],paint:{'fill-color':'#647b5b','fill-opacity':['interpolate',['linear'],['zoom'],7.0,0.20,8,0.26,11,0.32]}},
+          {id:'forest-pattern',type:'fill',source:'openmaptiles','source-layer':'landcover',minzoom:10.5,filter:['==',['get','class'],'wood'],layout:{'visibility':qualityProfile.forestPattern?'visible':'none'},paint:{'fill-pattern':'forest-canopy','fill-opacity':['interpolate',['linear'],['zoom'],10.5,0.28,12,0.52]}}
+        );
         natureLayers.push(
           {id:'osm-glacier-fill',type:'fill',source:'openmaptiles','source-layer':'landcover',minzoom:VISIBILITY_ZOOM.DISTANT,filter:['all',['==',['get','class'],'ice'],['==',['get','subclass'],'glacier']],paint:{'fill-color':'#f2f8f7','fill-opacity':['interpolate',['linear'],['zoom'],7,0.72,9,0.90,12,0.94],'fill-outline-color':'#8fb6c1'}},
           {id:'osm-snow-fill',type:'fill',source:'openmaptiles','source-layer':'landcover',minzoom:VISIBILITY_ZOOM.DISTANT,filter:['all',['==',['get','class'],'ice'],['==',['get','subclass'],'snow']],paint:{'fill-color':'#fbfdfc','fill-opacity':['interpolate',['linear'],['zoom'],7,0.58,9,0.78,12,0.86],'fill-outline-color':'#b8ced3'}},
-          {id:'forest-fill',type:'fill',source:'openmaptiles','source-layer':'landcover',minzoom:VISIBILITY_ZOOM.DISTANT,filter:['==',['get','class'],'wood'],paint:{'fill-color':'#647b5b','fill-opacity':['interpolate',['linear'],['zoom'],7.0,0.20,8,0.26,11,0.32]}},
-          {id:'forest-pattern',type:'fill',source:'openmaptiles','source-layer':'landcover',minzoom:10.5,filter:['==',['get','class'],'wood'],layout:{'visibility':qualityProfile.forestPattern?'visible':'none'},paint:{'fill-pattern':'forest-canopy','fill-opacity':['interpolate',['linear'],['zoom'],10.5,0.28,12,0.52]}},
           ...residentialLayerDefinitions(),
           {id:'osm-water-fill',type:'fill',source:'openmaptiles','source-layer':'water',minzoom:VISIBILITY_ZOOM.DISTANT,filter:['in',['get','class'],['literal',['lake','reservoir','pond']]],paint:{'fill-color':['match',['get','class'],'reservoir','#659db2','pond','#75a8b5','#6aa7bb'],'fill-opacity':['interpolate',['linear'],['zoom'],7.0,0.62,9.2,0.72,12,0.78]}},
           {id:'osm-water-outline',type:'line',source:'openmaptiles','source-layer':'water',minzoom:VISIBILITY_ZOOM.DISTANT,filter:['in',['get','class'],['literal',['lake','reservoir','pond']]],paint:{'line-color':'#79b6c9','line-width':['interpolate',['linear'],['zoom'],7.0,0.75,11,1.65],'line-opacity':['interpolate',['linear'],['zoom'],7.0,0.72,7.5,0.94]}},
@@ -1004,7 +1009,7 @@
 
       document.addEventListener('alan-map:pmtiles-shard-loaded',(event) => {
         const archivePath = String(event.detail?.archivePath || '');
-        const sourceId = archivePath.includes('dem') ? 'terrain-dem' : archivePath.includes('vector') ? 'openmaptiles' : '';
+        const sourceId = archivePath.includes('dem') ? 'terrain-dem' : archivePath.includes('landcover') ? 'copernicus-landcover' : archivePath.includes('vector') ? 'openmaptiles' : '';
         if (sourceId && sourceErrors.delete(sourceId)) updateNetworkStatus();
       },{signal:uiAbort.signal});
 

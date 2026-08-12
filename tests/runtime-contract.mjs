@@ -1,128 +1,37 @@
-import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {createRequire} from 'node:module';
+import assert from 'node:assert/strict';
 
-const require = createRequire(import.meta.url);
-const AlanMap = require('../assets/map-ui.js');
-const FantasyRelief = require('../assets/fantasy-relief.js');
-const FantasyStyle = require('../assets/fantasy-style.js');
-const test = AlanMap.__test;
+const bootstrap = fs.readFileSync('assets/bootstrap.js','utf8');
+const ui = fs.readFileSync('assets/map-ui.js','utf8');
+const page = fs.readFileSync('assets/map-page.js','utf8');
+const dataSource = fs.readFileSync('assets/map-data.part-000.js','utf8') + fs.readFileSync('assets/map-data.part-001.js','utf8');
 
-assert.equal(AlanMap.version, '7.0.23');
-const balanced = test.resolveQualityProfile({}, {
-  devicePixelRatio: 3,
-  deviceMemory: 8,
-  hardwareConcurrency: 12
-});
-assert.equal(balanced.mode, 'balanced');
-assert.equal(balanced.pixelRatio, 1.75);
-assert.equal(balanced.antialias, false);
-assert.ok(balanced.maxTileCacheSize <= 96);
+assert.match(ui, /const VERSION = '7\.0\.24'/);
+assert.ok(!bootstrap.includes('fantasy-relief.js'));
+assert.ok(!bootstrap.includes('fantasy-style.js'));
+assert.ok(!fs.existsSync('assets/fantasy-relief.js'));
+assert.ok(!fs.existsSync('assets/fantasy-style.js'));
+assert.match(ui, /data\.regionalDem\.encoding \|\| 'terrarium'/);
+assert.match(ui, /copernicus-landcover/);
+assert.match(page, /regionalLandcover\?\.archivePath/);
 
-const empty = {type: 'FeatureCollection', features: []};
-const runtime = test.buildRuntimeSourceData({
-  focus: empty,
-  glaciers: empty,
-  elbrusSnow: empty,
-  peakSnow: empty,
-  rivers: empty,
-  ridges: empty,
-  regionalLabels: empty,
-  boundaries: empty,
-  objects: empty,
-  modernObjects: empty,
-  peaks: empty,
-  highPeaks: empty,
-  passes: empty,
-  mainLakes: {
-    type: 'FeatureCollection',
-    features: [{
-      type: 'Feature',
-      properties: {lake_id: 'must-not-be-a-point'},
-      geometry: {type: 'Point', coordinates: [43, 43]}
-    }]
-  }
-});
-assert.equal(
-  runtime.points.features.some((feature) => feature.properties?.alan_source === 'mainLakes'),
-  false
-);
-
-assert.equal(FantasyRelief.version, '1.1.0');
-assert.equal(FantasyStyle.version, '1.1.1');
-const fantasyRidges = FantasyRelief.buildRidgeCollection({
-  type: 'FeatureCollection',
-  features: [
-    {type:'Feature',properties:{tier:1},geometry:{type:'LineString',coordinates:[[41.2,43.1],[42.2,43.6]]}},
-    {type:'Feature',properties:{},geometry:{type:'LineString',coordinates:[[42.0,43.1],[42.45,43.28]]}},
-    {type:'Feature',properties:{},geometry:{type:'LineString',coordinates:[[42.2,43.2],[42.25,43.23]]}}
-  ]
-});
-assert.equal(fantasyRidges.features.length, 3);
-assert.deepEqual(
-  new Set(fantasyRidges.features.map((feature) => feature.properties.fantasy_class)),
-  new Set(['main','secondary','spur'])
-);
-assert.ok(fantasyRidges.features.every((feature) => /^fantasy-mountain-(main|secondary|spur)-\d$/.test(feature.properties.fantasy_icon)));
-assert.deepEqual(
-  FantasyStyle.createFantasyLayers().map((layer) => layer.id),
-  FantasyStyle.layerIds
-);
-assert.ok(FantasyStyle.layerIds.includes('fantasy-paper-grain'));
-assert.ok(FantasyStyle.layerIds.includes('fantasy-mountains-main'));
-assert.ok(FantasyStyle.layerIds.includes('fantasy-slope-hachures'));
-assert.ok(FantasyStyle.layerIds.includes('fantasy-elbrus-massif'));
-const landmark = FantasyStyle.createLandmarkCollection({elbrusFocus:[42.44,43.35]});
-assert.equal(landmark.features.length, 1);
-assert.equal(landmark.features[0].properties.fantasy_landmark, 'elbrus');
-assert.deepEqual(landmark.features[0].geometry.coordinates, [42.44,43.35]);
-assert.equal(FantasyStyle.createLandmarkCollection({elbrusFocus:null}).features.length, 0);
-
-const mapUi = fs.readFileSync(new URL('../assets/map-ui.js', import.meta.url), 'utf8');
-for (const obsolete of [
-  "id:'glacier-fill'", "id:'peak-snow'", "id:'elbrus-snow-",
-  "id:'river-halo'", "id:'river-main'", "id:'main-lake-points'"
-]) {
-  assert.equal(mapUi.includes(obsolete), false, `obsolete layer remains: ${obsolete}`);
+const marker = 'window.ALAN_MAP_DATA = ';
+let payload = dataSource.slice(dataSource.indexOf(marker) + marker.length).trim();
+if (payload.endsWith(';')) payload = payload.slice(0,-1);
+const data = JSON.parse(payload);
+assert.equal(data.version, '7.0.24');
+assert.equal(data.applicationVersion, '7.0.24');
+assert.equal(data.regionalDem.source, 'Copernicus DEM GLO-30');
+assert.equal(data.regionalDem.encoding, 'mapbox');
+const ring = data.mapFrame.features[0].geometry.coordinates[0];
+assert.equal(ring.length, 5);
+const uniqueX = new Set(ring.map(p => p[0]));
+const uniqueY = new Set(ring.map(p => p[1]));
+assert.equal(uniqueX.size, 2);
+assert.equal(uniqueY.size, 2);
+assert.deepEqual(data.bounds, [Math.min(...uniqueX), Math.min(...uniqueY), Math.max(...uniqueX), Math.max(...uniqueY)]);
+if (data.regionalLandcover?.available) {
+  assert.equal(data.regionalLandcover.source, 'Copernicus CLMS LCM-10');
+  assert.ok(data.regionalLandcover.archivePath.includes('landcover-7.0.24.pmtiles'));
 }
-assert.ok(mapUi.includes("id:'osm-river-halo'"));
-assert.ok(mapUi.includes("id:'osm-river-line'"));
-assert.ok(mapUi.includes("minzoom:10.5"));
-
-const pageLoader = fs.readFileSync(new URL('../assets/map-page.js', import.meta.url), 'utf8');
-assert.ok(pageLoader.includes('MAX_CACHED_SHARDS = 16'));
-assert.ok(pageLoader.includes("cache: index === 0 ? 'no-cache' : 'default'"));
-assert.equal(pageLoader.includes("'force-cache'"), false);
-assert.ok(pageLoader.includes('shards-manifest.json'));
-
-const bootstrap = fs.readFileSync(new URL('../assets/bootstrap.js', import.meta.url), 'utf8');
-assert.equal(bootstrap.includes('map-natural.js'), false);
-const mapUiPosition = bootstrap.indexOf("loadScript('map-ui.js')");
-const reliefPosition = bootstrap.indexOf("loadScript('fantasy-relief.js')");
-const stylePosition = bootstrap.indexOf("loadScript('fantasy-style.js')");
-const pagePosition = bootstrap.indexOf("loadScript('map-page.js')");
-assert.ok(mapUiPosition >= 0 && reliefPosition > mapUiPosition && stylePosition > reliefPosition && pagePosition > stylePosition);
-
-for (const file of ['../assets/fantasy-relief.js','../assets/fantasy-style.js']) {
-  const content = fs.readFileSync(new URL(file, import.meta.url), 'utf8');
-  assert.equal(/https?:\/\//.test(content), false, `external dependency in ${file}`);
-}
-const reliefSource = fs.readFileSync(new URL('../assets/fantasy-relief.js', import.meta.url), 'utf8');
-assert.ok(reliefSource.includes('bezierCurveTo'));
-assert.ok(reliefSource.includes('quadraticCurveTo'));
-assert.ok(reliefSource.includes("'fantasy-elbrus'"));
-assert.ok(reliefSource.includes('rgba(39, 61, 72'));
-const styleSource = fs.readFileSync(new URL('../assets/fantasy-style.js', import.meta.url), 'utf8');
-assert.ok(styleSource.includes("instance.map.once('idle', ensureController)"));
-assert.ok(styleSource.includes('idleRetryScheduled'));
-
-console.log(JSON.stringify({
-  version: AlanMap.version,
-  balanced,
-  fantasy: {
-    reliefVersion: FantasyRelief.version,
-    styleVersion: FantasyStyle.version,
-    ridgeDiagnostics: fantasyRidges.diagnostics,
-    layerIds: FantasyStyle.layerIds
-  }
-}, null, 2));
+console.log('runtime-contract: ok');

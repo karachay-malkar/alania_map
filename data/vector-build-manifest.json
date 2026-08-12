@@ -1,22 +1,22 @@
 {
-  "version": "7.0.23",
-  "generated_at": "2026-07-29T14:30:08.012442+00:00",
+  "version": "7.0.24",
+  "generated_at": "2026-08-12T19:22:43.290949+00:00",
   "source": {
-    "url": "https://download.geofabrik.de/russia/north-caucasus-fed-district-260726.osm.pbf",
-    "md5": "27f68555579e4a6e607be4c7ddfa981b"
+    "url": "https://download.geofabrik.de/russia/north-caucasus-fed-district-latest.osm.pbf",
+    "md5": "8b86bb8539a899b2bdb5ab3f5391d849"
   },
   "tools": {
     "pipeline": "gdal-geopandas-tippecanoe-pmtiles",
-    "tippecanoe_commit": "0badb242bea6f77c8e388898868801f3f3a9088b"
+    "tippecanoe_commit": "63fcac725abeb841a101abfc64189edd66d1cf14"
   },
   "archive": {
-    "logical_path": "data/alan-vector-7.0.23.pmtiles",
-    "byte_length": 13956788,
-    "sha256": "fd75f3e04b4836058e571a74c87ddc42e0593634f21798e419221339d53ed131",
+    "logical_path": "data/alan-vector-7.0.24.pmtiles",
+    "byte_length": 19352916,
+    "sha256": "49ddcb159f7ca382eb171138d8874266df6279a0c9bbe11bfc0bf7847156e755",
     "shard_size": 786432,
-    "shard_count": 18,
+    "shard_count": 25,
     "previous_byte_length": 13549632,
-    "delta_bytes": 407156
+    "delta_bytes": 5803284
   },
   "layers": [
     "landcover",
@@ -26,5 +26,5 @@
     "waterway",
     "peak"
   ],
-  "physical_clip": "mapFrame polygon before tile packaging"
+  "physical_clip": "minimal rectangular mapFrame bbox before tile packaging"
 }

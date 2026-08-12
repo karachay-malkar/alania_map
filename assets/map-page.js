@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '7.0.23';
+  const VERSION = '7.0.24';
   const MANIFEST_PATH = 'data/shards-manifest.json';
   const MAX_CACHED_SHARDS = 16;
 
@@ -212,7 +212,7 @@
     }
 
     const manifest = await loadShardManifest();
-    const archivePaths = [data.regionalDem.archivePath, data.regionalVector.archivePath];
+    const archivePaths = [data.regionalDem.archivePath, data.regionalVector.archivePath, data.regionalLandcover?.archivePath].filter(Boolean);
     const cache = new ShardLruCache(MAX_CACHED_SHARDS);
     const sources = [];
     const protocol = new window.pmtiles.Protocol();

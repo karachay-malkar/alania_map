@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-07-29T14:28:06.593112+00:00",
+  "generated_at": "2026-08-12T19:16:42.676927+00:00",
   "connection_tolerance_m": 20.0,
-  "input_segment_count": 14606,
-  "output_system_count": 746,
+  "input_segment_count": 16578,
+  "output_system_count": 873,
   "systems": [
     {
       "id": "kuban",
@@ -11,19 +11,11 @@
         "Кубань",
         "Kuban"
       ],
-      "matched_length_m": 178888.3,
+      "matched_length_m": 181643.9,
       "segment_count": 17,
       "component_count": 1,
       "gaps": [],
-      "excluded_homonym_components": [
-        {
-          "segment_count": 1,
-          "matched_length_m": 1976.4,
-          "osm_ids": [
-            "301865371"
-          ]
-        }
-      ],
+      "excluded_homonym_components": [],
       "present": true
     },
     {
@@ -48,7 +40,7 @@
         "Bolshoy Zelenchuk",
         "Большой Зеленчук река"
       ],
-      "matched_length_m": 112939.3,
+      "matched_length_m": 137997.6,
       "segment_count": 8,
       "component_count": 1,
       "gaps": [],
@@ -62,8 +54,8 @@
         "Малый Зеленчук",
         "Maly Zelenchuk"
       ],
-      "matched_length_m": 61292.5,
-      "segment_count": 2,
+      "matched_length_m": 63908.4,
+      "segment_count": 3,
       "component_count": 1,
       "gaps": [],
       "excluded_homonym_components": [],
@@ -76,11 +68,19 @@
         "Терек",
         "Terek"
       ],
-      "matched_length_m": 2863.0,
-      "segment_count": 1,
+      "matched_length_m": 46093.6,
+      "segment_count": 2,
       "component_count": 1,
       "gaps": [],
-      "excluded_homonym_components": [],
+      "excluded_homonym_components": [
+        {
+          "segment_count": 1,
+          "matched_length_m": 2863.0,
+          "osm_ids": [
+            "85842551"
+          ]
+        }
+      ],
       "present": true
     },
     {
@@ -90,8 +90,8 @@
         "Малка",
         "Malka"
       ],
-      "matched_length_m": 166012.8,
-      "segment_count": 15,
+      "matched_length_m": 321480.3,
+      "segment_count": 34,
       "component_count": 1,
       "gaps": [],
       "excluded_homonym_components": [],
@@ -104,8 +104,8 @@
         "Баксан",
         "Baksan"
       ],
-      "matched_length_m": 122179.9,
-      "segment_count": 21,
+      "matched_length_m": 209518.7,
+      "segment_count": 35,
       "component_count": 1,
       "gaps": [],
       "excluded_homonym_components": [],
@@ -118,7 +118,7 @@
         "Чегем",
         "Chegem"
       ],
-      "matched_length_m": 92370.5,
+      "matched_length_m": 111059.6,
       "segment_count": 7,
       "component_count": 1,
       "gaps": [],
@@ -133,8 +133,8 @@
         "Черек-Балкарский",
         "Cherek Balkarsky"
       ],
-      "matched_length_m": 68490.1,
-      "segment_count": 2,
+      "matched_length_m": 115765.1,
+      "segment_count": 3,
       "component_count": 1,
       "gaps": [],
       "excluded_homonym_components": [],
@@ -162,7 +162,7 @@
         "Урух",
         "Urukh"
       ],
-      "matched_length_m": 30094.0,
+      "matched_length_m": 79806.1,
       "segment_count": 1,
       "component_count": 1,
       "gaps": [],
@@ -186,7 +186,7 @@
       "coverage_system_id": "kuban",
       "coverage_mode": "osm-mainstem-name",
       "coverage_note": "В OSM снимке верхнее главное русло размечено как Кубань; отдельная дублирующая линия Уллукам не создаётся.",
-      "represented_length_m": 178888.3,
+      "represented_length_m": 181643.9,
       "represented_segment_count": 17,
       "represented_component_count": 1
     },
@@ -292,8 +292,8 @@
         "Нальчик",
         "Nalchik"
       ],
-      "matched_length_m": 38808.6,
-      "segment_count": 3,
+      "matched_length_m": 46045.5,
+      "segment_count": 6,
       "component_count": 1,
       "gaps": [],
       "excluded_homonym_components": [],
@@ -306,8 +306,8 @@
         "Урвань",
         "Urvan"
       ],
-      "matched_length_m": 20550.4,
-      "segment_count": 8,
+      "matched_length_m": 73794.0,
+      "segment_count": 13,
       "component_count": 1,
       "gaps": [],
       "excluded_homonym_components": [],
@@ -509,7 +509,7 @@
         "Sukan-Su",
         "Psygansu"
       ],
-      "matched_length_m": 59413.4,
+      "matched_length_m": 60409.3,
       "segment_count": 8,
       "component_count": 1,
       "gaps": [],
