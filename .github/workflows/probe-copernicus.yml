@@ -26,23 +26,50 @@ jobs:
           test "$(stat -c%s /tmp/dem-head.bin)" -gt 0
           echo "DEM_PUBLIC_OK=1"
 
-      - name: Inspect official CLMS LCM10 CSV catalogue
+      - name: Inspect official CLMS LCM10 products for map bbox
         run: |
           set -euxo pipefail
           URL='https://s3.waw3-1.cloudferro.com/swift/v1/CatalogueCSV/landcover_landuse/dynamic_land_cover/lcm_global_10m_yearly_v1/lcm_global_10m_yearly_v1_cog.csv'
           curl --fail --location --retry 3 "$URL" -o /tmp/lcm.csv
-          wc -c /tmp/lcm.csv
-          head -n 5 /tmp/lcm.csv
+          python - <<'PY'
+          import csv, json
+          from pathlib import Path
+          rows = list(csv.DictReader(Path('/tmp/lcm.csv').open(encoding='utf-8-sig'), delimiter=';'))
+          wanted = [row for row in rows if row['name'] in {
+              'LCFM_LCM-10_V100_2020_N42E039_cog',
+              'LCFM_LCM-10_V100_2020_N42E042_cog',
+          }]
+          print('MATCHES=', json.dumps(wanted, ensure_ascii=False, indent=2))
+          if len(wanted) != 2:
+              raise SystemExit(f'Expected 2 LCM10 products, got {len(wanted)}')
+          Path('/tmp/products.json').write_text(json.dumps(wanted), encoding='utf-8')
+          PY
 
-      - name: Probe candidate public EODATA paths from catalogue
+      - name: List product nodes without authentication
         run: |
           set -euxo pipefail
           python - <<'PY'
-          import csv
-          from pathlib import Path
-          rows = list(csv.DictReader(Path('/tmp/lcm.csv').open(encoding='utf-8-sig')))
-          print('COLUMNS=', list(rows[0]) if rows else [])
-          print('ROWS=', len(rows))
-          for row in rows[:3]:
-              print('ROW=', row)
+          import json, urllib.request
+          rows = json.load(open('/tmp/products.json'))
+          output = []
+          for row in rows:
+              url = f"https://download.dataspace.copernicus.eu/odata/v1/Products({row['id']})/Nodes"
+              with urllib.request.urlopen(url, timeout=30) as response:
+                  payload = json.load(response)
+              print(row['name'], json.dumps(payload, ensure_ascii=False, indent=2))
+              output.append({'product': row, 'nodes': payload})
+          open('/tmp/nodes.json','w').write(json.dumps(output))
+          PY
+
+      - name: Probe anonymous node file download
+        continue-on-error: true
+        run: |
+          set -euxo pipefail
+          python - <<'PY'
+          import json
+          data = json.load(open('/tmp/nodes.json'))
+          for item in data:
+              print('PRODUCT', item['product']['name'])
+              for node in item['nodes'].get('result', []):
+                  print('NODE', node)
           PY
