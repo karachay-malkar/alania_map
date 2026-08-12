@@ -32,26 +32,31 @@ jobs:
         with:
           fetch-depth: 0
 
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.x'
+
       - name: Install GIS and build tools
         run: |
           set -euxo pipefail
           sudo apt-get update
-          sudo apt-get install -y gdal-bin libgdal-dev python3-gdal build-essential git curl jq zip
+          sudo apt-get install -y gdal-bin libgdal-dev python3-gdal build-essential git curl jq zip libsqlite3-dev zlib1g-dev
           python -m pip install --break-system-packages --upgrade pip
-          python -m pip install --break-system-packages geopandas shapely pyproj pandas numpy rasterio rio-rgbify rio-mbtiles playwright
+          python -m pip install --break-system-packages geopandas==1.1.1 shapely==2.1.1 pyogrio==0.11.1 pyproj pandas rasterio rio-rgbify rio-mbtiles playwright
+          go install github.com/protomaps/go-pmtiles@v1.30.1
+          GO_BIN="$(go env GOPATH)/bin"
+          test -x "$GO_BIN/go-pmtiles"
+          ln -sf "$GO_BIN/go-pmtiles" "$GO_BIN/pmtiles"
+          echo "$GO_BIN" >> "$GITHUB_PATH"
           git clone --depth 1 https://github.com/felt/tippecanoe.git /tmp/tippecanoe
           make -C /tmp/tippecanoe -j2
           sudo make -C /tmp/tippecanoe install
           echo "TIPPECANOE_COMMIT=$(git -C /tmp/tippecanoe rev-parse HEAD)" >> "$GITHUB_ENV"
-          go install github.com/protomaps/go-pmtiles/cmd/pmtiles@latest
-          echo "$HOME/go/bin" >> "$GITHUB_PATH"
 
       - name: Prepare rectangular runtime and build frame
         run: |
           set -euxo pipefail
           python tools/release_7_0_24.py prepare
-          # Workflow cleanup is committed separately through the GitHub connector.
-          git checkout HEAD -- .github/workflows/probe-copernicus.yml .github/workflows/rebuild-natural-pmtiles.yml .github/workflows/validate-fantasy-map.yml || true
           python tools/build_natural_layers.py prepare
           cat build/rectangular-bounds.json
 
@@ -66,26 +71,33 @@ jobs:
         run: |
           set -euxo pipefail
           rm -f build/osm-clipped.gpkg
-          ogr2ogr -f GPKG build/osm-clipped.gpkg build/source/north-caucasus.osm.pbf lines -clipsrc build/map-frame.geojson -nln lines -lco SPATIAL_INDEX=YES
+          ogr2ogr -f GPKG build/osm-clipped.gpkg build/source/north-caucasus.osm.pbf lines -clipsrc build/map-frame.geojson -nln lines -makevalid -skipfailures -lco SPATIAL_INDEX=YES
           for layer in multilinestrings multipolygons points; do
-            ogr2ogr -f GPKG -update build/osm-clipped.gpkg build/source/north-caucasus.osm.pbf "$layer" -clipsrc build/map-frame.geojson -nln "$layer" -lco SPATIAL_INDEX=YES
+            ogr2ogr -f GPKG -update build/osm-clipped.gpkg build/source/north-caucasus.osm.pbf "$layer" -clipsrc build/map-frame.geojson -nln "$layer" -makevalid -skipfailures -lco SPATIAL_INDEX=YES
           done
           ogrinfo -so build/osm-clipped.gpkg lines
+          ogrinfo -so build/osm-clipped.gpkg multipolygons
+          ogrinfo -so build/osm-clipped.gpkg points
 
       - name: Classify factual vector layers
         run: |
           set -euxo pipefail
           python tools/build_natural_layers.py classify
           python tools/normalize_river_report.py --require-all
-          tippecanoe -f -Z7 -z13 --drop-densest-as-needed --extend-zooms-if-still-dropping \
+          python tools/optimize_natural_layers.py
+          tippecanoe \
+            --output=build/alan-vector-7.0.24.mbtiles \
+            --minimum-zoom=7 --maximum-zoom=13 \
+            --force --read-parallel --no-feature-limit --no-tile-size-limit \
+            --buffer=12 --simplification=3 \
             -L landcover:build/landcover.geojson \
             -L landuse:build/landuse.geojson \
             -L transportation:build/transportation.geojson \
             -L water:build/water.geojson \
             -L waterway:build/waterway.geojson \
-            -L peak:build/peak.geojson \
-            -o build/alan-vector-7.0.24.mbtiles
+            -L peak:build/peak.geojson
           pmtiles convert build/alan-vector-7.0.24.mbtiles build/alan-vector-7.0.24.pmtiles
+          pmtiles verify build/alan-vector-7.0.24.pmtiles
           ls -lh build/alan-vector-7.0.24.pmtiles
 
       - name: Build Copernicus DEM GLO-30 Terrain-RGB
@@ -94,8 +106,7 @@ jobs:
           mkdir -p build/copernicus-dem
           python - <<'PY'
           import json, math, pathlib, urllib.request
-          bounds=json.load(open('build/rectangular-bounds.json'))['bounds']
-          west,south,east,north=bounds
+          west,south,east,north=json.load(open('build/rectangular-bounds.json'))['bounds']
           out=pathlib.Path('build/copernicus-dem')
           for lat in range(math.floor(south), math.ceil(north)):
               for lon in range(math.floor(west), math.ceil(east)):
@@ -105,7 +116,7 @@ jobs:
                   target=out/f'{tile}.tif'
                   print('download',url)
                   request=urllib.request.Request(url,headers={'User-Agent':'AlanMap/7.0.24'})
-                  with urllib.request.urlopen(request,timeout=180) as response, target.open('wb') as f:
+                  with urllib.request.urlopen(request,timeout=240) as response, target.open('wb') as f:
                       while True:
                           chunk=response.read(1024*1024)
                           if not chunk: break
@@ -113,8 +124,7 @@ jobs:
           PY
           read WEST SOUTH EAST NORTH < <(python - <<'PY'
           import json
-          b=json.load(open('build/rectangular-bounds.json'))['bounds']
-          print(*b)
+          print(*json.load(open('build/rectangular-bounds.json'))['bounds'])
           PY
           )
           gdalbuildvrt build/copernicus-dem.vrt build/copernicus-dem/*.tif
@@ -124,6 +134,7 @@ jobs:
           rio rgbify -b -10000 -i 0.1 --min-z 7 --max-z 13 -j 4 --format png \
             build/copernicus-dem-clipped.tif build/alan-dem-7.0.24.mbtiles
           pmtiles convert build/alan-dem-7.0.24.mbtiles build/alan-dem-7.0.24.pmtiles
+          pmtiles verify build/alan-dem-7.0.24.pmtiles
           ls -lh build/alan-dem-7.0.24.pmtiles
 
       - name: Build Copernicus CLMS LCM-10 when credentials are configured
@@ -150,8 +161,8 @@ jobs:
           rio mbtiles build/clms-lcm10-vegetation.tif build/alan-landcover-7.0.24.mbtiles \
             --overwrite --zoom-levels 7..12 --format WEBP --rgba --resampling nearest -j 4 --co QUALITY=78
           pmtiles convert build/alan-landcover-7.0.24.mbtiles build/alan-landcover-7.0.24.pmtiles
+          pmtiles verify build/alan-landcover-7.0.24.pmtiles
           echo 'available=true' >> "$GITHUB_OUTPUT"
-          ls -lh build/alan-landcover-7.0.24.pmtiles
 
       - name: Integrate vector registry and 7.0.24 runtime
         run: |
@@ -172,7 +183,7 @@ jobs:
           cat > README.md <<'EOF'
           # Alan Map 7.0.24
 
-          Лёгкая автономная 3D-карта Alan Til на MapLibre GL JS. Карта восстановлена до минимального прямоугольного охвата прежнего контура. Фэнтезийный рендер удалён. 3D-рельеф построен на Copernicus DEM GLO-30. Фактические дороги, реки, водоёмы, residential, ледники/постоянный снег и вершины собираются из локального снимка OpenStreetMap. Copernicus CLMS LCM-10 подключается как локальный PMTiles растительности при наличии CDSE OAuth credentials; без них сохраняется OSM forest fallback, чтобы карта не теряла зелень и не зависела от внешнего API во время работы.
+          Лёгкая автономная 3D-карта Alan Til на MapLibre GL JS. Карта восстановлена до минимального прямоугольного охвата прежнего контура. Фэнтезийный рендер удалён. 3D-рельеф построен на Copernicus DEM GLO-30. Дороги, реки, водоёмы, residential, ледники/постоянный снег и вершины собираются из локального снимка OpenStreetMap. Copernicus CLMS LCM-10 подключается как локальный PMTiles растительности при наличии CDSE OAuth credentials; без них сохраняется OSM forest fallback.
           EOF
           cat > DATA-SOURCES-AND-LICENSES.md <<'EOF'
           # Источники данных и компоненты
@@ -188,12 +199,15 @@ jobs:
           set -euxo pipefail
           python tools/release_7_0_24.py validate
           node tests/runtime-contract.mjs
-          grep -RniE 'fantasy-style|fantasy-relief|Fantasy Hybrid|data-fantasy-toggle' assets index.html tests README.md || true
+          if grep -RniE 'fantasy-style|fantasy-relief|Fantasy Hybrid|data-fantasy-toggle' assets index.html tests README.md; then
+            echo 'Fantasy runtime reference remains' >&2
+            exit 1
+          fi
 
       - name: Browser smoke test
         run: |
           set -euxo pipefail
-          npm install --no-save playwright
+          npm install --no-save playwright@1.55.0
           npx playwright install --with-deps chromium
           node tests/map-smoke.mjs
 
