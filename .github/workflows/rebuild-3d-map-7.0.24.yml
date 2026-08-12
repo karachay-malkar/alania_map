@@ -1,0 +1,226 @@
+name: Build Alan Map 7.0.24 rectangular 3D base
+
+on:
+  push:
+    branches: [7.0.24]
+    paths:
+      - '.github/workflows/rebuild-3d-map-7.0.24.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: alan-map-7-0-24-build
+  cancel-in-progress: false
+
+env:
+  OSM_URL: https://download.geofabrik.de/russia/north-caucasus-fed-district-260726.osm.pbf
+  CDSE_CLIENT_ID: ${{ secrets.CDSE_CLIENT_ID }}
+  CDSE_CLIENT_SECRET: ${{ secrets.CDSE_CLIENT_SECRET }}
+  SH_CLIENT_ID: ${{ secrets.SH_CLIENT_ID }}
+  SH_CLIENT_SECRET: ${{ secrets.SH_CLIENT_SECRET }}
+  COPERNICUS_CLIENT_ID: ${{ secrets.COPERNICUS_CLIENT_ID }}
+  COPERNICUS_CLIENT_SECRET: ${{ secrets.COPERNICUS_CLIENT_SECRET }}
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install GIS and build tools
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install -y gdal-bin libgdal-dev python3-gdal build-essential git curl jq zip
+          python -m pip install --break-system-packages --upgrade pip
+          python -m pip install --break-system-packages geopandas shapely pyproj pandas numpy rasterio rio-rgbify rio-mbtiles playwright
+          git clone --depth 1 https://github.com/felt/tippecanoe.git /tmp/tippecanoe
+          make -C /tmp/tippecanoe -j2
+          sudo make -C /tmp/tippecanoe install
+          echo "TIPPECANOE_COMMIT=$(git -C /tmp/tippecanoe rev-parse HEAD)" >> "$GITHUB_ENV"
+          go install github.com/protomaps/go-pmtiles/cmd/pmtiles@latest
+          echo "$HOME/go/bin" >> "$GITHUB_PATH"
+
+      - name: Prepare rectangular runtime and build frame
+        run: |
+          set -euxo pipefail
+          python tools/release_7_0_24.py prepare
+          # Workflow cleanup is committed separately through the GitHub connector.
+          git checkout HEAD -- .github/workflows/probe-copernicus.yml .github/workflows/rebuild-natural-pmtiles.yml .github/workflows/validate-fantasy-map.yml || true
+          python tools/build_natural_layers.py prepare
+          cat build/rectangular-bounds.json
+
+      - name: Download fixed OSM snapshot
+        run: |
+          set -euxo pipefail
+          mkdir -p build/source
+          curl --fail --location --retry 4 --retry-delay 5 "$OSM_URL" -o build/source/north-caucasus.osm.pbf
+          echo "OSM_MD5=$(md5sum build/source/north-caucasus.osm.pbf | awk '{print $1}')" >> "$GITHUB_ENV"
+
+      - name: Clip OSM to rectangular map
+        run: |
+          set -euxo pipefail
+          rm -f build/osm-clipped.gpkg
+          ogr2ogr -f GPKG build/osm-clipped.gpkg build/source/north-caucasus.osm.pbf lines -clipsrc build/map-frame.geojson -nln lines -lco SPATIAL_INDEX=YES
+          for layer in multilinestrings multipolygons points; do
+            ogr2ogr -f GPKG -update build/osm-clipped.gpkg build/source/north-caucasus.osm.pbf "$layer" -clipsrc build/map-frame.geojson -nln "$layer" -lco SPATIAL_INDEX=YES
+          done
+          ogrinfo -so build/osm-clipped.gpkg lines
+
+      - name: Classify factual vector layers
+        run: |
+          set -euxo pipefail
+          python tools/build_natural_layers.py classify
+          python tools/normalize_river_report.py --require-all
+          tippecanoe -f -Z7 -z13 --drop-densest-as-needed --extend-zooms-if-still-dropping \
+            -L landcover:build/landcover.geojson \
+            -L landuse:build/landuse.geojson \
+            -L transportation:build/transportation.geojson \
+            -L water:build/water.geojson \
+            -L waterway:build/waterway.geojson \
+            -L peak:build/peak.geojson \
+            -o build/alan-vector-7.0.24.mbtiles
+          pmtiles convert build/alan-vector-7.0.24.mbtiles build/alan-vector-7.0.24.pmtiles
+          ls -lh build/alan-vector-7.0.24.pmtiles
+
+      - name: Build Copernicus DEM GLO-30 Terrain-RGB
+        run: |
+          set -euxo pipefail
+          mkdir -p build/copernicus-dem
+          python - <<'PY'
+          import json, math, pathlib, urllib.request
+          bounds=json.load(open('build/rectangular-bounds.json'))['bounds']
+          west,south,east,north=bounds
+          out=pathlib.Path('build/copernicus-dem')
+          for lat in range(math.floor(south), math.ceil(north)):
+              for lon in range(math.floor(west), math.ceil(east)):
+                  ns='N' if lat >= 0 else 'S'; ew='E' if lon >= 0 else 'W'
+                  tile=f'Copernicus_DSM_COG_10_{ns}{abs(lat):02d}_00_{ew}{abs(lon):03d}_00_DEM'
+                  url=f'https://copernicus-dem-30m.s3.eu-central-1.amazonaws.com/{tile}/{tile}.tif'
+                  target=out/f'{tile}.tif'
+                  print('download',url)
+                  request=urllib.request.Request(url,headers={'User-Agent':'AlanMap/7.0.24'})
+                  with urllib.request.urlopen(request,timeout=180) as response, target.open('wb') as f:
+                      while True:
+                          chunk=response.read(1024*1024)
+                          if not chunk: break
+                          f.write(chunk)
+          PY
+          read WEST SOUTH EAST NORTH < <(python - <<'PY'
+          import json
+          b=json.load(open('build/rectangular-bounds.json'))['bounds']
+          print(*b)
+          PY
+          )
+          gdalbuildvrt build/copernicus-dem.vrt build/copernicus-dem/*.tif
+          gdalwarp -overwrite -t_srs EPSG:4326 -te "$WEST" "$SOUTH" "$EAST" "$NORTH" -r bilinear \
+            -of GTiff -co TILED=YES -co COMPRESS=DEFLATE -co BIGTIFF=IF_SAFER \
+            build/copernicus-dem.vrt build/copernicus-dem-clipped.tif
+          rio rgbify -b -10000 -i 0.1 --min-z 7 --max-z 13 -j 4 --format png \
+            build/copernicus-dem-clipped.tif build/alan-dem-7.0.24.mbtiles
+          pmtiles convert build/alan-dem-7.0.24.mbtiles build/alan-dem-7.0.24.pmtiles
+          ls -lh build/alan-dem-7.0.24.pmtiles
+
+      - name: Build Copernicus CLMS LCM-10 when credentials are configured
+        id: landcover
+        run: |
+          set -euxo pipefail
+          CLIENT_ID="${CDSE_CLIENT_ID:-${SH_CLIENT_ID:-${COPERNICUS_CLIENT_ID:-}}}"
+          CLIENT_SECRET="${CDSE_CLIENT_SECRET:-${SH_CLIENT_SECRET:-${COPERNICUS_CLIENT_SECRET:-}}}"
+          if [ -z "$CLIENT_ID" ] || [ -z "$CLIENT_SECRET" ]; then
+            echo 'available=false' >> "$GITHUB_OUTPUT"
+            echo 'CDSE credentials are not configured; OSM forest remains as runtime fallback.'
+            exit 0
+          fi
+          python tools/fetch_clms_lcm10.py --bounds-json build/rectangular-bounds.json --output-dir build/clms-lcm10
+          read WEST SOUTH EAST NORTH < <(python - <<'PY'
+          import json
+          print(*json.load(open('build/rectangular-bounds.json'))['bounds'])
+          PY
+          )
+          gdalbuildvrt build/clms-lcm10.vrt build/clms-lcm10/*.tif
+          gdalwarp -overwrite -t_srs EPSG:4326 -te "$WEST" "$SOUTH" "$EAST" "$NORTH" -r near \
+            -of GTiff -co TILED=YES -co COMPRESS=DEFLATE -co BIGTIFF=IF_SAFER \
+            build/clms-lcm10.vrt build/clms-lcm10-vegetation.tif
+          rio mbtiles build/clms-lcm10-vegetation.tif build/alan-landcover-7.0.24.mbtiles \
+            --overwrite --zoom-levels 7..12 --format WEBP --rgba --resampling nearest -j 4 --co QUALITY=78
+          pmtiles convert build/alan-landcover-7.0.24.mbtiles build/alan-landcover-7.0.24.pmtiles
+          echo 'available=true' >> "$GITHUB_OUTPUT"
+          ls -lh build/alan-landcover-7.0.24.pmtiles
+
+      - name: Integrate vector registry and 7.0.24 runtime
+        run: |
+          set -euxo pipefail
+          python tools/build_natural_layers.py patch-runtime \
+            --archive build/alan-vector-7.0.24.pmtiles \
+            --source-url "$OSM_URL" \
+            --source-md5 "$OSM_MD5" \
+            --pipeline 'gdal-geopandas-tippecanoe-pmtiles' \
+            --tippecanoe-commit "$TIPPECANOE_COMMIT"
+          if [ "${{ steps.landcover.outputs.available }}" = 'true' ]; then
+            python tools/release_7_0_24.py finalize --dem build/alan-dem-7.0.24.pmtiles --vector build/alan-vector-7.0.24.pmtiles --landcover build/alan-landcover-7.0.24.pmtiles
+          else
+            python tools/release_7_0_24.py finalize --dem build/alan-dem-7.0.24.pmtiles --vector build/alan-vector-7.0.24.pmtiles
+          fi
+          rm -f data/alan-dem-7.0.24.pmtiles data/alan-vector-7.0.24.pmtiles data/alan-landcover-7.0.24.pmtiles
+          rm -rf data/shards/dem-7.0.21 data/shards/vector-7.0.23 data/shards/dem data/shards/vector
+          cat > README.md <<'EOF'
+          # Alan Map 7.0.24
+
+          Лёгкая автономная 3D-карта Alan Til на MapLibre GL JS. Карта восстановлена до минимального прямоугольного охвата прежнего контура. Фэнтезийный рендер удалён. 3D-рельеф построен на Copernicus DEM GLO-30. Фактические дороги, реки, водоёмы, residential, ледники/постоянный снег и вершины собираются из локального снимка OpenStreetMap. Copernicus CLMS LCM-10 подключается как локальный PMTiles растительности при наличии CDSE OAuth credentials; без них сохраняется OSM forest fallback, чтобы карта не теряла зелень и не зависела от внешнего API во время работы.
+          EOF
+          cat > DATA-SOURCES-AND-LICENSES.md <<'EOF'
+          # Источники данных и компоненты
+
+          - Copernicus DEM GLO-30 — источник 3D-рельефа; локально перекодирован в Mapbox Terrain-RGB / PMTiles.
+          - Copernicus Land Monitoring Service LCM-10, 2020 — 10-метровый слой земного покрова; сборщик готовит локальный PMTiles через официальный CDSE Sentinel Hub Process API после настройки OAuth credentials.
+          - OpenStreetMap / Geofabrik snapshot 2026-07-26 — дороги, реки, водоёмы, residential, ледники/постоянный снег, вершины; © OpenStreetMap contributors, ODbL.
+          - MapLibre GL JS 5.24.0; PMTiles JS 4.4.1; GDAL/OGR; GeoPandas/Shapely; Tippecanoe; Rasterio/rio-rgbify.
+          EOF
+
+      - name: Validate data and static runtime contract
+        run: |
+          set -euxo pipefail
+          python tools/release_7_0_24.py validate
+          node tests/runtime-contract.mjs
+          grep -RniE 'fantasy-style|fantasy-relief|Fantasy Hybrid|data-fantasy-toggle' assets index.html tests README.md || true
+
+      - name: Browser smoke test
+        run: |
+          set -euxo pipefail
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+          node tests/map-smoke.mjs
+
+      - name: Commit generated 7.0.24 project
+        run: |
+          set -euxo pipefail
+          git config user.name 'Alan Map Builder'
+          git config user.email 'actions@users.noreply.github.com'
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m 'Build Alan Map 7.0.24 rectangular Copernicus 3D base'
+            git push origin HEAD:7.0.24
+          fi
+
+      - name: Package full project and file sizes
+        run: |
+          set -euxo pipefail
+          mkdir -p /tmp/alan-map-artifact
+          find . -type f \
+            -not -path './.git/*' -not -path './build/*' -not -path './node_modules/*' \
+            -printf '%P\t%s\n' | sort > /tmp/alan-map-artifact/file-sizes-7.0.24.tsv
+          zip -qr /tmp/alan-map-artifact/alan-map-7.0.24.zip . \
+            -x '.git/*' 'build/*' 'node_modules/*'
+          ls -lh /tmp/alan-map-artifact/alan-map-7.0.24.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: alan-map-7.0.24-full
+          path: /tmp/alan-map-artifact/
+          retention-days: 30
