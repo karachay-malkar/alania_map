@@ -1,8 +1,14 @@
 (() => {
   'use strict';
+  const RELEASE = '7.0.24-r1';
   const baseUrl = new URL('.', document.currentScript.src);
+  const assetUrl = (name) => {
+    const url = new URL(name, baseUrl);
+    url.searchParams.set('v', RELEASE);
+    return url;
+  };
   const fetchText = async (name) => {
-    const response = await fetch(new URL(name, baseUrl));
+    const response = await fetch(assetUrl(name));
     if (!response.ok) throw new Error('Alan Map: не загружен ' + name + ' (' + response.status + ').');
     return response.text();
   };
@@ -12,7 +18,7 @@
   };
   const loadScript = (name) => new Promise((resolve, reject) => {
     const script = document.createElement('script');
-    script.src = new URL(name, baseUrl).href;
+    script.src = assetUrl(name).href;
     script.onload = resolve;
     script.onerror = () => reject(new Error('Alan Map: не загружен ' + name + '.'));
     document.head.appendChild(script);
