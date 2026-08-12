@@ -24,52 +24,57 @@ jobs:
           URL="https://copernicus-dem-30m.s3.eu-central-1.amazonaws.com/${TILE}/${TILE}.tif"
           curl --fail --location --retry 3 --range 0-1023 "$URL" -o /tmp/dem-head.bin
           test "$(stat -c%s /tmp/dem-head.bin)" -gt 0
-          echo "DEM_PUBLIC_OK=1"
 
-      - name: Inspect official CLMS LCM10 products for map bbox
+      - name: Resolve official LCM10 COG nodes
         run: |
           set -euxo pipefail
-          URL='https://s3.waw3-1.cloudferro.com/swift/v1/CatalogueCSV/landcover_landuse/dynamic_land_cover/lcm_global_10m_yearly_v1/lcm_global_10m_yearly_v1_cog.csv'
-          curl --fail --location --retry 3 "$URL" -o /tmp/lcm.csv
+          CATALOG='https://s3.waw3-1.cloudferro.com/swift/v1/CatalogueCSV/landcover_landuse/dynamic_land_cover/lcm_global_10m_yearly_v1/lcm_global_10m_yearly_v1_cog.csv'
+          curl --fail --location --retry 3 "$CATALOG" -o /tmp/lcm.csv
           python - <<'PY'
-          import csv, json
+          import csv, json, urllib.request
           from pathlib import Path
           rows = list(csv.DictReader(Path('/tmp/lcm.csv').open(encoding='utf-8-sig'), delimiter=';'))
-          wanted = [row for row in rows if row['name'] in {
-              'LCFM_LCM-10_V100_2020_N42E039_cog',
-              'LCFM_LCM-10_V100_2020_N42E042_cog',
-          }]
-          print('MATCHES=', json.dumps(wanted, ensure_ascii=False, indent=2))
+          names = {'LCFM_LCM-10_V100_2020_N42E039_cog','LCFM_LCM-10_V100_2020_N42E042_cog'}
+          wanted = [row for row in rows if row['name'] in names]
           if len(wanted) != 2:
-              raise SystemExit(f'Expected 2 LCM10 products, got {len(wanted)}')
-          Path('/tmp/products.json').write_text(json.dumps(wanted), encoding='utf-8')
+              raise SystemExit(f'Expected 2 products, got {len(wanted)}')
+          resolved=[]
+          for row in wanted:
+              root=f"https://download.dataspace.copernicus.eu/odata/v1/Products({row['id']})/Nodes"
+              with urllib.request.urlopen(root, timeout=30) as r: root_payload=json.load(r)
+              folder=root_payload['result'][0]
+              child_url=folder['Nodes']['uri']
+              with urllib.request.urlopen(child_url, timeout=30) as r: child_payload=json.load(r)
+              print('PRODUCT', row['name'])
+              print('CHILDREN', json.dumps(child_payload, ensure_ascii=False, indent=2))
+              resolved.append({'product':row,'folder':folder,'children':child_payload})
+          Path('/tmp/resolved.json').write_text(json.dumps(resolved), encoding='utf-8')
           PY
 
-      - name: List product nodes without authentication
+      - name: Probe anonymous direct node bytes
         run: |
           set -euxo pipefail
           python - <<'PY'
-          import json, urllib.request
-          rows = json.load(open('/tmp/products.json'))
-          output = []
-          for row in rows:
-              url = f"https://download.dataspace.copernicus.eu/odata/v1/Products({row['id']})/Nodes"
-              with urllib.request.urlopen(url, timeout=30) as response:
-                  payload = json.load(response)
-              print(row['name'], json.dumps(payload, ensure_ascii=False, indent=2))
-              output.append({'product': row, 'nodes': payload})
-          open('/tmp/nodes.json','w').write(json.dumps(output))
-          PY
-
-      - name: Probe anonymous node file download
-        continue-on-error: true
-        run: |
-          set -euxo pipefail
-          python - <<'PY'
-          import json
-          data = json.load(open('/tmp/nodes.json'))
+          import json, urllib.request, urllib.error
+          data=json.load(open('/tmp/resolved.json'))
+          ok=0
           for item in data:
-              print('PRODUCT', item['product']['name'])
-              for node in item['nodes'].get('result', []):
-                  print('NODE', node)
+              pid=item['product']['id']
+              folder=item['folder']['Name']
+              children=item['children'].get('result',[])
+              if not children:
+                  raise SystemExit('No child file node')
+              child=children[0]
+              name=child['Name']
+              url=f"https://download.dataspace.copernicus.eu/odata/v1/Products({pid})/Nodes({folder})/Nodes({name})/$value"
+              req=urllib.request.Request(url, headers={'Range':'bytes=0-1023'})
+              try:
+                  with urllib.request.urlopen(req, timeout=60) as r:
+                      payload=r.read(1024)
+                      print('ANON_STATUS', item['product']['name'], r.status, name, len(payload), r.geturl())
+                      if payload: ok+=1
+              except urllib.error.HTTPError as exc:
+                  print('ANON_HTTP_ERROR', item['product']['name'], exc.code, exc.reason, url)
+          if ok != 2:
+              raise SystemExit(f'Anonymous node downloads available for {ok}/2 products')
           PY
