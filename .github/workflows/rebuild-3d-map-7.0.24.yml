@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  OSM_URL: https://download.geofabrik.de/russia/north-caucasus-fed-district-260726.osm.pbf
+  OSM_URL: https://download.geofabrik.de/russia/north-caucasus-fed-district-latest.osm.pbf
   CDSE_CLIENT_ID: ${{ secrets.CDSE_CLIENT_ID }}
   CDSE_CLIENT_SECRET: ${{ secrets.CDSE_CLIENT_SECRET }}
   SH_CLIENT_ID: ${{ secrets.SH_CLIENT_ID }}
@@ -60,7 +60,7 @@ jobs:
           python tools/build_natural_layers.py prepare
           cat build/rectangular-bounds.json
 
-      - name: Download fixed OSM snapshot
+      - name: Download current Geofabrik snapshot
         run: |
           set -euxo pipefail
           mkdir -p build/source
@@ -190,7 +190,7 @@ jobs:
 
           - Copernicus DEM GLO-30 — источник 3D-рельефа; локально перекодирован в Mapbox Terrain-RGB / PMTiles.
           - Copernicus Land Monitoring Service LCM-10, 2020 — 10-метровый слой земного покрова; сборщик готовит локальный PMTiles через официальный CDSE Sentinel Hub Process API после настройки OAuth credentials.
-          - OpenStreetMap / Geofabrik snapshot 2026-07-26 — дороги, реки, водоёмы, residential, ледники/постоянный снег, вершины; © OpenStreetMap contributors, ODbL.
+          - OpenStreetMap / Geofabrik latest North Caucasus snapshot at build time — дороги, реки, водоёмы, residential, ледники/постоянный снег, вершины; © OpenStreetMap contributors, ODbL.
           - MapLibre GL JS 5.24.0; PMTiles JS 4.4.1; GDAL/OGR; GeoPandas/Shapely; Tippecanoe; Rasterio/rio-rgbify.
           EOF
 
