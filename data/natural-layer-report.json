@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-12T19:18:30.225741+00:00",
+  "generated_at": "2026-08-13T05:01:47.701325+00:00",
   "strict_water_classes": [
     "lake",
     "reservoir",
@@ -9,24 +9,22 @@
   "pond_min_area_m2": 5000.0,
   "water_stats": {
     "curated_osm_lake": 1,
-    "excluded_basin": 78,
+    "excluded_basin": 11,
     "excluded_fully_overlapped_ice": 2,
-    "excluded_hot_spring": 3,
-    "excluded_ice": 1124,
-    "excluded_quarry": 85,
+    "excluded_ice": 1036,
+    "excluded_quarry": 69,
     "excluded_rapids": 1,
-    "excluded_reservoir": 1,
-    "excluded_small_river_polygon": 12,
-    "excluded_swimming_pool": 62,
-    "excluded_temporary": 76,
-    "excluded_unclassified_water": 2579,
-    "excluded_wastewater": 81,
-    "included_lake": 466,
-    "included_pond": 329,
-    "included_reservoir": 104,
-    "included_river": 90
+    "excluded_small_river_polygon": 2,
+    "excluded_swimming_pool": 33,
+    "excluded_temporary": 60,
+    "excluded_unclassified_water": 1859,
+    "excluded_wastewater": 19,
+    "included_lake": 330,
+    "included_pond": 175,
+    "included_reservoir": 72,
+    "included_river": 58
   },
-  "water_ice_overlap_m2": 6.4e-05,
+  "water_ice_overlap_m2": 0.0,
   "main_lakes": [
     {
       "lake_id": "lake_chirik_kol",
@@ -162,11 +160,11 @@
     }
   ],
   "feature_counts": {
-    "landcover": 22432,
-    "landuse": 3694,
-    "transportation": 52413,
-    "water": 989,
-    "waterway": 873,
-    "peak": 4090
+    "landcover": 16008,
+    "landuse": 2662,
+    "transportation": 36766,
+    "water": 635,
+    "waterway": 713,
+    "peak": 3458
   }
 }

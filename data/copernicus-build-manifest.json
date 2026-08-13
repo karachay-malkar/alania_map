@@ -1,16 +1,16 @@
 {
-  "version": "7.0.24",
+  "version": "7.0.25",
   "bounds": [
-    40.5758,
-    42.84447,
-    44.173077,
-    44.391914
+    40.95,
+    42.95,
+    43.55,
+    44.35
   ],
   "dem": {
     "source": "Copernicus DEM GLO-30",
-    "archive": "data/alan-dem-7.0.24.pmtiles",
-    "bytes": 351026904,
-    "sha256": "75f5db7ab10e8c1bbf80779839dfb6c4285e0a644da540ec197d52c6aefe1076"
+    "archive": "data/alan-dem-7.0.25.pmtiles",
+    "bytes": 246397689,
+    "sha256": "2364aaf045e2ddd167b35267555c9ef9efc7f2fa9a41b33cded3a96ab907ff02"
   },
   "landcover": {
     "source": "Copernicus CLMS LCM-10",
@@ -20,8 +20,8 @@
   },
   "vector": {
     "source": "OpenStreetMap / Geofabrik",
-    "archive": "data/alan-vector-7.0.24.pmtiles",
-    "bytes": 19352916,
-    "sha256": "49ddcb159f7ca382eb171138d8874266df6279a0c9bbe11bfc0bf7847156e755"
+    "archive": "data/alan-vector-7.0.25.pmtiles",
+    "bytes": 14586333,
+    "sha256": "2b7f7edfedb4abee15b6839123d598cdda8afc2c957219f5a7e136d899308346"
   }
 }

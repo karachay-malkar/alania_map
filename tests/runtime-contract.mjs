@@ -9,7 +9,7 @@ const uiSource = fs.readFileSync('assets/map-ui.js','utf8');
 const page = fs.readFileSync('assets/map-page.js','utf8');
 const dataSource = fs.readFileSync('assets/map-data.part-000.js','utf8') + fs.readFileSync('assets/map-data.part-001.js','utf8');
 
-assert.match(uiSource, /const VERSION = '7\.0\.24'/);
+assert.match(uiSource, /const VERSION = '7\.0\.25'/);
 assert.ok(!bootstrap.includes('fantasy-relief.js'));
 assert.ok(!bootstrap.includes('fantasy-style.js'));
 assert.ok(!fs.existsSync('assets/fantasy-relief.js'));
@@ -87,8 +87,8 @@ const marker = 'window.ALAN_MAP_DATA = ';
 let payload = dataSource.slice(dataSource.indexOf(marker) + marker.length).trim();
 if (payload.endsWith(';')) payload = payload.slice(0,-1);
 const data = JSON.parse(payload);
-assert.equal(data.version, '7.0.24');
-assert.equal(data.applicationVersion, '7.0.24');
+assert.equal(data.version, '7.0.25');
+assert.equal(data.applicationVersion, '7.0.25');
 assert.equal(data.regionalDem.source, 'Copernicus DEM GLO-30');
 assert.equal(data.regionalDem.encoding, 'mapbox');
 const ring = data.mapFrame.features[0].geometry.coordinates[0];
@@ -98,9 +98,11 @@ const uniqueY = new Set(ring.map(p => p[1]));
 assert.equal(uniqueX.size, 2);
 assert.equal(uniqueY.size, 2);
 assert.deepEqual(data.bounds, [Math.min(...uniqueX), Math.min(...uniqueY), Math.max(...uniqueX), Math.max(...uniqueY)]);
+assert.deepEqual(data.bounds, [40.95,42.95,43.55,44.35]);
+assert.deepEqual(data.center, [42.25,43.65]);
 if (data.regionalLandcover?.available) {
   assert.equal(data.regionalLandcover.source, 'Copernicus CLMS LCM-10');
-  assert.ok(data.regionalLandcover.archivePath.includes('landcover-7.0.24.pmtiles'));
+  assert.ok(data.regionalLandcover.archivePath.includes('landcover-7.0.25.pmtiles'));
 }
 
 console.log('runtime-contract: ok');

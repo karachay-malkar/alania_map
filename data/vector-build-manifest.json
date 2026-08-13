@@ -1,22 +1,20 @@
 {
-  "version": "7.0.24",
-  "generated_at": "2026-08-12T19:22:43.290949+00:00",
+  "version": "7.0.25",
+  "generated_at": "2026-08-13T05:03:37.185190+00:00",
   "source": {
     "url": "https://download.geofabrik.de/russia/north-caucasus-fed-district-latest.osm.pbf",
-    "md5": "8b86bb8539a899b2bdb5ab3f5391d849"
+    "md5": "a3c93f1f17e5b3c363eac83252d241df"
   },
   "tools": {
     "pipeline": "gdal-geopandas-tippecanoe-pmtiles",
     "tippecanoe_commit": "63fcac725abeb841a101abfc64189edd66d1cf14"
   },
   "archive": {
-    "logical_path": "data/alan-vector-7.0.24.pmtiles",
-    "byte_length": 19352916,
-    "sha256": "49ddcb159f7ca382eb171138d8874266df6279a0c9bbe11bfc0bf7847156e755",
+    "logical_path": "data/alan-vector-7.0.25.pmtiles",
+    "byte_length": 14586333,
+    "sha256": "2b7f7edfedb4abee15b6839123d598cdda8afc2c957219f5a7e136d899308346",
     "shard_size": 786432,
-    "shard_count": 25,
-    "previous_byte_length": 13549632,
-    "delta_bytes": 5803284
+    "shard_count": 19
   },
   "layers": [
     "landcover",
@@ -26,5 +24,5 @@
     "waterway",
     "peak"
   ],
-  "physical_clip": "minimal rectangular mapFrame bbox before tile packaging"
+  "physical_clip": "axis-aligned bbox [40.95, 42.95, 43.55, 44.35] before tile packaging"
 }
