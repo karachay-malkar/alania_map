@@ -11,6 +11,7 @@ try {
   page.on('pageerror',e=>errors.push(String(e)));
   await page.goto('http://127.0.0.1:4173/',{waitUntil:'domcontentloaded',timeout:30000});
   await page.waitForFunction(()=>Boolean(window.ALAN_MAP_INSTANCE?.map?.getLayer?.('focus-paper')),undefined,{timeout:60000});
+  await page.waitForFunction(()=>Boolean(window.ALAN_MAP_PRESENTATION_7025?.frameReady?.()),undefined,{timeout:30000});
   assert.equal(await page.locator('[data-fantasy-toggle], .fantasy-toggle').count(),0);
 
   const diagnostics = await page.evaluate(() => {
@@ -27,8 +28,15 @@ try {
         historicObject:byId['historic-object-points'],
         peakPoint:byId['osm-peak-points'],
         peakLabel:byId['osm-peak-labels'],
-        settlementBeamHalo:byId['settlement-beam-halo'],
-        settlementBeamCore:byId['settlement-beam-core']
+        settlementBeamHalo:byId['settlement-beam-halo'] || null,
+        settlementBeamCore:byId['settlement-beam-core'] || null
+      },
+      overlay:{
+        version:window.ALAN_MAP_PRESENTATION_7025?.version,
+        frameWidthM:window.ALAN_MAP_PRESENTATION_7025?.frameWidthM,
+        compassRadiusM:window.ALAN_MAP_PRESENTATION_7025?.compassRadiusM,
+        beamLayersRemoved:window.ALAN_MAP_PRESENTATION_7025?.beamLayersRemoved?.(),
+        compassMapPlaneAligned:window.ALAN_MAP_PRESENTATION_7025?.compassMapPlaneAligned?.()
       }
     };
   });
@@ -42,9 +50,10 @@ try {
   assert.ok(JSON.stringify(diagnostics.layers.peakPoint.filter).includes('peak_level'));
   assert.ok(JSON.stringify(diagnostics.layers.peakLabel.filter).includes('peak_level'));
 
-  assert.equal(diagnostics.layers.settlementBeamHalo.minzoom,7);
-  assert.equal(diagnostics.layers.settlementBeamHalo.maxzoom,10);
-  assert.equal(diagnostics.layers.settlementBeamCore.maxzoom,10);
+  // Settlement beams are deliberately removed from the rendered style.
+  assert.equal(diagnostics.layers.settlementBeamHalo,null);
+  assert.equal(diagnostics.layers.settlementBeamCore,null);
+  assert.equal(diagnostics.overlay.beamLayersRemoved,true);
 
   await page.waitForFunction(() => Boolean(window.ALAN_MAP_INSTANCE?.getLabelDiagnostics?.().regional), {timeout:30000});
   const regional = await page.evaluate(() => window.ALAN_MAP_INSTANCE.getLabelDiagnostics().regional);
@@ -58,27 +67,64 @@ try {
   const presentation = await page.evaluate(() => window.ALAN_MAP_INSTANCE.getPresentationDiagnostics());
   assert.equal(presentation.regionalLabelAltitudeM,10000);
   assert.equal(presentation.regionalLabelScale,0.666667);
-  assert.ok(presentation.settlementBeamCount > 0);
   assert.equal(presentation.historicalEthnographicBoundaryVisible,false);
   assert.deepEqual(presentation.parchmentAnchors.corner,[44.184003,43.85642]);
   assert.equal(presentation.parchmentOverlayReady,true);
-  const parchmentOverlay = await page.evaluate(() => {
-    const overlay = document.querySelector('[data-role=\"parchment-overlay\"]');
-    const compass = overlay?.querySelector('[data-role=\"parchment-compass\"]');
-    const fill = overlay?.querySelector('[data-role=\"parchment-fill\"]');
+  assert.equal(diagnostics.overlay.version,'7.0.25-r4');
+  assert.equal(diagnostics.overlay.frameWidthM,2000);
+  assert.equal(diagnostics.overlay.compassRadiusM,22000);
+  assert.equal(diagnostics.overlay.compassMapPlaneAligned,true);
+
+  const overlayState = await page.evaluate(() => {
+    const parchment = document.querySelector('[data-role="parchment-overlay"]');
+    const compass = parchment?.querySelector('[data-role="parchment-compass"]');
+    const fill = parchment?.querySelector('[data-role="parchment-fill"]');
+    const frame = document.querySelector('[data-role="map-perimeter-frame"]');
+    const frameBase = frame?.querySelector('[data-role="map-perimeter-frame-base"]');
+    const frameOrnament = frame?.querySelector('[data-role="map-perimeter-frame-ornament"]');
     return {
-      count:document.querySelectorAll('[data-role=\"parchment-overlay\"]').length,
-      pointerEvents:overlay?.style.pointerEvents,
+      parchmentCount:document.querySelectorAll('[data-role="parchment-overlay"]').length,
+      parchmentPointerEvents:parchment?.style.pointerEvents,
       fillPath:fill?.getAttribute('d') || '',
-      compassTransform:compass?.getAttribute('transform') || ''
+      cornerOrnamentCount:parchment?.querySelectorAll('[data-role="parchment-ornament"]').length || 0,
+      compassTransform:compass?.getAttribute('transform') || '',
+      compassWorldRadius:compass?.getAttribute('data-world-radius-m') || '',
+      frameCount:document.querySelectorAll('[data-role="map-perimeter-frame"]').length,
+      framePointerEvents:frame?.style.pointerEvents,
+      framePath:frameBase?.getAttribute('d') || '',
+      frameFill:frameBase?.getAttribute('fill') || '',
+      ornamentStroke:frameOrnament?.getAttribute('stroke') || ''
     };
   });
-  assert.equal(parchmentOverlay.count,1);
-  assert.equal(parchmentOverlay.pointerEvents,'none');
-  assert.ok(parchmentOverlay.fillPath.startsWith('M'));
-  const compassAngle = Number(parchmentOverlay.compassTransform.match(/rotate\((-?[0-9.]+)/)?.[1]);
-  assert.ok(Number.isFinite(compassAngle));
-  assert.ok(Math.abs(Math.abs(compassAngle) - 180) < 0.1, `unexpected compass rotation: ${parchmentOverlay.compassTransform}`);
+  assert.equal(overlayState.parchmentCount,1);
+  assert.equal(overlayState.parchmentPointerEvents,'none');
+  assert.ok(overlayState.fillPath.startsWith('M'));
+  assert.equal(overlayState.cornerOrnamentCount,0);
+  assert.match(overlayState.compassTransform,/^matrix\(/);
+  assert.equal(overlayState.compassWorldRadius,'22000');
+  assert.equal(overlayState.frameCount,1);
+  assert.equal(overlayState.framePointerEvents,'none');
+  assert.ok(overlayState.framePath.startsWith('M'));
+  assert.equal(overlayState.frameFill,'#ead7ad');
+  assert.equal(overlayState.ornamentStroke,'#68482f');
+
+  const compassScaleBefore = await page.evaluate(() => {
+    const transform = document.querySelector('[data-role="parchment-compass"]')?.getAttribute('transform') || '';
+    const values = transform.match(/^matrix\(([^)]+)\)/)?.[1].trim().split(/\s+/).map(Number) || [];
+    return values.length >= 4 ? Math.hypot(values[0],values[1]) : 0;
+  });
+  await page.evaluate(() => {
+    const map = window.ALAN_MAP_INSTANCE.map;
+    map.jumpTo({zoom:Math.min(map.getMaxZoom(),map.getZoom()+0.6)});
+  });
+  await page.waitForTimeout(250);
+  const compassScaleAfter = await page.evaluate(() => {
+    const transform = document.querySelector('[data-role="parchment-compass"]')?.getAttribute('transform') || '';
+    const values = transform.match(/^matrix\(([^)]+)\)/)?.[1].trim().split(/\s+/).map(Number) || [];
+    return values.length >= 4 ? Math.hypot(values[0],values[1]) : 0;
+  });
+  assert.ok(compassScaleBefore > 0);
+  assert.ok(compassScaleAfter > compassScaleBefore, `compass did not grow with zoom: ${compassScaleBefore} -> ${compassScaleAfter}`);
 
   assert.ok(errors.length === 0, errors.join('\n'));
   console.log('map-smoke: ok');
