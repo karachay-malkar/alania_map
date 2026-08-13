@@ -1,6 +1,6 @@
 {
   "version": "7.0.25",
-  "generated_at": "2026-08-13T05:03:37.185190+00:00",
+  "generated_at": "2026-08-13T09:43:58.761853+00:00",
   "source": {
     "url": "https://download.geofabrik.de/russia/north-caucasus-fed-district-latest.osm.pbf",
     "md5": "a3c93f1f17e5b3c363eac83252d241df"
@@ -11,10 +11,10 @@
   },
   "archive": {
     "logical_path": "data/alan-vector-7.0.25.pmtiles",
-    "byte_length": 14586333,
-    "sha256": "2b7f7edfedb4abee15b6839123d598cdda8afc2c957219f5a7e136d899308346",
+    "byte_length": 16913027,
+    "sha256": "1d8d9417aeeba39147e7db2a6680d2032b7876633d1031f3a6fe93dde96d17fb",
     "shard_size": 786432,
-    "shard_count": 19
+    "shard_count": 22
   },
   "layers": [
     "landcover",
@@ -24,5 +24,5 @@
     "waterway",
     "peak"
   ],
-  "physical_clip": "axis-aligned bbox [40.95, 42.95, 43.55, 44.35] before tile packaging"
+  "physical_clip": "rotated mapFrame polygon inside tile envelope [40.51784, 42.734095, 44.184003, 44.534975] before tile packaging"
 }

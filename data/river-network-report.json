@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-08-13T05:00:11.363485+00:00",
+  "generated_at": "2026-08-13T09:39:01.196272+00:00",
   "connection_tolerance_m": 20.0,
-  "input_segment_count": 13847,
-  "output_system_count": 713,
+  "input_segment_count": 15842,
+  "output_system_count": 813,
   "systems": [
     {
       "id": "kuban",
@@ -11,8 +11,8 @@
         "Кубань",
         "Kuban"
       ],
-      "matched_length_m": 172422.8,
-      "segment_count": 18,
+      "matched_length_m": 163683.0,
+      "segment_count": 16,
       "component_count": 1,
       "gaps": [],
       "excluded_homonym_components": [],
@@ -40,7 +40,7 @@
         "Bolshoy Zelenchuk",
         "Большой Зеленчук река"
       ],
-      "matched_length_m": 132757.2,
+      "matched_length_m": 134134.1,
       "segment_count": 8,
       "component_count": 1,
       "gaps": [],
@@ -54,7 +54,7 @@
         "Малый Зеленчук",
         "Maly Zelenchuk"
       ],
-      "matched_length_m": 57744.6,
+      "matched_length_m": 55393.2,
       "segment_count": 2,
       "component_count": 1,
       "gaps": [],
@@ -68,11 +68,19 @@
         "Терек",
         "Terek"
       ],
-      "matched_length_m": 2863.0,
+      "matched_length_m": 3409.9,
       "segment_count": 1,
       "component_count": 1,
       "gaps": [],
-      "excluded_homonym_components": [],
+      "excluded_homonym_components": [
+        {
+          "segment_count": 1,
+          "matched_length_m": 2863.0,
+          "osm_ids": [
+            "85842551"
+          ]
+        }
+      ],
       "present": true
     },
     {
@@ -82,8 +90,8 @@
         "Малка",
         "Malka"
       ],
-      "matched_length_m": 209275.0,
-      "segment_count": 23,
+      "matched_length_m": 305320.5,
+      "segment_count": 31,
       "component_count": 1,
       "gaps": [],
       "excluded_homonym_components": [],
@@ -96,8 +104,8 @@
         "Баксан",
         "Baksan"
       ],
-      "matched_length_m": 129090.7,
-      "segment_count": 21,
+      "matched_length_m": 209518.7,
+      "segment_count": 35,
       "component_count": 1,
       "gaps": [],
       "excluded_homonym_components": [],
@@ -110,7 +118,7 @@
         "Чегем",
         "Chegem"
       ],
-      "matched_length_m": 87322.5,
+      "matched_length_m": 111059.6,
       "segment_count": 7,
       "component_count": 1,
       "gaps": [],
@@ -125,8 +133,8 @@
         "Черек-Балкарский",
         "Cherek Balkarsky"
       ],
-      "matched_length_m": 41065.3,
-      "segment_count": 1,
+      "matched_length_m": 115765.1,
+      "segment_count": 3,
       "component_count": 1,
       "gaps": [],
       "excluded_homonym_components": [],
@@ -140,7 +148,7 @@
         "Черек-Безенгийский",
         "Cherek Bezengiysky"
       ],
-      "matched_length_m": 47084.0,
+      "matched_length_m": 48020.6,
       "segment_count": 4,
       "component_count": 1,
       "gaps": [],
@@ -154,11 +162,12 @@
         "Урух",
         "Urukh"
       ],
-      "matched_length_m": 0,
-      "segment_count": 0,
-      "component_count": 0,
+      "matched_length_m": 46246.0,
+      "segment_count": 1,
+      "component_count": 1,
       "gaps": [],
-      "present": false
+      "excluded_homonym_components": [],
+      "present": true
     },
     {
       "id": "ullukam",
@@ -177,8 +186,8 @@
       "coverage_system_id": "kuban",
       "coverage_mode": "osm-mainstem-name",
       "coverage_note": "В OSM снимке верхнее главное русло размечено как Кубань; отдельная дублирующая линия Уллукам не создаётся.",
-      "represented_length_m": 172422.8,
-      "represented_segment_count": 18,
+      "represented_length_m": 163683.0,
+      "represented_segment_count": 16,
       "represented_component_count": 1
     },
     {
@@ -283,8 +292,8 @@
         "Нальчик",
         "Nalchik"
       ],
-      "matched_length_m": 21220.9,
-      "segment_count": 3,
+      "matched_length_m": 46045.5,
+      "segment_count": 6,
       "component_count": 1,
       "gaps": [],
       "excluded_homonym_components": [],
@@ -297,11 +306,12 @@
         "Урвань",
         "Urvan"
       ],
-      "matched_length_m": 0,
-      "segment_count": 0,
-      "component_count": 0,
+      "matched_length_m": 73794.0,
+      "segment_count": 13,
+      "component_count": 1,
       "gaps": [],
-      "present": false
+      "excluded_homonym_components": [],
+      "present": true
     },
     {
       "id": "psysh",
@@ -463,8 +473,8 @@
         "Карасу",
         "Kara-Su"
       ],
-      "matched_length_m": 62128.2,
-      "segment_count": 4,
+      "matched_length_m": 67444.6,
+      "segment_count": 5,
       "component_count": 1,
       "gaps": [],
       "excluded_homonym_components": [
@@ -499,8 +509,8 @@
         "Sukan-Su",
         "Psygansu"
       ],
-      "matched_length_m": 18671.1,
-      "segment_count": 5,
+      "matched_length_m": 60409.3,
+      "segment_count": 8,
       "component_count": 1,
       "gaps": [],
       "excluded_homonym_components": [],
@@ -509,11 +519,8 @@
   ],
   "summary": {
     "required": 32,
-    "present": 30,
-    "missing": [
-      "urukh",
-      "urvan"
-    ],
+    "present": 32,
+    "missing": [],
     "disconnected": [],
     "coverage_aliases": [
       {
