@@ -14,7 +14,7 @@ PARTS = [ROOT / 'assets/map-data.part-000.js', ROOT / 'assets/map-data.part-001.
 MARKER = 'window.ALAN_MAP_DATA = '
 VERSION = '7.0.25'
 PREVIOUS_VERSION = '7.0.24'
-RELEASE_TAG = '7.0.25-r2'
+RELEASE_TAG = '7.0.25-r3'
 TARGET_CORNERS = [
     [40.517840, 43.412650],  # south-west
     [43.731622, 42.734095],  # south-east
@@ -35,6 +35,8 @@ SHARD_SIZE = 786432
 VECTOR_ARCHIVE = f'data/alan-vector-{VERSION}.pmtiles'
 DEM_ARCHIVE = f'data/alan-dem-{VERSION}.pmtiles'
 LANDCOVER_ARCHIVE = f'data/alan-landcover-{VERSION}.pmtiles'
+REGIONAL_LABEL_NARSANA_SCALE = 0.666667
+HISTORICAL_ETHNOGRAPHIC_BOUNDARY_ID = 'karachay_balkaria_historical_ethnographic_divide'
 
 
 def read_data() -> dict:
@@ -137,6 +139,7 @@ def patch_runtime_versions() -> None:
 
     index_text = index.read_text(encoding='utf-8')
     index_text = re.sub(r'Alan Map 7\.0\.24', f'Alan Map {VERSION}', index_text)
+    index_text = re.sub(r'7\.0\.25-r\d+', RELEASE_TAG, index_text)
     index_text = re.sub(r'7\.0\.24-r\d+', RELEASE_TAG, index_text)
     index_text = index_text.replace(f'assets/map.css?v={PREVIOUS_VERSION}', f'assets/map.css?v={RELEASE_TAG}')
     index_text = index_text.replace(f'assets/bootstrap.js?v={PREVIOUS_VERSION}', f'assets/bootstrap.js?v={RELEASE_TAG}')
@@ -163,6 +166,21 @@ def write_docs() -> None:
     (ROOT / 'README.md').write_text(content, encoding='utf-8')
 
 
+
+def apply_presentation_overrides(data: dict) -> None:
+    regional_labels = (data.get('regionalLabels') or {}).get('features') or []
+    for feature in regional_labels:
+        properties = feature.setdefault('properties', {})
+        properties['display_icon_scale'] = REGIONAL_LABEL_NARSANA_SCALE
+
+    boundaries = data.get('boundaries')
+    if isinstance(boundaries, dict):
+        boundaries['features'] = [
+            feature for feature in boundaries.get('features') or []
+            if (feature.get('properties') or {}).get('boundary_id') != HISTORICAL_ETHNOGRAPHIC_BOUNDARY_ID
+            and (feature.get('properties') or {}).get('boundary_type') != 'historical_ethnographic'
+        ]
+
 def prepare() -> None:
     data = read_data()
     bounds = list(TARGET_BOUNDS)
@@ -177,6 +195,7 @@ def prepare() -> None:
             data[key]['bounds'] = bounds
     for key in ('applicationVersion', 'version', 'stage'):
         data[key] = VERSION
+    apply_presentation_overrides(data)
     write_data(data)
     patch_runtime_versions()
     write_docs()
@@ -229,7 +248,7 @@ def finalize(dem: Path, vector: Path, landcover: Path | None, source_url: str, s
     bounds = list(TARGET_BOUNDS)
     for key in ('applicationVersion', 'version', 'stage'):
         data[key] = VERSION
-    data['dataVersion'] = VERSION + '-rotated-rectangle.2'
+    data['dataVersion'] = VERSION + '-rotated-rectangle.3'
     data['mapFrame'] = frame_collection('map_frame')
     data['focus'] = frame_collection('focus')
     data['frameMask'] = frame_mask_collection()
@@ -284,6 +303,7 @@ def finalize(dem: Path, vector: Path, landcover: Path | None, source_url: str, s
             'collectionId': '828f6b20-8ffd-48f8-a1da-fefd271456db',
             'blockedReason': 'CDSE OAuth credentials are required to materialize LCM-10 locally',
         }
+    apply_presentation_overrides(data)
     write_data(data)
 
     for report_name in ('river-network-report.json', 'natural-layer-report.json'):
@@ -375,6 +395,16 @@ def validate() -> None:
                     raise RuntimeError(f'regional label {name} is outside rotated crop')
     if seen != required_regions:
         raise RuntimeError(f'missing required regional labels: {sorted(required_regions - seen)}')
+
+    for feature in (data.get('regionalLabels') or {}).get('features') or []:
+        scale = float((feature.get('properties') or {}).get('display_icon_scale') or 0)
+        if abs(scale - REGIONAL_LABEL_NARSANA_SCALE) > 1e-6:
+            raise RuntimeError(f'regional label scale is not normalized to NARSANA: {scale}')
+
+    for feature in (data.get('boundaries') or {}).get('features') or []:
+        properties = feature.get('properties') or {}
+        if properties.get('boundary_id') == HISTORICAL_ETHNOGRAPHIC_BOUNDARY_ID or properties.get('boundary_type') == 'historical_ethnographic':
+            raise RuntimeError('historical ethnographic Karachay-Balkar divide must be removed')
 
     bootstrap = (ROOT / 'assets/bootstrap.js').read_text(encoding='utf-8')
     ui = (ROOT / 'assets/map-ui.js').read_text(encoding='utf-8')

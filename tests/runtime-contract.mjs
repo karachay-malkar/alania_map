@@ -48,9 +48,9 @@ assert.match(uiSource, /id:'osm-peak-points'.*?minzoom:OBJECT_PRESENTATION\.five
 assert.match(uiSource, /id:'osm-peak-labels'.*?minzoom:OBJECT_PRESENTATION\.fiveThousanders\.minZoom.*?\['==',\['get','peak_level'\],1\]/s);
 assert.ok(!uiSource.includes("'circle-radius':['match',['get','peak_level']"));
 
-// Regional names are fixed world objects 7000 m above the map plane.
+// Regional names are fixed world objects 10000 m above the map plane.
 const regional = require('../assets/map-core.js');
-assert.equal(regional.config.altitudeM, 7000);
+assert.equal(regional.config.altitudeM, 10000);
 assert.equal(regional.config.minZoom, 7);
 assert.equal(regional.config.maxZoom, 10);
 assert.equal(regional.config.mapPlaneAligned, true);
@@ -76,10 +76,10 @@ const quad = regional.__test.buildLabelQuad({
   imageHeight:100,
   worldScale:0.6,
   uv:{left:0,right:1,top:1,bottom:0}
-}, mockMapLibre, 7000);
+}, mockMapLibre, 10000);
 assert.equal(quad.length, 30);
 const zValues = Array.from({length:6}, (_,index) => quad[index * 5 + 2]);
-assert.ok(zValues.every(value => Math.abs(value - 0.007) < 1e-6));
+assert.ok(zValues.every(value => Math.abs(value - 0.01) < 1e-6));
 assert.notEqual(quad[0], quad[5]);
 assert.notEqual(quad[1], quad[6]);
 
@@ -112,6 +112,29 @@ const runtimeSources = ui.__test.buildRuntimeSourceData(data);
 assert.ok(runtimeSources.polygons.features.some(feature => feature.properties?.alan_source === 'frameMask'));
 assert.match(uiSource, /id:'frame-mask'.*?sourceFilter\('frameMask'\)/s);
 assert.ok(!uiSource.includes('osm-river-halo'));
+assert.equal(ui.__test.regionalLabelAltitudeM, 10000);
+assert.equal(ui.__test.regionalLabelNarsanaScale, 0.666667);
+const regionalScales = new Set((data.regionalLabels?.features || []).map(feature => Number(feature.properties?.display_icon_scale)));
+assert.deepEqual([...regionalScales], [0.666667]);
+assert.ok(!(data.boundaries?.features || []).some(feature => feature.properties?.boundary_id === 'karachay_balkaria_historical_ethnographic_divide'));
+assert.ok(!(data.boundaries?.features || []).some(feature => feature.properties?.boundary_type === 'historical_ethnographic'));
+assert.ok(runtimeSources.presentation.beamCount > 0);
+assert.ok(runtimeSources.polygons.features.some(feature => feature.properties?.alan_source === 'settlementBeamHalo'));
+assert.ok(runtimeSources.polygons.features.some(feature => feature.properties?.alan_source === 'settlementBeamCore'));
+assert.deepEqual(ui.__test.parchmentCorner.edgeA, [43.959202,43.298704]);
+assert.deepEqual(ui.__test.parchmentCorner.corner, [44.184003,43.856420]);
+assert.deepEqual(ui.__test.parchmentCorner.edgeC, [42.946104,44.117789]);
+const parchment = ui.__test.parchmentCornerCollections();
+assert.deepEqual(parchment.tornEdge[0], [42.946104,44.117789]);
+assert.deepEqual(parchment.tornEdge.at(-1), [43.959202,43.298704]);
+assert.equal(parchment.ornament.features.length,5);
+const parchmentMarkup = ui.__test.parchmentOverlayMarkup();
+assert.match(parchmentMarkup, /data-role=\"parchment-fill\"/);
+assert.match(parchmentMarkup, /filter:blur\(9px\)/);
+assert.match(parchmentMarkup, /data-role=\"parchment-compass\"/);
+assert.match(parchmentMarkup, /pointer-events:none/);
+assert.match(uiSource, /id:'settlement-beam-halo'.*?maxzoom:OBJECT_PRESENTATION\.currentSettlements\.minZoom/s);
+assert.match(uiSource, /id:'settlement-beam-core'.*?fill-extrusion-height':10000/s);
 if (data.regionalLandcover?.available) {
   assert.equal(data.regionalLandcover.source, 'Copernicus CLMS LCM-10');
   assert.ok(data.regionalLandcover.archivePath.includes('landcover-7.0.25.pmtiles'));

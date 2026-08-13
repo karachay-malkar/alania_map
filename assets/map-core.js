@@ -7,7 +7,7 @@
   'use strict';
 
   const VERSION = '6.0.0';
-  const DEFAULT_ALTITUDE_M = 7000;
+  const DEFAULT_ALTITUDE_M = 10000;
   const MIN_ZOOM = 7.0;
   const FULL_OPACITY_ZOOM = 9.5;
   const MAX_ZOOM = 10.0;

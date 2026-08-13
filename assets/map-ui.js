@@ -42,6 +42,15 @@
     naturalObjects:Object.freeze({minZoom:12, pointStyle:'small'}),
     modernObjects:Object.freeze({minZoom:12, pointStyle:'small'})
   });
+  const REGIONAL_LABEL_ALTITUDE_M = 10000;
+  const REGIONAL_LABEL_NARSANA_SCALE = 0.666667;
+  const HISTORICAL_ETHNOGRAPHIC_BOUNDARY_ID = 'karachay_balkaria_historical_ethnographic_divide';
+  const CONTEXT_SETTLEMENT_IDS = new Set(['cherkessk','nalchik','kislovodsk_narsana']);
+  const PARCHMENT_CORNER = Object.freeze({
+    edgeA:Object.freeze([43.959202,43.298704]),
+    corner:Object.freeze([44.184003,43.856420]),
+    edgeC:Object.freeze([42.946104,44.117789])
+  });
 
   function requireElement(target) {
     if (typeof target === 'string') {
@@ -166,20 +175,180 @@
     return {type: 'FeatureCollection', features};
   }
 
+  function featureCollection(features = []) {
+    return {type:'FeatureCollection',features};
+  }
+
+  function normalizeRegionalLabels(collection) {
+    return featureCollection((collection?.features || []).map((feature) => ({
+      ...feature,
+      properties:{...(feature.properties || {}),display_icon_scale:REGIONAL_LABEL_NARSANA_SCALE}
+    })));
+  }
+
+  function visibleBoundaryCollection(collection) {
+    return featureCollection((collection?.features || []).filter((feature) => {
+      const properties = feature?.properties || {};
+      return properties.boundary_id !== HISTORICAL_ETHNOGRAPHIC_BOUNDARY_ID && properties.boundary_type !== 'historical_ethnographic';
+    }));
+  }
+
+  function settlementBeamCollections(objects) {
+    const currentSettlements = (objects?.features || []).filter((feature) => {
+      const properties = feature?.properties || {};
+      const coordinates = feature?.geometry?.type === 'Point' ? feature.geometry.coordinates : null;
+      return Number(properties.visible ?? 1) === 1 &&
+        properties.object_type === 'settlement' &&
+        properties.object_subtype !== 'historic_settlement' &&
+        !CONTEXT_SETTLEMENT_IDS.has(String(properties.object_id || '')) &&
+        Array.isArray(coordinates) && coordinates.length >= 2 && coordinates.every(Number.isFinite);
+    });
+
+    const circle = (feature, radiusM, beamPart) => {
+      const [lon,lat] = feature.geometry.coordinates;
+      const latRadians = lat * Math.PI / 180;
+      const latDegrees = radiusM / 111320;
+      const lonDegrees = radiusM / Math.max(1,111320 * Math.cos(latRadians));
+      const coordinates = [];
+      const segments = 16;
+      for (let index = 0; index <= segments; index += 1) {
+        const angle = index / segments * Math.PI * 2;
+        coordinates.push([lon + Math.cos(angle) * lonDegrees,lat + Math.sin(angle) * latDegrees]);
+      }
+      return {
+        type:'Feature',
+        properties:{
+          object_id:feature.properties?.object_id || '',
+          name_map:feature.properties?.name_map || feature.properties?.name_ru || '',
+          beam_part:beamPart,
+          visible:1
+        },
+        geometry:{type:'Polygon',coordinates:[coordinates]}
+      };
+    };
+
+    return {
+      halo:featureCollection(currentSettlements.map((feature) => circle(feature,1200,'halo'))),
+      core:featureCollection(currentSettlements.map((feature) => circle(feature,280,'core'))),
+      count:currentSettlements.length
+    };
+  }
+
+  function interpolatePoint(start,end,t) {
+    return [start[0] + (end[0] - start[0]) * t,start[1] + (end[1] - start[1]) * t];
+  }
+
+  function parchmentCornerCollections() {
+    const a = [...PARCHMENT_CORNER.edgeA];
+    const b = [...PARCHMENT_CORNER.corner];
+    const c = [...PARCHMENT_CORNER.edgeC];
+    const chordX = a[0] - c[0];
+    const chordY = a[1] - c[1];
+    const chordLength = Math.hypot(chordX,chordY) || 1;
+    let normal = [-chordY / chordLength,chordX / chordLength];
+    const chordMidpoint = [(a[0] + c[0]) / 2,(a[1] + c[1]) / 2];
+    const towardCorner = [b[0] - chordMidpoint[0],b[1] - chordMidpoint[1]];
+    if (normal[0] * towardCorner[0] + normal[1] * towardCorner[1] < 0) normal = [-normal[0],-normal[1]];
+    const jitter = [0,0.006,-0.010,0.004,0.012,-0.005,0.008,-0.012,0.004,0.010,-0.004,0.006,-0.009,0.004,0];
+    const tornEdge = jitter.map((noise,index) => {
+      const t = index / (jitter.length - 1);
+      const base = interpolatePoint(c,a,t);
+      const bow = Math.sin(Math.PI * t) * 0.038;
+      const feather = Math.sin(Math.PI * t) * noise;
+      const offset = bow + feather;
+      return [base[0] + normal[0] * offset,base[1] + normal[1] * offset];
+    });
+    tornEdge[0] = c;
+    tornEdge[tornEdge.length - 1] = a;
+
+    const polygon = {
+      type:'FeatureCollection',
+      features:[{
+        type:'Feature',
+        properties:{kind:'parchment_corner',visible:1},
+        geometry:{type:'Polygon',coordinates:[[a,b,c,...tornEdge.slice(1)]]}
+      }]
+    };
+    const edge = featureCollection([{
+      type:'Feature',properties:{kind:'parchment_torn_edge',visible:1},geometry:{type:'LineString',coordinates:tornEdge}
+    }]);
+
+    const chevrons = [0.10,0.16,0.22,0.28].map((t,index) => {
+      const left = interpolatePoint(b,a,t);
+      const right = interpolatePoint(b,c,t);
+      const average = [(left[0] + right[0]) / 2,(left[1] + right[1]) / 2];
+      const tip = interpolatePoint(b,average,0.42 + index * 0.015);
+      return {type:'Feature',properties:{kind:'parchment_ornament',visible:1},geometry:{type:'LineString',coordinates:[left,tip,right]}};
+    });
+    const diamondCenter = interpolatePoint(b,[(a[0] + c[0]) / 2,(a[1] + c[1]) / 2],0.19);
+    const dx = 0.018;
+    const dy = 0.014;
+    chevrons.push({
+      type:'Feature',properties:{kind:'parchment_ornament',visible:1},
+      geometry:{type:'LineString',coordinates:[
+        [diamondCenter[0],diamondCenter[1] + dy],
+        [diamondCenter[0] + dx,diamondCenter[1]],
+        [diamondCenter[0],diamondCenter[1] - dy],
+        [diamondCenter[0] - dx,diamondCenter[1]],
+        [diamondCenter[0],diamondCenter[1] + dy]
+      ]}
+    });
+    const ornament = featureCollection(chevrons);
+    const compassCoordinates = [
+      a[0] * 0.22 + b[0] * 0.58 + c[0] * 0.20,
+      a[1] * 0.22 + b[1] * 0.58 + c[1] * 0.20
+    ];
+    const compass = featureCollection([{
+      type:'Feature',properties:{kind:'parchment_compass',visible:1},geometry:{type:'Point',coordinates:compassCoordinates}
+    }]);
+    return {polygon,edge,ornament,compass,tornEdge,compassCoordinates};
+  }
+
+  function parchmentOverlayMarkup() {
+    return `<svg data-role="parchment-overlay" aria-hidden="true" focusable="false" style="position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none;overflow:hidden">
+      <path data-role="parchment-fill" fill="#ead7ad" fill-opacity=".985"/>
+      <path data-role="parchment-wash" fill="#c49253" fill-opacity=".055"/>
+      <path data-role="parchment-edge-feather" fill="none" stroke="#ead7ad" stroke-width="28" stroke-opacity=".48" stroke-linecap="round" stroke-linejoin="round" style="filter:blur(9px)"/>
+      <path data-role="parchment-edge-aged" fill="none" stroke="#a67846" stroke-width="9" stroke-opacity=".22" stroke-linecap="round" stroke-linejoin="round" style="filter:blur(3px)"/>
+      <path data-role="parchment-edge-pencil" fill="none" stroke="#755137" stroke-width="1.25" stroke-opacity=".46" stroke-linecap="round" stroke-linejoin="round"/>
+      <path data-role="parchment-ornament" fill="none" stroke="#68482f" stroke-width="1.5" stroke-opacity=".68" stroke-linecap="round" stroke-linejoin="round"/>
+      <g data-role="parchment-compass" fill="none" stroke="#62442e" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="0" cy="0" r="42" stroke-width="2.2" opacity=".74"/>
+        <circle cx="0" cy="0" r="28" stroke-width="1.2" opacity=".52"/>
+        <path d="M0 -53 7 -10 0 0 -7 -10Z" fill="#62442e" stroke-width="1.5"/>
+        <path d="M0 53 7 10 0 0 -7 10Z" fill="#b48756" stroke-width="1.5"/>
+        <path d="M-53 0 -10 -7 0 0 -10 7Z" fill="#8b6241" stroke-width="1.5"/>
+        <path d="M53 0 10 -7 0 0 10 7Z" fill="#8b6241" stroke-width="1.5"/>
+        <path d="M-36 -36 -8 -8M36 -36 8 -8M-36 36 -8 8M36 36 8 8" stroke-width="1.5" opacity=".72"/>
+        <circle cx="0" cy="0" r="4" fill="#62442e" stroke-width="1"/>
+        <g fill="#573c29" stroke="none" font-family="Georgia,serif" font-weight="700" text-anchor="middle">
+          <text x="0" y="-60" font-size="13">N</text><text x="0" y="69" font-size="12">S</text>
+          <text x="63" y="4" font-size="12">E</text><text x="-63" y="4" font-size="12">W</text>
+        </g>
+      </g>
+    </svg>`;
+  }
+
   function buildRuntimeSourceData(data) {
+    const regionalLabels = normalizeRegionalLabels(data?.regionalLabels);
+    const boundaries = visibleBoundaryCollection(data?.boundaries);
+    const beams = settlementBeamCollections(data?.objects);
+    const parchment = parchmentCornerCollections();
     return {
       polygons: taggedFeatureCollection([
         ['focus', data.focus],
         ['frameMask', data.frameMask],
         ['glaciers', data.glaciers],
         ['elbrusSnow', data.elbrusSnow],
-        ['peakSnow', data.peakSnow]
+        ['peakSnow', data.peakSnow],
+        ['settlementBeamHalo', beams.halo],
+        ['settlementBeamCore', beams.core]
       ]),
       lines: taggedFeatureCollection([
         ['rivers', data.rivers],
         ['ridges', data.ridges],
-        ['regionalLabels', data.regionalLabels],
-        ['boundaries', data.boundaries]
+        ['regionalLabels', regionalLabels],
+        ['boundaries', boundaries]
       ]),
       points: taggedFeatureCollection([
         ['objects', data.objects],
@@ -187,7 +356,8 @@
         ['peaks', data.peaks],
         ['highPeaks', data.highPeaks],
         ['passes', data.passes]
-      ])
+      ]),
+      presentation:{regionalLabels,boundaries,beamCount:beams.count,parchment}
     };
   }
 
@@ -336,6 +506,7 @@
     let destroyed = false;
     let regionalLabels3d = null;
     let regionalLabels3dFailed = false;
+    let parchmentOverlay = null;
     let ready = false;
     let readyFrame = null;
     let resizeFrame = null;
@@ -539,6 +710,11 @@
         ] : [])
       ];
 
+      const settlementBeamLayers = [
+        {id:'settlement-beam-halo',type:'fill-extrusion',source:'polygons',minzoom:VISIBILITY_ZOOM.DISTANT,maxzoom:OBJECT_PRESENTATION.currentSettlements.minZoom,filter:sourceFilter('settlementBeamHalo'),paint:{'fill-extrusion-color':'#f2e1b8','fill-extrusion-base':80,'fill-extrusion-height':10000,'fill-extrusion-opacity':['interpolate',['linear'],['zoom'],7.0,0.075,8.4,0.065,9.5,0.035,9.98,0],'fill-extrusion-vertical-gradient':true}},
+        {id:'settlement-beam-core',type:'fill-extrusion',source:'polygons',minzoom:VISIBILITY_ZOOM.DISTANT,maxzoom:OBJECT_PRESENTATION.currentSettlements.minZoom,filter:sourceFilter('settlementBeamCore'),paint:{'fill-extrusion-color':'#fff0cf','fill-extrusion-base':80,'fill-extrusion-height':10000,'fill-extrusion-opacity':['interpolate',['linear'],['zoom'],7.0,0.22,8.4,0.18,9.5,0.08,9.98,0],'fill-extrusion-vertical-gradient':true}}
+      ];
+
       const pointLayers = [
         {id:'settlement-current-points',type:'circle',source:'points',minzoom:OBJECT_PRESENTATION.currentSettlements.minZoom,filter:['all',sourceFilter('objects'),['==',['get','visible'],1],['==',['get','object_type'],'settlement'],['!=',['get','object_subtype'],'historic_settlement']],paint:pointPaint(OBJECT_PRESENTATION.currentSettlements.pointStyle,'#f3ead8','#5f4a36',0.98)},
         {id:'settlement-historic-points',type:'circle',source:'points',minzoom:OBJECT_PRESENTATION.historicSettlements.minZoom,filter:['all',sourceFilter('objects'),['==',['get','visible'],1],['==',['get','object_type'],'settlement'],['==',['get','object_subtype'],'historic_settlement']],paint:pointPaint(OBJECT_PRESENTATION.historicSettlements.pointStyle,'#b88a49','#5d4128',0.96)},
@@ -560,7 +736,7 @@
           {id:'osm-water-labels',type:'symbol',source:'openmaptiles','source-layer':'water',minzoom:10,filter:['all',['in',['get','class'],['literal',['lake','reservoir','pond']]],['==',['get','label_primary'],1]],layout:{'text-field':labelName,'text-font':['Noto Sans Regular'],'text-size':10.5,'text-allow-overlap':false},paint:{'text-color':'#126083','text-halo-color':'#f5ead5','text-halo-width':1.75,'text-halo-blur':0.5}},
           {id:'osm-peak-labels',type:'symbol',source:'openmaptiles','source-layer':'peak',minzoom:OBJECT_PRESENTATION.fiveThousanders.minZoom,filter:['all',['!=',['get','hidden'],1],['==',['get','peak_level'],1]],layout:{'text-field':['format',labelName,{},'\n',{},['concat',['to-string',['get','ele']],' м'],{'font-scale':0.72}],'text-font':['Noto Sans Regular'],'text-size':11.5,'text-offset':[0,1.1],'text-anchor':'top','text-allow-overlap':false},paint:{'text-color':'#514a43','text-halo-color':'#f7efe0','text-halo-width':1.9,'text-opacity':1}}
         ] : []),
-        {id:'regional-labels-fallback',type:'symbol',source:'lines',minzoom:VISIBILITY_ZOOM.DISTANT,maxzoom:LABEL_ZOOM.REGIONAL_MAX,filter:sourceFilter('regionalLabels'),layout:{'visibility':'none','symbol-placement':'line-center','icon-image':['get','icon_id'],'icon-size':['interpolate',['linear'],['zoom'],7.0,0.30,9.5,1.40],'icon-rotation-alignment':'map','icon-pitch-alignment':'map','icon-keep-upright':false,'icon-allow-overlap':true,'icon-ignore-placement':true,'icon-padding':1,'symbol-sort-key':['get','placement_priority']},paint:{'icon-opacity':['interpolate',['linear'],['zoom'],7.0,1,9.5,1,10.0,0]}},
+        {id:'regional-labels-fallback',type:'symbol',source:'lines',minzoom:VISIBILITY_ZOOM.DISTANT,maxzoom:LABEL_ZOOM.REGIONAL_MAX,filter:sourceFilter('regionalLabels'),layout:{'visibility':'none','symbol-placement':'line-center','icon-image':['get','icon_id'],'icon-size':['interpolate',['linear'],['zoom'],7.0,['*',['coalesce',['get','display_icon_scale'],REGIONAL_LABEL_NARSANA_SCALE],0.45],9.5,['*',['coalesce',['get','display_icon_scale'],REGIONAL_LABEL_NARSANA_SCALE],2.10]],'icon-rotation-alignment':'map','icon-pitch-alignment':'map','icon-keep-upright':false,'icon-allow-overlap':true,'icon-ignore-placement':true,'icon-padding':1,'symbol-sort-key':['get','placement_priority']},paint:{'icon-opacity':['interpolate',['linear'],['zoom'],7.0,1,9.5,1,10.0,0]}},
         {id:'settlement-labels-current',type:'symbol',source:'points',minzoom:OBJECT_PRESENTATION.currentSettlements.minZoom,filter:['all',sourceFilter('objects'),['==',['get','visible'],1],['==',['get','object_type'],'settlement'],['!=',['get','object_subtype'],'historic_settlement']],layout:{'text-field':labelName,'text-font':['Noto Sans Regular'],'text-size':['interpolate',['linear'],['zoom'],8.0,10.2,12.5,12.6],'text-offset':[0,1.08],'text-anchor':'top','text-allow-overlap':true,'text-ignore-placement':true,'text-optional':false,'text-max-width':100,'text-line-height':1.0},paint:{'text-color':'#304553','text-halo-color':'#f4ead6','text-halo-width':2.2,'text-halo-blur':0.35}},
         {id:'settlement-labels-local',type:'symbol',source:'points',minzoom:OBJECT_PRESENTATION.historicSettlements.minZoom,filter:['all',sourceFilter('objects'),['==',['get','visible'],1],['==',['get','object_type'],'settlement'],['==',['get','object_subtype'],'historic_settlement']],layout:{'text-field':labelName,'text-font':['Noto Sans Regular'],'text-size':9.5,'text-offset':[0,1.0],'text-anchor':'top','text-allow-overlap':true,'text-ignore-placement':true,'text-optional':false,'text-max-width':100,'text-line-height':1.0},paint:{'text-color':'#5a4128','text-halo-color':'#f4ead6','text-halo-width':2.0,'text-halo-blur':0.3}},
         {id:'historic-object-labels',type:'symbol',source:'points',minzoom:OBJECT_PRESENTATION.historicObjects.minZoom,filter:['all',sourceFilter('objects'),['==',['get','visible'],1],['in',['get','object_type'],['literal',['fortification','landmark']]]],layout:{'text-field':labelName,'text-font':['Noto Sans Regular'],'text-size':9.4,'text-offset':[0,1.1],'text-anchor':'top','text-allow-overlap':false},paint:{'text-color':'#34383b','text-halo-color':'#f4ead6','text-halo-width':1.35}},
@@ -573,6 +749,7 @@
         ...baseLayers,
         ...natureLayers,
         ...lineLayers,
+        ...settlementBeamLayers,
         ...pointLayers,
         ...labelLayers,
         {id:'frame-mask',type:'fill',source:'polygons',filter:sourceFilter('frameMask'),paint:{'fill-color':'#25282a','fill-opacity':1}}
@@ -604,6 +781,58 @@
 
 
 
+    function projectMapPoint(coordinates) {
+      const point = map?.project?.(coordinates);
+      return point && Number.isFinite(point.x) && Number.isFinite(point.y) ? [point.x,point.y] : null;
+    }
+
+    function projectedPath(coordinates, close = false) {
+      const points = coordinates.map(projectMapPoint).filter(Boolean);
+      if (!points.length) return '';
+      return points.map((point,index) => `${index === 0 ? 'M' : 'L'}${point[0].toFixed(2)} ${point[1].toFixed(2)}`).join(' ') + (close ? ' Z' : '');
+    }
+
+    function updateParchmentOverlay() {
+      if (!map || !parchmentOverlay) return;
+      const geometry = runtimeSources.presentation.parchment;
+      const width = map.getContainer().clientWidth || 1;
+      const height = map.getContainer().clientHeight || 1;
+      parchmentOverlay.setAttribute('viewBox',`0 0 ${width} ${height}`);
+      const a = PARCHMENT_CORNER.edgeA;
+      const b = PARCHMENT_CORNER.corner;
+      const c = PARCHMENT_CORNER.edgeC;
+      const polygonCoordinates = [a,b,c,...geometry.tornEdge.slice(1)];
+      const polygonPath = projectedPath(polygonCoordinates,true);
+      const edgePath = projectedPath(geometry.tornEdge,false);
+      parchmentOverlay.querySelector('[data-role="parchment-fill"]')?.setAttribute('d',polygonPath);
+      parchmentOverlay.querySelector('[data-role="parchment-wash"]')?.setAttribute('d',polygonPath);
+      ['parchment-edge-feather','parchment-edge-aged','parchment-edge-pencil'].forEach((role) => {
+        parchmentOverlay.querySelector(`[data-role="${role}"]`)?.setAttribute('d',edgePath);
+      });
+      const ornamentPath = geometry.ornament.features.map((feature) => projectedPath(feature.geometry.coordinates,false)).filter(Boolean).join(' ');
+      parchmentOverlay.querySelector('[data-role="parchment-ornament"]')?.setAttribute('d',ornamentPath);
+      const compassPoint = projectMapPoint(geometry.compassCoordinates);
+      if (compassPoint) {
+        const scale = clamp(Math.min(width,height) / 820,0.72,1.08);
+        const bearing = Number(map.getBearing?.() || 0);
+        parchmentOverlay.querySelector('[data-role="parchment-compass"]')?.setAttribute(
+          'transform',
+          `translate(${compassPoint[0].toFixed(2)} ${compassPoint[1].toFixed(2)}) rotate(${-bearing.toFixed(3)}) scale(${scale.toFixed(3)})`
+        );
+      }
+    }
+
+    function initializeParchmentOverlay() {
+      if (!map || parchmentOverlay) return;
+      const wrapper = document.createElement('div');
+      wrapper.innerHTML = parchmentOverlayMarkup().trim();
+      parchmentOverlay = wrapper.firstElementChild;
+      if (!parchmentOverlay) return;
+      map.getContainer().appendChild(parchmentOverlay);
+      updateParchmentOverlay();
+    }
+
+
     function showRegionalLabelsFallback(message) {
       regionalLabels3dFailed = true;
       if (regionalLabels3d) regionalLabels3d.setVisible(false);
@@ -623,9 +852,9 @@
         const renderer = rendererFactory.create({
           map,
           maplibregl,
-          features:data.regionalLabels?.features || [],
+          features:runtimeSources.presentation.regionalLabels?.features || [],
           images:data.regionalLabelImages || {},
-          altitudeM:7000,
+          altitudeM:REGIONAL_LABEL_ALTITUDE_M,
           beforeId:'modern-labels',
           visible:toggleButtons.regions.classList.contains('active'),
           onError:(error) => {
@@ -990,6 +1219,8 @@
       map.addControl(new maplibregl.AttributionControl({compact:true}),'bottom-left');
       map.addControl(new maplibregl.ScaleControl({unit:'metric',maxWidth:120}),'bottom-left');
       map.dragPan.enable(); map.touchZoomRotate.enable(); map.keyboard.enable(); map.doubleClickZoom.enable();
+      initializeParchmentOverlay();
+      map.on('render',updateParchmentOverlay);
 
       map.once('render',() => queueFinalizeReady('first-render'));
       map.on('styledata',() => {
@@ -1047,6 +1278,8 @@
       if (resizeFrame !== null) cancelAnimationFrame(resizeFrame);
       resizeObserver?.disconnect();
       if (regionalLabels3d) regionalLabels3d.destroy();
+      parchmentOverlay?.remove();
+      parchmentOverlay = null;
       if (map) map.remove();
       host.innerHTML = '';
       host.classList.remove('alan-map-shell','alan-map-no-toolbar','alan-map-no-legend','alan-map-no-dpad');
@@ -1065,6 +1298,15 @@
       setRiverScale:(value) => {riverInput.value=String(value);applyRivers(value);},
       focusElbrus,
       getLabelDiagnostics:() => ({regional:regionalLabels3d?.getDiagnostics?regionalLabels3d.getDiagnostics():null,regionalFallback:regionalLabels3dFailed}),
+      getPresentationDiagnostics:() => ({
+        regionalLabelAltitudeM:REGIONAL_LABEL_ALTITUDE_M,
+        regionalLabelScale:REGIONAL_LABEL_NARSANA_SCALE,
+        settlementBeamCount:runtimeSources.presentation.beamCount,
+        historicalEthnographicBoundaryVisible:runtimeSources.presentation.boundaries.features.some((feature) => feature.properties?.boundary_id === HISTORICAL_ETHNOGRAPHIC_BOUNDARY_ID),
+        parchmentAnchors:{...PARCHMENT_CORNER},
+        parchmentCompass:runtimeSources.presentation.parchment.compassCoordinates,
+        parchmentOverlayReady:Boolean(parchmentOverlay?.isConnected)
+      }),
       getFrameClipDiagnostics:() => ({
         active:true,
         ready:Boolean(map?.getLayer?.('focus-paper')),
@@ -1128,6 +1370,14 @@
       residentialLayerDefinitions,
       supplementalLabelLayerDefinitions,
       mapFramePointCount,
+      normalizeRegionalLabels,
+      visibleBoundaryCollection,
+      settlementBeamCollections,
+      parchmentCornerCollections,
+      parchmentOverlayMarkup,
+      regionalLabelAltitudeM:REGIONAL_LABEL_ALTITUDE_M,
+      regionalLabelNarsanaScale:REGIONAL_LABEL_NARSANA_SCALE,
+      parchmentCorner:PARCHMENT_CORNER,
     }
   };
 });
