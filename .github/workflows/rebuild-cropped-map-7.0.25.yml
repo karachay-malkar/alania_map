@@ -1,0 +1,269 @@
+name: Build Alan Map 7.0.25 tight rectangular crop
+
+on:
+  push:
+    branches: [7.0.25]
+    paths:
+      - 'tools/release_7_0_25.py'
+      - '.github/workflows/rebuild-cropped-map-7.0.25.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: alan-map-7-0-25-build
+  cancel-in-progress: false
+
+env:
+  OSM_URL: https://download.geofabrik.de/russia/north-caucasus-fed-district-latest.osm.pbf
+  CDSE_CLIENT_ID: ${{ secrets.CDSE_CLIENT_ID }}
+  CDSE_CLIENT_SECRET: ${{ secrets.CDSE_CLIENT_SECRET }}
+  SH_CLIENT_ID: ${{ secrets.SH_CLIENT_ID }}
+  SH_CLIENT_SECRET: ${{ secrets.SH_CLIENT_SECRET }}
+  COPERNICUS_CLIENT_ID: ${{ secrets.COPERNICUS_CLIENT_ID }}
+  COPERNICUS_CLIENT_SECRET: ${{ secrets.COPERNICUS_CLIENT_SECRET }}
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.x'
+
+      - name: Install GIS and build tools
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install -y gdal-bin libgdal-dev python3-gdal build-essential git curl jq zip libsqlite3-dev zlib1g-dev
+          python -m pip install --break-system-packages --upgrade pip
+          python -m pip install --break-system-packages geopandas==1.1.1 shapely==2.1.1 pyogrio==0.11.1 pyproj pandas rasterio rio-rgbify rio-mbtiles playwright
+          go install github.com/protomaps/go-pmtiles@v1.30.1
+          GO_BIN="$(go env GOPATH)/bin"
+          test -x "$GO_BIN/go-pmtiles"
+          ln -sf "$GO_BIN/go-pmtiles" "$GO_BIN/pmtiles"
+          echo "$GO_BIN" >> "$GITHUB_PATH"
+          git clone --depth 1 https://github.com/felt/tippecanoe.git /tmp/tippecanoe
+          make -C /tmp/tippecanoe -j2
+          sudo make -C /tmp/tippecanoe install
+          echo "TIPPECANOE_COMMIT=$(git -C /tmp/tippecanoe rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Prepare 7.0.25 crop and runtime
+        run: |
+          set -euxo pipefail
+          python tools/release_7_0_25.py prepare
+          python tools/build_natural_layers.py prepare
+          cat build/rectangular-bounds.json
+          python - <<'PY'
+          import json
+          expected=[40.95,42.95,43.55,44.35]
+          actual=json.load(open('build/rectangular-bounds.json'))['bounds']
+          if actual != expected:
+              raise SystemExit(f'Unexpected crop bounds: {actual}')
+          PY
+
+      - name: Download current Geofabrik snapshot
+        run: |
+          set -euxo pipefail
+          mkdir -p build/source
+          curl --fail --location --retry 4 --retry-delay 5 "$OSM_URL" -o build/source/north-caucasus.osm.pbf
+          echo "OSM_MD5=$(md5sum build/source/north-caucasus.osm.pbf | awk '{print $1}')" >> "$GITHUB_ENV"
+
+      - name: Physically clip OSM to 7.0.25 rectangle
+        run: |
+          set -euxo pipefail
+          rm -f build/osm-clipped.gpkg
+          ogr2ogr -f GPKG build/osm-clipped.gpkg build/source/north-caucasus.osm.pbf lines -clipsrc build/map-frame.geojson -nln lines -makevalid -skipfailures -lco SPATIAL_INDEX=YES
+          for layer in multilinestrings multipolygons points; do
+            ogr2ogr -f GPKG -update build/osm-clipped.gpkg build/source/north-caucasus.osm.pbf "$layer" -clipsrc build/map-frame.geojson -nln "$layer" -makevalid -skipfailures -lco SPATIAL_INDEX=YES
+          done
+          ogrinfo -so build/osm-clipped.gpkg lines
+          ogrinfo -so build/osm-clipped.gpkg multipolygons
+          ogrinfo -so build/osm-clipped.gpkg points
+
+      - name: Verify Cherkessk is inside physical OSM crop
+        run: |
+          set -euxo pipefail
+          python - <<'PY'
+          import geopandas as gpd
+          points=gpd.read_file('build/osm-clipped.gpkg',layer='points')
+          names=points.get('name')
+          name_mask=names.fillna('').astype(str).str.contains('Черкесск|Cherkessk',case=False,regex=True) if names is not None else False
+          tags=points.get('other_tags')
+          tags_mask=tags.fillna('').astype(str).str.contains('Черкесск|Cherkessk',case=False,regex=True) if tags is not None else False
+          hits=points[name_mask | tags_mask]
+          if hits.empty:
+              raise SystemExit('Cherkessk place node was not found inside the clipped OSM points layer')
+          coords=[(round(float(g.x),6),round(float(g.y),6)) for g in hits.geometry if g is not None and not g.is_empty]
+          print('Cherkessk OSM points inside crop:',coords[:5])
+          PY
+
+      - name: Classify factual vector layers
+        run: |
+          set -euxo pipefail
+          python tools/build_natural_layers.py classify
+          python tools/normalize_river_report.py
+          python - <<'PY'
+          import json
+          report=json.load(open('build/river-network-report.json'))
+          systems={item['id']:item for item in report.get('systems',[])}
+          required={
+              'kuban','teberda','bolshoy-zelenchuk','maly-zelenchuk',
+              'baksan','chegem','cherek-balkarsky','cherek-bezengiysky','arkhyz'
+          }
+          missing=sorted(name for name in required if not systems.get(name,{}).get('present'))
+          disconnected=sorted(name for name in required if int(systems.get(name,{}).get('component_count') or 0) > 1)
+          if missing or disconnected:
+              raise SystemExit(f'Crop river validation failed: missing={missing}, disconnected={disconnected}')
+          print('Required crop river systems present:',sorted(required))
+          PY
+          python tools/optimize_natural_layers.py
+          tippecanoe \
+            --output=build/alan-vector-7.0.25.mbtiles \
+            --minimum-zoom=7 --maximum-zoom=13 \
+            --force --read-parallel --no-feature-limit --no-tile-size-limit \
+            --buffer=12 --simplification=3 \
+            -L landcover:build/landcover.geojson \
+            -L landuse:build/landuse.geojson \
+            -L transportation:build/transportation.geojson \
+            -L water:build/water.geojson \
+            -L waterway:build/waterway.geojson \
+            -L peak:build/peak.geojson
+          pmtiles convert build/alan-vector-7.0.25.mbtiles build/alan-vector-7.0.25.pmtiles
+          pmtiles verify build/alan-vector-7.0.25.pmtiles
+          ls -lh build/alan-vector-7.0.25.pmtiles
+
+      - name: Build cropped Copernicus DEM GLO-30 Terrain-RGB
+        run: |
+          set -euxo pipefail
+          mkdir -p build/copernicus-dem
+          python - <<'PY'
+          import json, math, pathlib, urllib.request
+          west,south,east,north=json.load(open('build/rectangular-bounds.json'))['bounds']
+          out=pathlib.Path('build/copernicus-dem')
+          for lat in range(math.floor(south),math.ceil(north)):
+              for lon in range(math.floor(west),math.ceil(east)):
+                  ns='N' if lat >= 0 else 'S'; ew='E' if lon >= 0 else 'W'
+                  tile=f'Copernicus_DSM_COG_10_{ns}{abs(lat):02d}_00_{ew}{abs(lon):03d}_00_DEM'
+                  url=f'https://copernicus-dem-30m.s3.eu-central-1.amazonaws.com/{tile}/{tile}.tif'
+                  target=out/f'{tile}.tif'
+                  print('download',url)
+                  request=urllib.request.Request(url,headers={'User-Agent':'AlanMap/7.0.25'})
+                  with urllib.request.urlopen(request,timeout=240) as response,target.open('wb') as f:
+                      while True:
+                          chunk=response.read(1024*1024)
+                          if not chunk: break
+                          f.write(chunk)
+          PY
+          read WEST SOUTH EAST NORTH < <(python - <<'PY'
+          import json
+          print(*json.load(open('build/rectangular-bounds.json'))['bounds'])
+          PY
+          )
+          gdalbuildvrt build/copernicus-dem.vrt build/copernicus-dem/*.tif
+          gdalwarp -overwrite -t_srs EPSG:4326 -te "$WEST" "$SOUTH" "$EAST" "$NORTH" -r bilinear \
+            -of GTiff -co TILED=YES -co COMPRESS=DEFLATE -co BIGTIFF=IF_SAFER \
+            build/copernicus-dem.vrt build/copernicus-dem-clipped.tif
+          rio rgbify -b -10000 -i 0.1 --min-z 7 --max-z 12 -j 4 --format png \
+            build/copernicus-dem-clipped.tif build/alan-dem-7.0.25.mbtiles
+          pmtiles convert build/alan-dem-7.0.25.mbtiles build/alan-dem-7.0.25.pmtiles
+          pmtiles verify build/alan-dem-7.0.25.pmtiles
+          ls -lh build/alan-dem-7.0.25.pmtiles
+
+      - name: Build Copernicus CLMS LCM-10 when credentials are configured
+        id: landcover
+        run: |
+          set -euxo pipefail
+          CLIENT_ID="${CDSE_CLIENT_ID:-${SH_CLIENT_ID:-${COPERNICUS_CLIENT_ID:-}}}"
+          CLIENT_SECRET="${CDSE_CLIENT_SECRET:-${SH_CLIENT_SECRET:-${COPERNICUS_CLIENT_SECRET:-}}}"
+          if [ -z "$CLIENT_ID" ] || [ -z "$CLIENT_SECRET" ]; then
+            echo 'available=false' >> "$GITHUB_OUTPUT"
+            echo 'CDSE credentials are not configured; OSM forest remains as runtime fallback.'
+            exit 0
+          fi
+          python tools/fetch_clms_lcm10.py --bounds-json build/rectangular-bounds.json --output-dir build/clms-lcm10
+          read WEST SOUTH EAST NORTH < <(python - <<'PY'
+          import json
+          print(*json.load(open('build/rectangular-bounds.json'))['bounds'])
+          PY
+          )
+          gdalbuildvrt build/clms-lcm10.vrt build/clms-lcm10/*.tif
+          gdalwarp -overwrite -t_srs EPSG:4326 -te "$WEST" "$SOUTH" "$EAST" "$NORTH" -r near \
+            -of GTiff -co TILED=YES -co COMPRESS=DEFLATE -co BIGTIFF=IF_SAFER \
+            build/clms-lcm10.vrt build/clms-lcm10-vegetation.tif
+          rio mbtiles build/clms-lcm10-vegetation.tif build/alan-landcover-7.0.25.mbtiles \
+            --overwrite --zoom-levels 7..12 --format WEBP --rgba --resampling nearest -j 4 --co QUALITY=78
+          pmtiles convert build/alan-landcover-7.0.25.mbtiles build/alan-landcover-7.0.25.pmtiles
+          pmtiles verify build/alan-landcover-7.0.25.pmtiles
+          echo 'available=true' >> "$GITHUB_OUTPUT"
+
+      - name: Integrate cropped runtime and shards
+        run: |
+          set -euxo pipefail
+          if [ "${{ steps.landcover.outputs.available }}" = 'true' ]; then
+            python tools/release_7_0_25.py finalize \
+              --dem build/alan-dem-7.0.25.pmtiles \
+              --vector build/alan-vector-7.0.25.pmtiles \
+              --landcover build/alan-landcover-7.0.25.pmtiles \
+              --source-url "$OSM_URL" --source-md5 "$OSM_MD5" --tippecanoe-commit "$TIPPECANOE_COMMIT"
+          else
+            python tools/release_7_0_25.py finalize \
+              --dem build/alan-dem-7.0.25.pmtiles \
+              --vector build/alan-vector-7.0.25.pmtiles \
+              --source-url "$OSM_URL" --source-md5 "$OSM_MD5" --tippecanoe-commit "$TIPPECANOE_COMMIT"
+          fi
+          rm -f data/alan-dem-7.0.25.pmtiles data/alan-vector-7.0.25.pmtiles data/alan-landcover-7.0.25.pmtiles
+          rm -rf data/shards/dem-7.0.24 data/shards/vector-7.0.24 data/shards/landcover-7.0.24
+          find data/shards -maxdepth 1 -type d -print | sort
+
+      - name: Validate 7.0.25 data and runtime contract
+        run: |
+          set -euxo pipefail
+          python tools/release_7_0_25.py validate
+          node tests/runtime-contract.mjs
+          if grep -RniE "Alan Map 7\.0\.24|const VERSION = '7\.0\.24'|alan-map-stage7\.0\.24-view|7\.0\.24-r[0-9]+" assets index.html tests README.md; then
+            echo 'Stale 7.0.24 runtime reference remains' >&2
+            exit 1
+          fi
+
+      - name: Browser smoke test
+        run: |
+          set -euxo pipefail
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+          node tests/map-smoke.mjs
+
+      - name: Commit generated 7.0.25 project
+        run: |
+          set -euxo pipefail
+          git config user.name 'Alan Map Builder'
+          git config user.email 'actions@users.noreply.github.com'
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m 'Build Alan Map 7.0.25 tight rectangular crop'
+            git push origin HEAD:7.0.25
+          fi
+
+      - name: Package full project and file sizes
+        run: |
+          set -euxo pipefail
+          mkdir -p /tmp/alan-map-7-0-25
+          find . -type f \
+            -not -path './.git/*' -not -path './build/*' -not -path './node_modules/*' \
+            -printf '%P\t%s\n' | sort > /tmp/alan-map-7-0-25/file-sizes-7.0.25.tsv
+          zip -qr /tmp/alan-map-7-0-25/alan-map-7.0.25.zip . \
+            -x '.git/*' 'build/*' 'node_modules/*'
+          unzip -tq /tmp/alan-map-7-0-25/alan-map-7.0.25.zip
+          ls -lh /tmp/alan-map-7-0-25/alan-map-7.0.25.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: alan-map-7.0.25-full
+          path: /tmp/alan-map-7-0-25/
+          retention-days: 30
