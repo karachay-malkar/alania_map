@@ -6,34 +6,28 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  const VERSION = '5.0.0';
+  const VERSION = '6.0.0';
   const DEFAULT_ALTITUDE_M = 7000;
   const MIN_ZOOM = 7.0;
   const FULL_OPACITY_ZOOM = 9.5;
   const MAX_ZOOM = 10.0;
-  const DISPLAY_HEIGHT_PX = 24;
   const TEXTURE_FONT_SIZE = 56;
   const ATLAS_MAX_WIDTH = 2048;
   const ATLAS_PADDING = 2;
-  const FLOATS_PER_VERTEX = 7;
+  const FLOATS_PER_VERTEX = 5;
   const STRIDE_BYTES = FLOATS_PER_VERTEX * 4;
 
   const VERTEX_SHADER = `
     precision highp float;
-    attribute vec3 a_center;
-    attribute vec2 a_offset;
+    attribute vec3 a_position;
     attribute vec2 a_texcoord;
     uniform mat4 u_matrix;
-    uniform vec2 u_viewport;
     varying vec2 v_texcoord;
     void main() {
-      vec4 centerClip = u_matrix * vec4(a_center, 1.0);
-      // Regional names are true screen-space billboards: they remain horizontal,
-      // readable left-to-right, and the same CSS-pixel size at every zoom/bearing.
-      vec2 pixelOffset = vec2(a_offset.x, -a_offset.y);
-      vec2 ndcOffset = pixelOffset * 2.0 / max(u_viewport, vec2(1.0));
-      gl_Position = centerClip;
-      gl_Position.xy += ndcOffset * centerClip.w;
+      // Each label quad is authored directly in Mercator world coordinates.
+      // It therefore stays fixed above the map plane and grows/shrinks only
+      // because the camera moves closer to or farther from the world object.
+      gl_Position = u_matrix * vec4(a_position, 1.0);
       v_texcoord = a_texcoord;
     }
   `;
@@ -128,41 +122,62 @@
     }
   }
 
-  function displayDimensions(label, heightPx = DISPLAY_HEIGHT_PX) {
+  function labelAspectRatio(label) {
     const safeHeight = Math.max(1, Number(label?.imageHeight || 1));
     const safeWidth = Math.max(1, Number(label?.imageWidth || safeHeight));
-    const targetHeight = Math.max(1, Number(heightPx || DISPLAY_HEIGHT_PX));
-    return {width: targetHeight * safeWidth / safeHeight, height: targetHeight};
+    return safeWidth / safeHeight;
   }
 
-  function buildLabelQuad(label, maplibregl, altitudeM = DEFAULT_ALTITUDE_M, displayHeightPx = DISPLAY_HEIGHT_PX) {
+  function buildLabelQuad(label, maplibregl, altitudeM = DEFAULT_ALTITUDE_M) {
     const line = label?.line;
     if (!Array.isArray(line) || line.length < 2) return null;
     const midpoint = label.midpoint || lineMidpoint(line);
     if (!midpoint) return null;
+
+    const first = line[0];
+    const last = line[line.length - 1];
     const center = maplibregl.MercatorCoordinate.fromLngLat({lng: midpoint[0], lat: midpoint[1]}, altitudeM);
-    if (![center.x, center.y, center.z].every(Number.isFinite)) return null;
-    const dimensions = displayDimensions(label, displayHeightPx);
-    const halfWidth = dimensions.width / 2;
-    const halfHeight = dimensions.height / 2;
+    const start = maplibregl.MercatorCoordinate.fromLngLat({lng: first[0], lat: first[1]}, altitudeM);
+    const end = maplibregl.MercatorCoordinate.fromLngLat({lng: last[0], lat: last[1]}, altitudeM);
+    if (![center.x, center.y, center.z, start.x, start.y, end.x, end.y].every(Number.isFinite)) return null;
+
+    const axisX = end.x - start.x;
+    const axisY = end.y - start.y;
+    const axisLength = Math.hypot(axisX, axisY);
+    if (!(axisLength > 0)) return null;
+
+    const scale = clamp(Number(label.worldScale || 1), 0.25, 1.5);
+    const halfWidth = axisLength * scale / 2;
+    const halfHeight = halfWidth / Math.max(1, labelAspectRatio(label));
+    const unitX = axisX / axisLength;
+    const unitY = axisY / axisLength;
+    const perpendicularX = -unitY;
+    const perpendicularY = unitX;
+
+    const alongX = unitX * halfWidth;
+    const alongY = unitY * halfWidth;
+    const acrossX = perpendicularX * halfHeight;
+    const acrossY = perpendicularY * halfHeight;
     const uv = label.uv || {left: 0, right: 1, top: 1, bottom: 0};
-    const vertex = (offsetX, offsetY, u, v) => [
-      center.x, center.y, center.z,
-      offsetX, offsetY,
-      u, v
-    ];
+
+    const vertex = (x, y, u, v) => [x, y, center.z, u, v];
+    const topLeft = vertex(center.x - alongX - acrossX, center.y - alongY - acrossY, uv.left, uv.top);
+    const topRight = vertex(center.x + alongX - acrossX, center.y + alongY - acrossY, uv.right, uv.top);
+    const bottomRight = vertex(center.x + alongX + acrossX, center.y + alongY + acrossY, uv.right, uv.bottom);
+    const bottomLeft = vertex(center.x - alongX + acrossX, center.y - alongY + acrossY, uv.left, uv.bottom);
+
     return new Float32Array([
-      ...vertex(-halfWidth, -halfHeight, uv.left, uv.top),
-      ...vertex(halfWidth, -halfHeight, uv.right, uv.top),
-      ...vertex(halfWidth, halfHeight, uv.right, uv.bottom),
-      ...vertex(-halfWidth, -halfHeight, uv.left, uv.top),
-      ...vertex(halfWidth, halfHeight, uv.right, uv.bottom),
-      ...vertex(-halfWidth, halfHeight, uv.left, uv.bottom)
+      ...topLeft,
+      ...topRight,
+      ...bottomRight,
+      ...topLeft,
+      ...bottomRight,
+      ...bottomLeft
     ]);
   }
 
-  function buildCombinedVertices(labels, maplibregl, altitudeM, displayHeightPx = DISPLAY_HEIGHT_PX) {
-    const quads = labels.map((label) => buildLabelQuad(label, maplibregl, altitudeM, displayHeightPx)).filter(Boolean);
+  function buildCombinedVertices(labels, maplibregl, altitudeM) {
+    const quads = labels.map((label) => buildLabelQuad(label, maplibregl, altitudeM)).filter(Boolean);
     const vertices = new Float32Array(quads.length * 6 * FLOATS_PER_VERTEX);
     quads.forEach((quad, index) => vertices.set(quad, index * 6 * FLOATS_PER_VERTEX));
     return {vertices, vertexCount: quads.length * 6};
@@ -351,7 +366,6 @@
     const features = Array.isArray(options.features) ? options.features : [];
     const images = options.images || {};
     const altitudeM = Number.isFinite(Number(options.altitudeM)) ? Number(options.altitudeM) : DEFAULT_ALTITUDE_M;
-    const displayHeightPx = clamp(Number(options.displayHeightPx || DISPLAY_HEIGHT_PX), 12, 40);
     const layerId = options.layerId || 'regional-labels-3d-hook';
     const beforeId = options.beforeId || null;
     const onError = typeof options.onError === 'function' ? options.onError : () => {};
@@ -377,6 +391,7 @@
           imageUri,
           imageWidth: dimensions?.width || Math.max(120, text.length * 43),
           imageHeight: dimensions?.height || 84,
+          worldScale: clamp(Number(properties.display_icon_scale || 1), 0.25, 1.5),
           uv: null
         } : null;
       })
@@ -391,9 +406,8 @@
     let vertexBuffer = null;
     let atlasTexture = null;
     let atlas = null;
-    let locations = {center: -1, offset: -1, texcoord: -1};
+    let locations = {position: -1, texcoord: -1};
     let matrixLocation = null;
-    let viewportLocation = null;
     let textureLocation = null;
     let opacityLocation = null;
     let geometryUploaded = false;
@@ -420,7 +434,7 @@
 
     function uploadGeometry(gl) {
       if (!atlas || !vertexBuffer) return;
-      const geometry = buildCombinedVertices(preparedLabels, maplibregl, altitudeM, displayHeightPx);
+      const geometry = buildCombinedVertices(preparedLabels, maplibregl, altitudeM);
       gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
       gl.bufferData(gl.ARRAY_BUFFER, geometry.vertices, gl.STATIC_DRAW);
       vertexCount = geometry.vertexCount;
@@ -434,12 +448,10 @@
       vertexBuffer = gl.createBuffer();
       if (!vertexBuffer) throw new Error('RegionalLabels3D: WebGL vertex buffer allocation failed.');
       locations = {
-        center: gl.getAttribLocation(program, 'a_center'),
-        offset: gl.getAttribLocation(program, 'a_offset'),
+        position: gl.getAttribLocation(program, 'a_position'),
         texcoord: gl.getAttribLocation(program, 'a_texcoord')
       };
       matrixLocation = gl.getUniformLocation(program, 'u_matrix');
-      viewportLocation = gl.getUniformLocation(program, 'u_viewport');
       textureLocation = gl.getUniformLocation(program, 'u_texture');
       opacityLocation = gl.getUniformLocation(program, 'u_opacity');
       geometryUploaded = false;
@@ -466,9 +478,8 @@
     function configureAttributes(gl) {
       gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
       Object.values(locations).forEach((location) => { if (location >= 0) gl.enableVertexAttribArray(location); });
-      gl.vertexAttribPointer(locations.center, 3, gl.FLOAT, false, STRIDE_BYTES, 0);
-      gl.vertexAttribPointer(locations.offset, 2, gl.FLOAT, false, STRIDE_BYTES, 12);
-      gl.vertexAttribPointer(locations.texcoord, 2, gl.FLOAT, false, STRIDE_BYTES, 20);
+      gl.vertexAttribPointer(locations.position, 3, gl.FLOAT, false, STRIDE_BYTES, 0);
+      gl.vertexAttribPointer(locations.texcoord, 2, gl.FLOAT, false, STRIDE_BYTES, 12);
     }
 
     function render(gl, renderInput) {
@@ -484,20 +495,16 @@
       if (!matrix) throw new Error('RegionalLabels3D: projection matrix is unavailable.');
       const opacity = labelOpacity(map.getZoom());
       if (opacity <= 0) return;
-      const mapCanvas = map.getCanvas?.();
-      const viewportWidth = Math.max(1, mapCanvas?.clientWidth || 1);
-      const viewportHeight = Math.max(1, mapCanvas?.clientHeight || 1);
       const previousState = captureGlState(gl, locations);
       try {
         gl.useProgram(program);
         gl.enable(gl.BLEND);
         gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-        gl.disable(gl.DEPTH_TEST);
+        gl.enable(gl.DEPTH_TEST);
         gl.depthMask(false);
         gl.disable(gl.CULL_FACE);
         configureAttributes(gl);
         gl.uniformMatrix4fv(matrixLocation, false, matrix instanceof Float32Array ? matrix : new Float32Array(matrix));
-        gl.uniform2f(viewportLocation, viewportWidth, viewportHeight);
         gl.uniform1i(textureLocation, 0);
         gl.uniform1f(opacityLocation, opacity);
         gl.activeTexture(gl.TEXTURE0);
@@ -565,7 +572,7 @@
       getDiagnostics() {
         return {
           version: VERSION,
-          renderer: 'webgl-fixed-screen-label-atlas',
+          renderer: 'webgl-world-plane-label-atlas',
           altitudeM,
           preparedLabels: preparedLabels.length,
           atlasReady: Boolean(atlas),
@@ -580,20 +587,17 @@
           minZoom: MIN_ZOOM,
           maxZoom: MAX_ZOOM,
           fullOpacityZoom: FULL_OPACITY_ZOOM,
-          minimumFontSizePx: displayHeightPx,
-          maximumFontSizePx: displayHeightPx,
-          displayHeightPx,
-          sizingModel: 'constant-css-pixel-height',
-          sharedAbsolutePlane: false,
-          mapPlaneAligned: false,
-          screenRotationDegrees: 0,
-          readableLeftToRight: true,
-          projectedAxisRotation: false,
-          billboard: true,
+          sizingModel: 'fixed-world-axis-length',
+          sharedAbsolutePlane: true,
+          mapPlaneAligned: true,
+          screenRotationDegrees: null,
+          readableLeftToRight: false,
+          projectedAxisRotation: true,
+          billboard: false,
           screenCanvas: false,
           collisionDisplacement: false,
-          fixedGroundScale: false,
-          fixedScreenScale: true,
+          fixedGroundScale: true,
+          fixedScreenScale: false,
           geometryDependsOnZoom: false,
           glStateRestored: true,
           contextRecovery: true
@@ -616,16 +620,15 @@
       minZoom: MIN_ZOOM,
       maxZoom: MAX_ZOOM,
       fullOpacityZoom: FULL_OPACITY_ZOOM,
-      displayHeightPx: DISPLAY_HEIGHT_PX,
       textureFontSize: TEXTURE_FONT_SIZE,
-      renderer: 'webgl-fixed-screen-label-atlas',
-      mapPlaneAligned: false,
-      screenRotationDegrees: 0,
-      readableLeftToRight: true,
-      billboard: true,
-      fixedGroundScale: false,
-      fixedScreenScale: true,
-      sizingModel: 'constant-css-pixel-height',
+      renderer: 'webgl-world-plane-label-atlas',
+      mapPlaneAligned: true,
+      screenRotationDegrees: null,
+      readableLeftToRight: false,
+      billboard: false,
+      fixedGroundScale: true,
+      fixedScreenScale: false,
+      sizingModel: 'fixed-world-axis-length',
       drawCallsPerRenderedFrame: 1
     },
     __test: {
@@ -633,7 +636,7 @@
       lineMidpoint,
       resolveLine,
       pngDimensions,
-      displayDimensions,
+      labelAspectRatio,
       buildLabelQuad,
       buildCombinedVertices,
       matrixFromRenderInput,

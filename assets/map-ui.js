@@ -31,16 +31,16 @@
     small:Object.freeze({diameter:7, radius:2.5, strokeWidth:1})
   });
   const OBJECT_PRESENTATION = Object.freeze({
-    fiveThousanders:Object.freeze({minZoom:7, pointStyle:'large'}),
-    currentSettlements:Object.freeze({minZoom:8, pointStyle:'large'}),
-    mountainObjects:Object.freeze({minZoom:8, pointStyle:'small'}),
-    passes:Object.freeze({minZoom:8, pointStyle:'small'}),
-    peaks:Object.freeze({minZoom:8, pointStyle:'small'}),
-    historicSettlements:Object.freeze({minZoom:10, pointStyle:'large'}),
-    historicObjects:Object.freeze({minZoom:10, pointStyle:'small'}),
-    waterObjects:Object.freeze({minZoom:10, pointStyle:'small'}),
-    naturalObjects:Object.freeze({minZoom:10, pointStyle:'small'}),
-    modernObjects:Object.freeze({minZoom:10, pointStyle:'small'})
+    fiveThousanders:Object.freeze({minZoom:10, pointStyle:'large'}),
+    currentSettlements:Object.freeze({minZoom:10, pointStyle:'large'}),
+    mountainObjects:Object.freeze({minZoom:12, pointStyle:'small'}),
+    passes:Object.freeze({minZoom:12, pointStyle:'small'}),
+    peaks:Object.freeze({minZoom:12, pointStyle:'small'}),
+    historicSettlements:Object.freeze({minZoom:12, pointStyle:'large'}),
+    historicObjects:Object.freeze({minZoom:12, pointStyle:'small'}),
+    waterObjects:Object.freeze({minZoom:12, pointStyle:'small'}),
+    naturalObjects:Object.freeze({minZoom:12, pointStyle:'small'}),
+    modernObjects:Object.freeze({minZoom:12, pointStyle:'small'})
   });
 
   function requireElement(target) {
@@ -247,7 +247,7 @@
       <div class="alan-map-canvas" data-role="map" aria-label="Интерактивная рельефная карта"></div>
       <div class="alan-map-loading" data-role="loading"><div class="alan-map-loading-card"><div class="alan-map-spinner"></div><div class="alan-map-loading-title">Загрузка карты</div><div class="alan-map-loading-text" data-role="loading-text">Подготавливается рельеф и законченный картографический стиль.</div></div></div>
       <div class="alan-map-toolbar" data-role="toolbar">
-        <div class="alan-map-toolbar-head"><div class="alan-map-toolbar-titles"><div class="alan-map-title">Alan Map · 7.0.23</div><div class="alan-map-subtitle">Автономная карта · физически обрезанные DEM и векторные данные</div></div><button class="alan-map-collapse-button" data-action="toggle-toolbar" type="button" aria-expanded="true" aria-label="Скрыть панель">−</button></div>
+        <div class="alan-map-toolbar-head"><div class="alan-map-toolbar-titles"><div class="alan-map-title">Alan Map · 7.0.24</div><div class="alan-map-subtitle">Автономная карта · физически обрезанные DEM и векторные данные</div></div><button class="alan-map-collapse-button" data-action="toggle-toolbar" type="button" aria-expanded="true" aria-label="Скрыть панель">−</button></div>
         <div class="alan-map-buttons alan-map-action-buttons"><button data-action="reset" type="button">Сброс</button><button class="alan-map-fullscreen-button" data-action="fullscreen" type="button" aria-pressed="false">На весь экран</button></div>
         <div class="alan-map-buttons alan-map-layer-buttons"><button data-toggle="roads" class="active" type="button">Дороги</button><button data-toggle="rivers" class="active" type="button">Вода</button><button data-toggle="regions" class="active" type="button">Районы</button><button data-toggle="labels" class="active" type="button">Подписи</button><button data-toggle="modern" type="button">Современные</button></div>
         <div class="alan-map-control-row"><label>Рельеф</label><input data-control="relief" type="range" min="1" max="4.2" step="0.05" value="2.55"><span data-value="relief" class="alan-map-value">2.6×</span></div>
@@ -549,7 +549,7 @@
         {id:'modern-objects',type:'circle',source:'points',minzoom:OBJECT_PRESENTATION.modernObjects.minZoom,filter:sourceFilter('modernObjects'),layout:{'visibility':state.modern?'visible':'none'},paint:pointPaint(OBJECT_PRESENTATION.modernObjects.pointStyle,'#8b8984','#f4ead6',0.72)},
         {id:'mountain-passes',type:'circle',source:'points',minzoom:OBJECT_PRESENTATION.passes.minZoom,filter:['all',sourceFilter('passes'),['==',['get','visible'],1]],paint:pointPaint(OBJECT_PRESENTATION.passes.pointStyle,'#7b6d5d','#f2e9d8')},
         ...(natureEnabled ? [
-          {id:'osm-peak-points',type:'circle',source:'openmaptiles','source-layer':'peak',minzoom:VISIBILITY_ZOOM.DISTANT,filter:['!=',['get','hidden'],1],paint:{'circle-radius':['match',['get','peak_level'],1,4,2.5],'circle-color':['match',['get','peak_level'],1,'#514b44','#675f55'],'circle-stroke-color':'#f7efe0','circle-stroke-width':1,'circle-opacity':['interpolate',['linear'],['zoom'],7,['match',['get','peak_level'],1,1,0],9.8,['match',['get','peak_level'],1,1,0],10.2,1],'circle-stroke-opacity':['interpolate',['linear'],['zoom'],7,['match',['get','peak_level'],1,1,0],9.8,['match',['get','peak_level'],1,1,0],10.2,1],'circle-pitch-alignment':'viewport','circle-pitch-scale':'viewport'}}
+          {id:'osm-peak-points',type:'circle',source:'openmaptiles','source-layer':'peak',minzoom:OBJECT_PRESENTATION.fiveThousanders.minZoom,filter:['all',['!=',['get','hidden'],1],['==',['get','peak_level'],1]],paint:pointPaint(OBJECT_PRESENTATION.fiveThousanders.pointStyle,'#514b44','#f7efe0',1)}
         ] : [])
       ];
 
@@ -558,9 +558,9 @@
           {id:'osm-river-label-main',type:'symbol',source:'openmaptiles','source-layer':'waterway',minzoom:VISIBILITY_ZOOM.DISTANT,filter:['==',['get','tier'],1],layout:{'symbol-placement':'line','symbol-spacing':500,'text-field':labelName,'text-font':['Noto Sans Regular'],'text-size':['interpolate',['linear'],['zoom'],7,9.5,11,14.5],'text-letter-spacing':0.055,'text-rotation-alignment':'map','text-pitch-alignment':'viewport','text-keep-upright':true,'text-max-angle':38,'text-allow-overlap':false},paint:{'text-color':'#126083','text-halo-color':'#f5ead5','text-halo-width':1.7,'text-halo-blur':0.55}},
           {id:'osm-river-label-regional',type:'symbol',source:'openmaptiles','source-layer':'waterway',minzoom:9,filter:['==',['get','tier'],2],layout:{'symbol-placement':'line','symbol-spacing':440,'text-field':labelName,'text-font':['Noto Sans Regular'],'text-size':['interpolate',['linear'],['zoom'],9,9.1,12,12.7],'text-letter-spacing':0.04,'text-rotation-alignment':'map','text-pitch-alignment':'viewport','text-keep-upright':true,'text-max-angle':42,'text-allow-overlap':false},paint:{'text-color':'#126083','text-halo-color':'#f5ead5','text-halo-width':1.45,'text-halo-blur':0.45}},
           {id:'osm-water-labels',type:'symbol',source:'openmaptiles','source-layer':'water',minzoom:10,filter:['all',['in',['get','class'],['literal',['lake','reservoir','pond']]],['==',['get','label_primary'],1]],layout:{'text-field':labelName,'text-font':['Noto Sans Regular'],'text-size':10.5,'text-allow-overlap':false},paint:{'text-color':'#126083','text-halo-color':'#f5ead5','text-halo-width':1.75,'text-halo-blur':0.5}},
-          {id:'osm-peak-labels',type:'symbol',source:'openmaptiles','source-layer':'peak',minzoom:VISIBILITY_ZOOM.DISTANT,filter:['!=',['get','hidden'],1],layout:{'text-field':['case',['==',['get','peak_level'],1],['format',labelName,{},'\n',{},['concat',['to-string',['get','ele']],' м'],{'font-scale':0.72}],labelName],'text-font':['Noto Sans Regular'],'text-size':['match',['get','peak_level'],1,11.5,9.7],'text-offset':[0,1.1],'text-anchor':'top','text-allow-overlap':false},paint:{'text-color':'#514a43','text-halo-color':'#f7efe0','text-halo-width':['match',['get','peak_level'],1,1.9,1.5],'text-opacity':['interpolate',['linear'],['zoom'],7,['match',['get','peak_level'],1,1,0],9.8,['match',['get','peak_level'],1,1,0],10.2,1]}}
+          {id:'osm-peak-labels',type:'symbol',source:'openmaptiles','source-layer':'peak',minzoom:OBJECT_PRESENTATION.fiveThousanders.minZoom,filter:['all',['!=',['get','hidden'],1],['==',['get','peak_level'],1]],layout:{'text-field':['format',labelName,{},'\n',{},['concat',['to-string',['get','ele']],' м'],{'font-scale':0.72}],'text-font':['Noto Sans Regular'],'text-size':11.5,'text-offset':[0,1.1],'text-anchor':'top','text-allow-overlap':false},paint:{'text-color':'#514a43','text-halo-color':'#f7efe0','text-halo-width':1.9,'text-opacity':1}}
         ] : []),
-        {id:'regional-labels-fallback',type:'symbol',source:'lines',minzoom:VISIBILITY_ZOOM.DISTANT,maxzoom:LABEL_ZOOM.REGIONAL_MAX,filter:sourceFilter('regionalLabels'),layout:{'visibility':'none','symbol-placement':'line-center','icon-image':['get','icon_id'],'icon-size':0.58,'icon-rotation-alignment':'viewport','icon-pitch-alignment':'viewport','icon-keep-upright':true,'icon-allow-overlap':true,'icon-ignore-placement':true,'icon-padding':1,'symbol-sort-key':['get','placement_priority']},paint:{'icon-opacity':['interpolate',['linear'],['zoom'],7.0,1,9.5,1,10.0,0]}},
+        {id:'regional-labels-fallback',type:'symbol',source:'lines',minzoom:VISIBILITY_ZOOM.DISTANT,maxzoom:LABEL_ZOOM.REGIONAL_MAX,filter:sourceFilter('regionalLabels'),layout:{'visibility':'none','symbol-placement':'line-center','icon-image':['get','icon_id'],'icon-size':['interpolate',['linear'],['zoom'],7.0,0.30,9.5,1.40],'icon-rotation-alignment':'map','icon-pitch-alignment':'map','icon-keep-upright':false,'icon-allow-overlap':true,'icon-ignore-placement':true,'icon-padding':1,'symbol-sort-key':['get','placement_priority']},paint:{'icon-opacity':['interpolate',['linear'],['zoom'],7.0,1,9.5,1,10.0,0]}},
         {id:'settlement-labels-current',type:'symbol',source:'points',minzoom:OBJECT_PRESENTATION.currentSettlements.minZoom,filter:['all',sourceFilter('objects'),['==',['get','visible'],1],['==',['get','object_type'],'settlement'],['!=',['get','object_subtype'],'historic_settlement']],layout:{'text-field':labelName,'text-font':['Noto Sans Regular'],'text-size':['interpolate',['linear'],['zoom'],8.0,10.2,12.5,12.6],'text-offset':[0,1.08],'text-anchor':'top','text-allow-overlap':true,'text-ignore-placement':true,'text-optional':false,'text-max-width':100,'text-line-height':1.0},paint:{'text-color':'#304553','text-halo-color':'#f4ead6','text-halo-width':2.2,'text-halo-blur':0.35}},
         {id:'settlement-labels-local',type:'symbol',source:'points',minzoom:OBJECT_PRESENTATION.historicSettlements.minZoom,filter:['all',sourceFilter('objects'),['==',['get','visible'],1],['==',['get','object_type'],'settlement'],['==',['get','object_subtype'],'historic_settlement']],layout:{'text-field':labelName,'text-font':['Noto Sans Regular'],'text-size':9.5,'text-offset':[0,1.0],'text-anchor':'top','text-allow-overlap':true,'text-ignore-placement':true,'text-optional':false,'text-max-width':100,'text-line-height':1.0},paint:{'text-color':'#5a4128','text-halo-color':'#f4ead6','text-halo-width':2.0,'text-halo-blur':0.3}},
         {id:'historic-object-labels',type:'symbol',source:'points',minzoom:OBJECT_PRESENTATION.historicObjects.minZoom,filter:['all',sourceFilter('objects'),['==',['get','visible'],1],['in',['get','object_type'],['literal',['fortification','landmark']]]],layout:{'text-field':labelName,'text-font':['Noto Sans Regular'],'text-size':9.4,'text-offset':[0,1.1],'text-anchor':'top','text-allow-overlap':false},paint:{'text-color':'#34383b','text-halo-color':'#f4ead6','text-halo-width':1.35}},
@@ -625,7 +625,6 @@
           features:data.regionalLabels?.features || [],
           images:data.regionalLabelImages || {},
           altitudeM:7000,
-          displayHeightPx:24,
           beforeId:'modern-labels',
           visible:toggleButtons.regions.classList.contains('active'),
           onError:(error) => {

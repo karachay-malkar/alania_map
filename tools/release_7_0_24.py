@@ -141,69 +141,12 @@ def patch_index() -> None:
 
 
 def write_tests() -> None:
-    runtime = r'''import fs from 'node:fs';
-import assert from 'node:assert/strict';
-
-const bootstrap = fs.readFileSync('assets/bootstrap.js','utf8');
-const ui = fs.readFileSync('assets/map-ui.js','utf8');
-const page = fs.readFileSync('assets/map-page.js','utf8');
-const dataSource = fs.readFileSync('assets/map-data.part-000.js','utf8') + fs.readFileSync('assets/map-data.part-001.js','utf8');
-
-assert.match(ui, /const VERSION = '7\.0\.24'/);
-assert.ok(!bootstrap.includes('fantasy-relief.js'));
-assert.ok(!bootstrap.includes('fantasy-style.js'));
-assert.ok(!fs.existsSync('assets/fantasy-relief.js'));
-assert.ok(!fs.existsSync('assets/fantasy-style.js'));
-assert.match(ui, /data\.regionalDem\.encoding \|\| 'terrarium'/);
-assert.match(ui, /copernicus-landcover/);
-assert.match(page, /regionalLandcover\?\.archivePath/);
-
-const marker = 'window.ALAN_MAP_DATA = ';
-let payload = dataSource.slice(dataSource.indexOf(marker) + marker.length).trim();
-if (payload.endsWith(';')) payload = payload.slice(0,-1);
-const data = JSON.parse(payload);
-assert.equal(data.version, '7.0.24');
-assert.equal(data.applicationVersion, '7.0.24');
-assert.equal(data.regionalDem.source, 'Copernicus DEM GLO-30');
-assert.equal(data.regionalDem.encoding, 'mapbox');
-const ring = data.mapFrame.features[0].geometry.coordinates[0];
-assert.equal(ring.length, 5);
-const uniqueX = new Set(ring.map(p => p[0]));
-const uniqueY = new Set(ring.map(p => p[1]));
-assert.equal(uniqueX.size, 2);
-assert.equal(uniqueY.size, 2);
-assert.deepEqual(data.bounds, [Math.min(...uniqueX), Math.min(...uniqueY), Math.max(...uniqueX), Math.max(...uniqueY)]);
-if (data.regionalLandcover?.available) {
-  assert.equal(data.regionalLandcover.source, 'Copernicus CLMS LCM-10');
-  assert.ok(data.regionalLandcover.archivePath.includes('landcover-7.0.24.pmtiles'));
-}
-console.log('runtime-contract: ok');
-'''
-    smoke = r'''import { chromium } from 'playwright';
-import { spawn } from 'node:child_process';
-import assert from 'node:assert/strict';
-
-const server = spawn('python3',['-m','http.server','4173','--bind','127.0.0.1'],{stdio:'ignore'});
-await new Promise(r => setTimeout(r,1200));
-const browser = await chromium.launch({headless:true});
-try {
-  const page = await browser.newPage({viewport:{width:1280,height:900}});
-  const errors=[];
-  page.on('pageerror',e=>errors.push(String(e)));
-  await page.goto('http://127.0.0.1:4173/',{waitUntil:'domcontentloaded',timeout:30000});
-  await page.waitForFunction(()=>Boolean(window.AlanMap && document.querySelector('.maplibregl-canvas')),{timeout:30000});
-  assert.equal(await page.locator('[data-fantasy-toggle], .fantasy-toggle').count(),0);
-  const sourceIds = await page.evaluate(()=>Object.keys(window.AlanMap?.map?.getStyle?.().sources || {}));
-  assert.ok(sourceIds.includes('terrain-dem'));
-  assert.ok(errors.length === 0, errors.join('\n'));
-  console.log('map-smoke: ok');
-} finally {
-  await browser.close();
-  server.kill('SIGTERM');
-}
-'''
-    (ROOT/'tests/runtime-contract.mjs').write_text(runtime,encoding='utf-8')
-    (ROOT/'tests/map-smoke.mjs').write_text(smoke,encoding='utf-8')
+    # Runtime tests are maintained as source files. Rebuilds must preserve the
+    # presentation contract instead of regenerating older test templates.
+    for relative in ('tests/runtime-contract.mjs', 'tests/map-smoke.mjs'):
+        path = ROOT / relative
+        if not path.exists():
+            raise RuntimeError(f'Missing required runtime test: {relative}')
 
 
 def patch_docs() -> None:
