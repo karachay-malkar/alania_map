@@ -318,7 +318,7 @@
 
     const layerIds = {
       roads: ['road-casing','road-main','road-minor','road-tunnel','road-bridge'],
-      riverGeometry: ['osm-river-water-fill','osm-river-halo','osm-river-line'],
+      riverGeometry: ['osm-river-water-fill','osm-river-line'],
       riverLabels: ['osm-river-label-main','osm-river-label-regional'],
       regions: ['regional-labels-fallback'],
       modernGeometry: ['modern-objects'],
@@ -534,8 +534,7 @@
         {id:'boundary-line',type:'line',source:'lines',minzoom:VISIBILITY_ZOOM.DISTANT,filter:sourceFilter('boundaries'),layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#554d45','line-width':['interpolate',['linear'],['zoom'],7.0,1.0,8.5,1.5,14.3,2.2],'line-opacity':0.9}},
         ...roadLayers,
         ...(natureEnabled ? [
-          {id:'osm-river-halo',type:'line',source:'openmaptiles','source-layer':'waterway',minzoom:VISIBILITY_ZOOM.DISTANT,layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#f4ead6','line-width':riverWidth(state.rivers,true),'line-opacity':riverOpacity(true),'line-blur':0.4}},
-          {id:'osm-river-line',type:'line',source:'openmaptiles','source-layer':'waterway',minzoom:VISIBILITY_ZOOM.DISTANT,layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#3f8dac','line-width':riverWidth(state.rivers,false),'line-opacity':riverOpacity(false)}}
+          {id:'osm-river-line',type:'line',source:'openmaptiles','source-layer':'waterway',minzoom:VISIBILITY_ZOOM.DISTANT,layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#6aa7bb','line-width':riverWidth(state.rivers,false),'line-opacity':riverOpacity(false)}}
         ] : [])
       ];
 
@@ -702,7 +701,6 @@
       const numericValue = clamp(Number(value),.7,2.2);
       riverValue.textContent = `${numericValue.toFixed(2)}×`;
       if (!map || !map.isStyleLoaded()) return;
-      if (map.getLayer('osm-river-halo')) map.setPaintProperty('osm-river-halo','line-width',riverWidth(numericValue,true));
       if (map.getLayer('osm-river-line')) map.setPaintProperty('osm-river-line','line-width',riverWidth(numericValue,false));
       queueSave();
     }
@@ -865,10 +863,21 @@
         'mountain-passes','osm-peak-points','osm-river-line','osm-water-fill',
         'osm-glacier-fill','osm-snow-fill'
       ];
-      clickableLayers.filter((id) => map.getLayer(id)).forEach((id) => {
+      const activeClickableLayers = clickableLayers.filter((id) => map.getLayer(id));
+      activeClickableLayers.forEach((id) => {
         map.on('mouseenter',id,() => {map.getCanvas().style.cursor='pointer';});
         map.on('mouseleave',id,() => {map.getCanvas().style.cursor='';});
         map.on('click',id,popupForFeature);
+      });
+      map.on('click',(event) => {
+        if (activeClickableLayers.length && map.queryRenderedFeatures(event.point,{layers:activeClickableLayers}).length) return;
+        const latitude = Number(event.lngLat?.lat);
+        const longitude = Number(event.lngLat?.lng);
+        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
+        new maplibregl.Popup({closeButton:true,maxWidth:'270px'})
+          .setLngLat(event.lngLat)
+          .setHTML(`<div class="alan-map-popup-title">Координаты</div><div class="alan-map-popup-meta">Широта: ${latitude.toFixed(6)}<br>Долгота: ${longitude.toFixed(6)}</div>`)
+          .addTo(map);
       });
     }
 
