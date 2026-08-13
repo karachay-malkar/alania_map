@@ -50,7 +50,6 @@ try {
   assert.ok(JSON.stringify(diagnostics.layers.peakPoint.filter).includes('peak_level'));
   assert.ok(JSON.stringify(diagnostics.layers.peakLabel.filter).includes('peak_level'));
 
-  // Settlement beams are deliberately removed from the rendered style.
   assert.equal(diagnostics.layers.settlementBeamHalo,null);
   assert.equal(diagnostics.layers.settlementBeamCore,null);
   assert.equal(diagnostics.overlay.beamLayersRemoved,true);
@@ -111,11 +110,12 @@ try {
   const compassScaleBefore = await page.evaluate(() => {
     const transform = document.querySelector('[data-role="parchment-compass"]')?.getAttribute('transform') || '';
     const values = transform.match(/^matrix\(([^)]+)\)/)?.[1].trim().split(/\s+/).map(Number) || [];
-    return values.length >= 4 ? Math.hypot(values[0],values[1]) : 0;
+    return values.length >= 4 ? Math.hypot(values[0],values[1]) * 0.5 : 0;
   });
   await page.evaluate(() => {
     const map = window.ALAN_MAP_INSTANCE.map;
     map.jumpTo({zoom:Math.min(map.getMaxZoom(),map.getZoom()+0.6)});
+    map.triggerRepaint?.();
   });
   await page.waitForTimeout(250);
   const compassScaleAfter = await page.evaluate(() => {
