@@ -1,0 +1,81 @@
+name: Validate Alan Map 7.0.24 display contract
+
+on:
+  push:
+    branches: [7.0.24]
+    paths:
+      - 'tools/display-contract-7.0.24.patch.gz.b64'
+      - '.github/workflows/validate-display-7.0.24.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: alan-map-7-0-24-display-validation
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Apply approved display contract when staged
+        run: |
+          set -euxo pipefail
+          if [ -f tools/display-contract-7.0.24.patch.gz.b64 ]; then
+            base64 -d tools/display-contract-7.0.24.patch.gz.b64 | gzip -d > /tmp/display-contract.patch
+            git apply --check /tmp/display-contract.patch
+            git apply /tmp/display-contract.patch
+            git rm tools/display-contract-7.0.24.patch.gz.b64
+          fi
+
+      - name: Static runtime contract
+        run: |
+          set -euxo pipefail
+          node tests/runtime-contract.mjs
+          python3 tools/release_7_0_24.py validate
+
+      - name: Install browser test runtime
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Browser smoke test
+        run: node tests/map-smoke.mjs
+
+      - name: Commit validated display contract
+        run: |
+          set -euxo pipefail
+          git config user.name 'Alan Map Builder'
+          git config user.email 'actions@users.noreply.github.com'
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m 'Apply 7.0.24 map display hierarchy'
+            git push origin HEAD:7.0.24
+          fi
+
+      - name: Package complete validated project
+        run: |
+          set -euxo pipefail
+          mkdir -p /tmp/alan-map-display-validated
+          find . -type f \
+            -not -path './.git/*' -not -path './node_modules/*' \
+            -printf '%P\t%s\n' | sort > /tmp/alan-map-display-validated/file-sizes-7.0.24.tsv
+          zip -qr /tmp/alan-map-display-validated/alan-map-7.0.24.zip . \
+            -x '.git/*' 'node_modules/*'
+          unzip -tq /tmp/alan-map-display-validated/alan-map-7.0.24.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: alan-map-7.0.24-display-validated
+          path: /tmp/alan-map-display-validated/
+          retention-days: 30
