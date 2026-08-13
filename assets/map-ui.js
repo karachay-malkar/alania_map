@@ -170,6 +170,7 @@
     return {
       polygons: taggedFeatureCollection([
         ['focus', data.focus],
+        ['frameMask', data.frameMask],
         ['glaciers', data.glaciers],
         ['elbrusSnow', data.elbrusSnow],
         ['peakSnow', data.peakSnow]
@@ -573,7 +574,8 @@
         ...natureLayers,
         ...lineLayers,
         ...pointLayers,
-        ...labelLayers
+        ...labelLayers,
+        {id:'frame-mask',type:'fill',source:'polygons',filter:sourceFilter('frameMask'),paint:{'fill-color':'#25282a','fill-opacity':1}}
       ];
       return {
         version: 8,
@@ -1066,11 +1068,11 @@
       getFrameClipDiagnostics:() => ({
         active:true,
         ready:Boolean(map?.getLayer?.('focus-paper')),
-        method:'physical-offline-data-clip',
+        method:'physical-vector-clip-plus-runtime-mask',
         cssClipPath:false,
         runtimeFramePointCount:mapFramePointCount(data),
-        outsideMaskLayer:false,
-        runtimeMask:false,
+        outsideMaskLayer:Boolean(map?.getLayer?.('frame-mask')),
+        runtimeMask:Boolean(data.frameMask?.features?.length),
         vectorWithinFilters:false,
         strictDataClip:true,
         vectorPhysicallyClipped:Boolean(data.regionalVector?.physicallyClipped),

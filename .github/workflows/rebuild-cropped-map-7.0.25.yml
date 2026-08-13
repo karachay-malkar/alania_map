@@ -1,4 +1,4 @@
-name: Build Alan Map 7.0.25 tight rectangular crop
+name: Build Alan Map 7.0.25 rotated rectangle crop
 
 on:
   push:
@@ -54,7 +54,7 @@ jobs:
           sudo make -C /tmp/tippecanoe install
           echo "TIPPECANOE_COMMIT=$(git -C /tmp/tippecanoe rev-parse HEAD)" >> "$GITHUB_ENV"
 
-      - name: Prepare 7.0.25 crop and runtime
+      - name: Prepare 7.0.25 rotated crop and runtime
         run: |
           set -euxo pipefail
           python tools/release_7_0_25.py prepare
@@ -62,10 +62,14 @@ jobs:
           cat build/rectangular-bounds.json
           python - <<'PY'
           import json
-          expected=[40.95,42.95,43.55,44.35]
+          expected=[40.51784,42.734095,44.184003,44.534975]
+          expected_ring=[[40.51784,43.41265],[43.731622,42.734095],[44.184003,43.85642],[40.970221,44.534975],[40.51784,43.41265]]
           actual=json.load(open('build/rectangular-bounds.json'))['bounds']
+          frame=json.load(open('build/map-frame.geojson'))['features'][0]['geometry']['coordinates'][0]
           if actual != expected:
-              raise SystemExit(f'Unexpected crop bounds: {actual}')
+              raise SystemExit(f'Unexpected tile envelope: {actual}')
+          if frame != expected_ring:
+              raise SystemExit(f'Unexpected rotated frame: {frame}')
           PY
 
       - name: Download current Geofabrik snapshot
@@ -75,7 +79,7 @@ jobs:
           curl --fail --location --retry 4 --retry-delay 5 "$OSM_URL" -o build/source/north-caucasus.osm.pbf
           echo "OSM_MD5=$(md5sum build/source/north-caucasus.osm.pbf | awk '{print $1}')" >> "$GITHUB_ENV"
 
-      - name: Physically clip OSM to 7.0.25 rectangle
+      - name: Physically clip OSM to rotated 7.0.25 frame
         run: |
           set -euxo pipefail
           rm -f build/osm-clipped.gpkg
@@ -246,7 +250,7 @@ jobs:
           git config user.email 'actions@users.noreply.github.com'
           git add -A
           if ! git diff --cached --quiet; then
-            git commit -m 'Build Alan Map 7.0.25 tight rectangular crop'
+            git commit -m 'Build Alan Map 7.0.25 rotated rectangle crop'
             git push origin HEAD:7.0.25
           fi
 

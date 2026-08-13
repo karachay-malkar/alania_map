@@ -92,14 +92,26 @@ assert.equal(data.applicationVersion, '7.0.25');
 assert.equal(data.regionalDem.source, 'Copernicus DEM GLO-30');
 assert.equal(data.regionalDem.encoding, 'mapbox');
 const ring = data.mapFrame.features[0].geometry.coordinates[0];
-assert.equal(ring.length, 5);
-const uniqueX = new Set(ring.map(p => p[0]));
-const uniqueY = new Set(ring.map(p => p[1]));
-assert.equal(uniqueX.size, 2);
-assert.equal(uniqueY.size, 2);
-assert.deepEqual(data.bounds, [Math.min(...uniqueX), Math.min(...uniqueY), Math.max(...uniqueX), Math.max(...uniqueY)]);
-assert.deepEqual(data.bounds, [40.95,42.95,43.55,44.35]);
-assert.deepEqual(data.center, [42.25,43.65]);
+const expectedRing = [
+  [40.51784,43.41265],
+  [43.731622,42.734095],
+  [44.184003,43.85642],
+  [40.970221,44.534975],
+  [40.51784,43.41265]
+];
+assert.deepEqual(ring, expectedRing);
+const xs = ring.slice(0,-1).map(p => p[0]);
+const ys = ring.slice(0,-1).map(p => p[1]);
+assert.deepEqual(data.bounds, [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]);
+assert.deepEqual(data.bounds, [40.51784,42.734095,44.184003,44.534975]);
+assert.deepEqual(data.center, [42.350921,43.634535]);
+assert.deepEqual(data.focus.features[0].geometry.coordinates[0], expectedRing);
+assert.equal(data.frameMask.features[0].geometry.coordinates.length, 2);
+assert.deepEqual(data.frameMask.features[0].geometry.coordinates[1], [...expectedRing].reverse());
+const runtimeSources = ui.__test.buildRuntimeSourceData(data);
+assert.ok(runtimeSources.polygons.features.some(feature => feature.properties?.alan_source === 'frameMask'));
+assert.match(uiSource, /id:'frame-mask'.*?sourceFilter\('frameMask'\)/s);
+assert.ok(!uiSource.includes('osm-river-halo'));
 if (data.regionalLandcover?.available) {
   assert.equal(data.regionalLandcover.source, 'Copernicus CLMS LCM-10');
   assert.ok(data.regionalLandcover.archivePath.includes('landcover-7.0.25.pmtiles'));

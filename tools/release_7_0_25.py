@@ -14,9 +14,23 @@ PARTS = [ROOT / 'assets/map-data.part-000.js', ROOT / 'assets/map-data.part-001.
 MARKER = 'window.ALAN_MAP_DATA = '
 VERSION = '7.0.25'
 PREVIOUS_VERSION = '7.0.24'
-RELEASE_TAG = '7.0.25-r1'
-TARGET_BOUNDS = [40.95, 42.95, 43.55, 44.35]
-TARGET_CENTER = [round((TARGET_BOUNDS[0] + TARGET_BOUNDS[2]) / 2, 6), round((TARGET_BOUNDS[1] + TARGET_BOUNDS[3]) / 2, 6)]
+RELEASE_TAG = '7.0.25-r2'
+TARGET_CORNERS = [
+    [40.517840, 43.412650],  # south-west
+    [43.731622, 42.734095],  # south-east
+    [44.184003, 43.856420],  # north-east
+    [40.970221, 44.534975],  # north-west
+]
+TARGET_BOUNDS = [
+    min(point[0] for point in TARGET_CORNERS),
+    min(point[1] for point in TARGET_CORNERS),
+    max(point[0] for point in TARGET_CORNERS),
+    max(point[1] for point in TARGET_CORNERS),
+]
+TARGET_CENTER = [
+    round(sum(point[0] for point in TARGET_CORNERS) / len(TARGET_CORNERS), 6),
+    round(sum(point[1] for point in TARGET_CORNERS) / len(TARGET_CORNERS), 6),
+]
 SHARD_SIZE = 786432
 VECTOR_ARCHIVE = f'data/alan-vector-{VERSION}.pmtiles'
 DEM_ARCHIVE = f'data/alan-dem-{VERSION}.pmtiles'
@@ -45,17 +59,53 @@ def write_data(data: dict) -> None:
     PARTS[1].write_text(payload[cut:] + ';\n', encoding='utf-8')
 
 
-def rectangle_collection(bounds: list[float], kind: str) -> dict:
-    west, south, east, north = bounds
-    ring = [[west, south], [east, south], [east, north], [west, north], [west, south]]
+def frame_ring() -> list[list[float]]:
+    return [list(point) for point in TARGET_CORNERS] + [list(TARGET_CORNERS[0])]
+
+
+def frame_collection(kind: str) -> dict:
     return {
         'type': 'FeatureCollection',
         'features': [{
             'type': 'Feature',
             'properties': {'kind': kind, 'visible': 1 if kind == 'focus' else 0},
-            'geometry': {'type': 'Polygon', 'coordinates': [ring]},
+            'geometry': {'type': 'Polygon', 'coordinates': [frame_ring()]},
         }],
     }
+
+
+def frame_mask_collection() -> dict:
+    west, south, east, north = TARGET_BOUNDS
+    margin = 10.0
+    outer = [
+        [west - margin, south - margin],
+        [east + margin, south - margin],
+        [east + margin, north + margin],
+        [west - margin, north + margin],
+        [west - margin, south - margin],
+    ]
+    hole = list(reversed(frame_ring()))
+    return {
+        'type': 'FeatureCollection',
+        'features': [{
+            'type': 'Feature',
+            'properties': {'kind': 'frame_mask', 'visible': 1},
+            'geometry': {'type': 'Polygon', 'coordinates': [outer, hole]},
+        }],
+    }
+
+
+def point_in_frame(lon: float, lat: float) -> bool:
+    inside = False
+    ring = frame_ring()
+    for first, second in zip(ring, ring[1:]):
+        x1, y1 = first
+        x2, y2 = second
+        if ((y1 > lat) != (y2 > lat)):
+            x_cross = (x2 - x1) * (lat - y1) / (y2 - y1) + x1
+            if lon < x_cross:
+                inside = not inside
+    return inside
 
 
 def replace_required(path: Path, old: str, new: str, label: str) -> None:
@@ -97,35 +147,28 @@ def patch_runtime_versions() -> None:
     index.write_text(index_text, encoding='utf-8')
 
     test_text = runtime_test.read_text(encoding='utf-8').replace(PREVIOUS_VERSION, VERSION).replace(PREVIOUS_VERSION.replace('.', r'\.'), VERSION.replace('.', r'\.'))
-    target_assert = f"assert.deepEqual(data.bounds, {json.dumps(TARGET_BOUNDS, separators=(',', ':'))});"
-    generic = "assert.deepEqual(data.bounds, [Math.min(...uniqueX), Math.min(...uniqueY), Math.max(...uniqueX), Math.max(...uniqueY)]);"
-    if generic in test_text:
-        test_text = test_text.replace(generic, generic + '\n' + target_assert)
-    elif target_assert not in test_text:
-        raise RuntimeError('runtime test bounds insertion point missing')
-    center_assert = f"assert.deepEqual(data.center, {json.dumps(TARGET_CENTER, separators=(',', ':'))});"
-    if center_assert not in test_text:
-        test_text = test_text.replace(target_assert, target_assert + '\n' + center_assert)
     runtime_test.write_text(test_text, encoding='utf-8')
 
 
 def write_docs() -> None:
-    (ROOT / 'README.md').write_text(
-        f'''# Alan Map {VERSION}\n\n'''
-        f'''Интерактивная 3D-карта Alan Til на MapLibre GL JS. Рабочая область физически обрезана до bbox '''
-        f'''`{TARGET_BOUNDS}`: запад 40.95°E, восток 43.55°E, юг 42.95°N, север 44.35°N. '''
-        '''Охват сохраняет ключевые районы карты и включает Черкесск с окрестностями. Север визуально ориентирован вниз (bearing 180°); географические координаты остаются стандартными.\n\n'''
-        '''3D-рельеф: Copernicus DEM GLO-30. Дороги, реки, водоёмы, residential, ледники/снег и вершины: локальный OpenStreetMap/Geofabrik PMTiles. '''
-        '''Copernicus CLMS LCM-10 подключается при наличии CDSE OAuth credentials; без них используется OSM forest fallback.\n''',
-        encoding='utf-8',
+    corners_text = ', '.join(f'[{lon:.6f}, {lat:.6f}]' for lon, lat in TARGET_CORNERS)
+    content = (
+        f'# Alan Map {VERSION}\n\n'
+        f'Интерактивная 3D-карта Alan Til на MapLibre GL JS. Рабочая область задана повёрнутым прямоугольником по четырём углам: {corners_text}. '
+        f'Технический envelope тайлов: `{TARGET_BOUNDS}`; центр: `{TARGET_CENTER}`. OSM-векторы физически обрезаются по контуру рамки, а внешний участок DEM/envelope закрывается runtime-маской без CSS clip-path. '
+        'Север визуально ориентирован вниз (bearing 180°); географические координаты остаются стандартными.\n\n'
+        '3D-рельеф: Copernicus DEM GLO-30. Дороги, реки, водоёмы, residential, ледники/снег и вершины: локальный OpenStreetMap/Geofabrik PMTiles. '
+        'Copernicus CLMS LCM-10 подключается при наличии CDSE OAuth credentials; без них используется OSM forest fallback.\n'
     )
+    (ROOT / 'README.md').write_text(content, encoding='utf-8')
 
 
 def prepare() -> None:
     data = read_data()
     bounds = list(TARGET_BOUNDS)
-    data['mapFrame'] = rectangle_collection(bounds, 'map_frame')
-    data['focus'] = rectangle_collection(bounds, 'focus')
+    data['mapFrame'] = frame_collection('map_frame')
+    data['focus'] = frame_collection('focus')
+    data['frameMask'] = frame_mask_collection()
     data['frameClip'] = None
     data['bounds'] = bounds
     data['center'] = list(TARGET_CENTER)
@@ -142,7 +185,7 @@ def prepare() -> None:
     build.mkdir(exist_ok=True)
     (build / 'rectangular-bounds.json').write_text(json.dumps({'bounds': bounds}, indent=2), encoding='utf-8')
     (build / 'map-frame.geojson').write_text(json.dumps(data['mapFrame'], ensure_ascii=False), encoding='utf-8')
-    print(json.dumps({'version': VERSION, 'bounds': bounds, 'center': TARGET_CENTER}, ensure_ascii=False))
+    print(json.dumps({'version': VERSION, 'bounds': bounds, 'center': TARGET_CENTER, 'corners': TARGET_CORNERS}, ensure_ascii=False))
 
 
 def sha256(path: Path) -> str:
@@ -186,9 +229,10 @@ def finalize(dem: Path, vector: Path, landcover: Path | None, source_url: str, s
     bounds = list(TARGET_BOUNDS)
     for key in ('applicationVersion', 'version', 'stage'):
         data[key] = VERSION
-    data['dataVersion'] = VERSION + '-tight-rectangle.1'
-    data['mapFrame'] = rectangle_collection(bounds, 'map_frame')
-    data['focus'] = rectangle_collection(bounds, 'focus')
+    data['dataVersion'] = VERSION + '-rotated-rectangle.2'
+    data['mapFrame'] = frame_collection('map_frame')
+    data['focus'] = frame_collection('focus')
+    data['frameMask'] = frame_mask_collection()
     data['frameClip'] = None
     data['bounds'] = bounds
     data['center'] = list(TARGET_CENTER)
@@ -278,7 +322,7 @@ def finalize(dem: Path, vector: Path, landcover: Path | None, source_url: str, s
         'tools': {'pipeline': 'gdal-geopandas-tippecanoe-pmtiles', 'tippecanoe_commit': tippecanoe_commit},
         'archive': {'logical_path': VECTOR_ARCHIVE, 'byte_length': vector.stat().st_size, 'sha256': sha256(vector), 'shard_size': SHARD_SIZE, 'shard_count': archives[VECTOR_ARCHIVE]['shard_count']},
         'layers': ['landcover', 'landuse', 'transportation', 'water', 'waterway', 'peak'],
-        'physical_clip': f'axis-aligned bbox {bounds} before tile packaging',
+        'physical_clip': f'rotated mapFrame polygon inside tile envelope {bounds} before tile packaging',
     }
     (ROOT / 'data/vector-build-manifest.json').write_text(json.dumps(vector_manifest, ensure_ascii=False, indent=2), encoding='utf-8')
     write_docs()
@@ -301,13 +345,16 @@ def validate() -> None:
         raise RuntimeError(f'bounds mismatch: {data.get("bounds")}')
     if data.get('center') != TARGET_CENTER:
         raise RuntimeError(f'center mismatch: {data.get("center")}')
-    expected_ring = [[40.95, 42.95], [43.55, 42.95], [43.55, 44.35], [40.95, 44.35], [40.95, 42.95]]
+    expected_ring = frame_ring()
     for key in ('mapFrame', 'focus'):
         ring = data[key]['features'][0]['geometry']['coordinates'][0]
         if ring != expected_ring:
-            raise RuntimeError(f'{key} rectangle mismatch')
+            raise RuntimeError(f'{key} rotated rectangle mismatch')
+    mask_coordinates = data.get('frameMask', {}).get('features', [{}])[0].get('geometry', {}).get('coordinates', [])
+    if len(mask_coordinates) != 2 or mask_coordinates[1] != list(reversed(expected_ring)):
+        raise RuntimeError('frameMask mismatch')
     if data.get('frameClip') is not None:
-        raise RuntimeError('frameClip must remain disabled')
+        raise RuntimeError('CSS frameClip must remain disabled')
     for key in ('regionalDem', 'regionalVector', 'regionalLandcover'):
         if data.get(key, {}).get('bounds') != TARGET_BOUNDS:
             raise RuntimeError(f'{key} bounds mismatch')
@@ -318,15 +365,14 @@ def validate() -> None:
 
     required_regions = {'ULLU QARAÇAY', 'MALQAR', 'BIZIÑGI', 'HOLAM', 'ÇEGEM', 'BASXAN', 'TEBERDİ', 'ARXIZ', 'NARSANA', 'MARA', 'SXAWAT'}
     seen = set()
-    west, south, east, north = TARGET_BOUNDS
     for feature in (data.get('regionalLabels') or {}).get('features') or []:
         props = feature.get('properties') or {}
         name = str(props.get('name_alan_latin') or props.get('name_map') or props.get('name_ru') or '')
         if name in required_regions:
             seen.add(name)
             for lon, lat in coordinate_pairs((feature.get('geometry') or {}).get('coordinates')):
-                if not (west <= lon <= east and south <= lat <= north):
-                    raise RuntimeError(f'regional label {name} is outside crop')
+                if not point_in_frame(lon, lat):
+                    raise RuntimeError(f'regional label {name} is outside rotated crop')
     if seen != required_regions:
         raise RuntimeError(f'missing required regional labels: {sorted(required_regions - seen)}')
 
