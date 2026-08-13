@@ -1,0 +1,136 @@
+name: Apply Alan Map 7.0.25 coordinate and river patch
+
+on:
+  push:
+    branches: [7.0.25]
+    paths:
+      - '.github/workflows/apply-7-0-25-coordinates-rivers.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Patch map UI
+        run: |
+          set -euxo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path('assets/map-ui.js')
+          text = path.read_text(encoding='utf-8')
+
+          old = "riverGeometry: ['osm-river-water-fill','osm-river-halo','osm-river-line'],"
+          new = "riverGeometry: ['osm-river-water-fill','osm-river-line'],"
+          if old not in text:
+              raise SystemExit('Expected riverGeometry definition not found')
+          text = text.replace(old, new, 1)
+
+          text, count = re.subn(
+              r"(?m)^\s*\{id:'osm-river-halo',type:'line'.*\n",
+              '',
+              text,
+              count=1,
+          )
+          if count != 1:
+              raise SystemExit(f'Expected one osm-river-halo layer, removed {count}')
+
+          text, count = re.subn(
+              r"(\{id:'osm-river-line',type:'line'.*?'line-color':)'#3f8dac'",
+              r"\1'#6aa7bb'",
+              text,
+              count=1,
+          )
+          if count != 1:
+              raise SystemExit(f'Expected one osm-river-line color, changed {count}')
+
+          text, count = re.subn(
+              r"(?m)^\s*if \(map\.getLayer\('osm-river-halo'\)\) map\.setPaintProperty\('osm-river-halo','line-width',riverWidth\(numericValue,true\)\);\n",
+              '',
+              text,
+              count=1,
+          )
+          if count != 1:
+              raise SystemExit(f'Expected one halo scale update, removed {count}')
+
+          replacement = r'''    function registerInteractiveLayers() {
+      const clickableLayers = [
+        'settlement-current-points','settlement-historic-points','historic-object-points',
+        'mountain-object-points','water-object-points','natural-object-points','modern-objects',
+        'mountain-passes','osm-peak-points','osm-river-line','osm-water-fill',
+        'osm-glacier-fill','osm-snow-fill'
+      ];
+      const activeClickableLayers = clickableLayers.filter((id) => map.getLayer(id));
+      activeClickableLayers.forEach((id) => {
+        map.on('mouseenter',id,() => {map.getCanvas().style.cursor='pointer';});
+        map.on('mouseleave',id,() => {map.getCanvas().style.cursor='';});
+        map.on('click',id,popupForFeature);
+      });
+      map.on('click',(event) => {
+        if (!event?.point || !event?.lngLat) return;
+        const featureHits = activeClickableLayers.length
+          ? map.queryRenderedFeatures(event.point,{layers:activeClickableLayers})
+          : [];
+        if (featureHits.length) return;
+        const latitude = Number(event.lngLat.lat);
+        const longitude = Number(event.lngLat.lng);
+        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
+        new maplibregl.Popup({closeButton:true,maxWidth:'260px'})
+          .setLngLat(event.lngLat)
+          .setHTML(`<div class="alan-map-popup-title">Координаты</div><div class="alan-map-popup-meta">Широта: ${latitude.toFixed(6)}<br>Долгота: ${longitude.toFixed(6)}</div>`)
+          .addTo(map);
+      });
+    }
+'''
+          pattern = re.compile(
+              r"    function registerInteractiveLayers\(\) \{.*?\n    \}\n\n(?=    function finalizeReady)",
+              re.S,
+          )
+          text, count = pattern.subn(replacement + '\n', text, count=1)
+          if count != 1:
+              raise SystemExit(f'Expected one registerInteractiveLayers function, changed {count}')
+
+          if 'osm-river-halo' in text:
+              raise SystemExit('osm-river-halo reference remains')
+          river_line = re.search(r"\{id:'osm-river-line',type:'line'.*", text)
+          if not river_line or "'line-color':'#6aa7bb'" not in river_line.group(0):
+              raise SystemExit('osm-river-line is not #6aa7bb')
+          if "'fill-color':'#6aa7bb'" not in text:
+              raise SystemExit('osm-river-water-fill is not #6aa7bb')
+          if 'Широта: ${latitude.toFixed(6)}' not in text or 'Долгота: ${longitude.toFixed(6)}' not in text:
+              raise SystemExit('Coordinate popup was not installed')
+
+          path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Validate JavaScript and runtime contract
+        run: |
+          set -euxo pipefail
+          node --check assets/map-ui.js
+          node tests/runtime-contract.mjs
+
+      - name: Browser smoke test
+        run: |
+          set -euxo pipefail
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+          node tests/map-smoke.mjs
+
+      - name: Commit verified patch and remove temporary workflow
+        run: |
+          set -euxo pipefail
+          git config user.name 'Alan Map Builder'
+          git config user.email 'actions@users.noreply.github.com'
+          git rm .github/workflows/apply-7-0-25-coordinates-rivers.yml
+          git add assets/map-ui.js
+          git diff --cached --check
+          git commit -m 'Add coordinate picker and unify river color'
+          git push origin HEAD:7.0.25
