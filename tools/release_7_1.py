@@ -32,7 +32,9 @@ def replace_version_tokens(path: Path) -> None:
     text = path.read_text(encoding='utf-8')
     text = text.replace('7.0.25-r4', RELEASE_TAG)
     text = text.replace('7.0.25-r3', RELEASE_TAG)
-    text = text.replace('7.0.25', VERSION)
+    text = text.replace(r'7\.0\.25', r'7\.1')
+    text = text.replace("'7.0.25'", "'7.1'")
+    text = text.replace('"7.0.25"', '"7.1"')
     path.write_text(text, encoding='utf-8')
 
 
