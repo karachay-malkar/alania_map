@@ -4,8 +4,12 @@ import assert from 'node:assert/strict';
 
 const server = spawn('python3',['tools/range_http_server.py','4173','--bind','127.0.0.1'],{stdio:'ignore'});
 await new Promise(r => setTimeout(r,1200));
-const browser = await chromium.launch({headless:true});
+let browser=null;
 try {
+  browser = await chromium.launch({
+    headless:true,
+    executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined
+  });
   const page = await browser.newPage({viewport:{width:1280,height:900}});
   const errors=[];
   page.on('pageerror',e=>errors.push(String(e)));
@@ -19,7 +23,7 @@ try {
 
   await page.goto('http://127.0.0.1:4173/',{waitUntil:'domcontentloaded',timeout:30000});
   await page.waitForFunction(()=>Boolean(window.ALAN_MAP_INSTANCE?.map?.getLayer?.('focus-paper')),undefined,{timeout:60000});
-  await page.waitForFunction(()=>Boolean(window.ALAN_MAP_PRESENTATION_722?.nativeLayersReady?.()),undefined,{timeout:30000});
+  await page.waitForFunction(()=>Boolean(window.ALAN_MAP_PRESENTATION_723?.nativeLayersReady?.()),undefined,{timeout:30000});
   await page.waitForFunction(()=>Boolean(window.ALAN_MAP_INSTANCE?.map?.isSourceLoaded?.('openmaptiles')),undefined,{timeout:30000});
   await page.waitForFunction(()=>Boolean(window.ALAN_MAP_GRANITE_FRAME?.ready?.()),undefined,{timeout:30000});
   assert.equal(await page.locator('[data-fantasy-toggle], .fantasy-toggle').count(),0);
@@ -47,23 +51,25 @@ try {
         snowFill:byId['osm-snow-fill'] || null
       },
       presentation:{
-        version:window.ALAN_MAP_PRESENTATION_722?.version,
-        presentationSpace:window.ALAN_MAP_PRESENTATION_722?.presentationSpace,
-        nativeMapScene:window.ALAN_MAP_PRESENTATION_722?.nativeMapScene,
-        usesMapProject:window.ALAN_MAP_PRESENTATION_722?.usesMapProject,
-        usesSvgOverlay:window.ALAN_MAP_PRESENTATION_722?.usesSvgOverlay,
-        renderLoopInstalled:window.ALAN_MAP_PRESENTATION_722?.renderLoopInstalled,
-        mutationObserverInstalled:window.ALAN_MAP_PRESENTATION_722?.mutationObserverInstalled,
+        version:window.ALAN_MAP_PRESENTATION_723?.version,
+        presentationSpace:window.ALAN_MAP_PRESENTATION_723?.presentationSpace,
+        nativeMapScene:window.ALAN_MAP_PRESENTATION_723?.nativeMapScene,
+        usesMapProject:window.ALAN_MAP_PRESENTATION_723?.usesMapProject,
+        usesSvgOverlay:window.ALAN_MAP_PRESENTATION_723?.usesSvgOverlay,
+        renderLoopInstalled:window.ALAN_MAP_PRESENTATION_723?.renderLoopInstalled,
+        mutationObserverInstalled:window.ALAN_MAP_PRESENTATION_723?.mutationObserverInstalled,
         legacyPresentationLoaded:Boolean(window.AlanMapPresentation),
-        sourceId:window.ALAN_MAP_PRESENTATION_722?.sourceId,
-        layerIds:window.ALAN_MAP_PRESENTATION_722?.layerIds,
-        frameWidthM:window.ALAN_MAP_PRESENTATION_722?.frameWidthM,
-        compassRadiusM:window.ALAN_MAP_PRESENTATION_722?.compassRadiusM,
-        beamLayersRemoved:window.ALAN_MAP_PRESENTATION_722?.beamLayersRemoved?.(),
-        nativeSourceReady:window.ALAN_MAP_PRESENTATION_722?.nativeSourceReady?.(),
-        nativeLayersReady:window.ALAN_MAP_PRESENTATION_722?.nativeLayersReady?.(),
-        legacySvgCount:window.ALAN_MAP_PRESENTATION_722?.legacySvgCount?.()
+        sourceId:window.ALAN_MAP_PRESENTATION_723?.sourceId,
+        layerIds:window.ALAN_MAP_PRESENTATION_723?.layerIds,
+        frameWidthM:window.ALAN_MAP_PRESENTATION_723?.frameWidthM,
+        compassRadiusM:window.ALAN_MAP_PRESENTATION_723?.compassRadiusM,
+        compassScaleFrom722:window.ALAN_MAP_PRESENTATION_723?.compassScaleFrom722,
+        beamLayersRemoved:window.ALAN_MAP_PRESENTATION_723?.beamLayersRemoved?.(),
+        nativeSourceReady:window.ALAN_MAP_PRESENTATION_723?.nativeSourceReady?.(),
+        nativeLayersReady:window.ALAN_MAP_PRESENTATION_723?.nativeLayersReady?.(),
+        legacySvgCount:window.ALAN_MAP_PRESENTATION_723?.legacySvgCount?.()
       },
+      frameClip:api?.getFrameClipDiagnostics?.(),
       transport:window.ALAN_MAP_PMTILES_RANGE_DIAGNOSTICS?.(),
       granite:{...window.ALAN_MAP_GRANITE_FRAME,ready:window.ALAN_MAP_GRANITE_FRAME?.ready?.(),drawCalls:window.ALAN_MAP_GRANITE_FRAME?.drawCalls?.()}
     };
@@ -82,7 +88,7 @@ try {
   assert.equal(diagnostics.layers.settlementBeamHalo,null);
   assert.equal(diagnostics.layers.settlementBeamCore,null);
   assert.equal(diagnostics.presentation.beamLayersRemoved,true);
-  assert.equal(diagnostics.presentation.version,'7.2.2-r5');
+  assert.equal(diagnostics.presentation.version,'7.2.3-r1');
   assert.equal(diagnostics.presentation.presentationSpace,'native-map-scene');
   assert.equal(diagnostics.presentation.nativeMapScene,true);
   assert.equal(diagnostics.presentation.usesMapProject,false);
@@ -94,11 +100,16 @@ try {
   assert.equal(diagnostics.presentation.nativeLayersReady,true);
   assert.equal(diagnostics.presentation.legacySvgCount,0);
   assert.ok(diagnostics.sourceIds.includes(diagnostics.presentation.sourceId));
-  assert.equal(diagnostics.granite.version,'7.2.2-r5');
+  assert.equal(diagnostics.granite.version,'7.2.3-r1');
   assert.equal(diagnostics.granite.renderer,'custom-webgl-static-world-mesh');
   assert.equal(diagnostics.granite.topM,4000);
   assert.equal(diagnostics.granite.bottomM,-4000);
   assert.equal(diagnostics.granite.ready,true);
+  assert.equal(diagnostics.frameClip.demEdgeCollarM,4500);
+  assert.equal(diagnostics.frameClip.demEdgeSafeMaxM,1000);
+  assert.equal(diagnostics.frameClip.demEdgeInnerBandM,900);
+  assert.equal(diagnostics.frameClip.demEdgeOuterSkirtM,3200);
+  assert.equal(diagnostics.frameClip.demTechnicalBaseM,-10000);
 
   assert.equal(diagnostics.transport.mode,'adaptive-http-range');
   assert.ok(diagnostics.transport.archives.length >= 2);
@@ -119,21 +130,28 @@ try {
   assert.equal(regional.billboard,false);
   assert.equal(regional.fixedGroundScale,true);
   assert.equal(regional.fixedScreenScale,false);
-  assert.equal(regional.sizingModel,'fixed-world-axis-length');
+  assert.equal(regional.sizingModel,'fixed-world-shared-chegem-font-scale');
+  assert.equal(regional.sharedSizeReferenceId,'region_chegem');
+  assert.ok(regional.sharedLabelMetersPerPixel > 0);
 
   const presentation = await page.evaluate(() => window.ALAN_MAP_INSTANCE.getPresentationDiagnostics());
   assert.equal(presentation.regionalLabelAltitudeM,10000);
   assert.equal(presentation.regionalLabelScale,0.666667);
   assert.equal(presentation.historicalEthnographicBoundaryVisible,false);
+  assert.deepEqual(presentation.parchmentAnchors.edgeA,[43.959202,43.298704]);
   assert.deepEqual(presentation.parchmentAnchors.corner,[44.184003,43.85642]);
-  assert.equal(presentation.parchmentLayout.compassSafeEdgeMarginM,34000);
+  assert.deepEqual(presentation.parchmentAnchors.edgeC,[42.946104,44.117789]);
+  assert.deepEqual(presentation.parchmentCompass,[43.82900045,43.71487991]);
+  assert.equal(presentation.parchmentLayout.maskGeometry,'fixed-7.2');
+  assert.equal(presentation.parchmentLayout.compassIndependent,true);
   assert.equal(presentation.parchmentOverlayReady,false);
   assert.equal(diagnostics.presentation.frameWidthM,2000);
-  assert.equal(diagnostics.presentation.compassRadiusM,22000);
+  assert.equal(diagnostics.presentation.compassRadiusM,14300);
+  assert.equal(diagnostics.presentation.compassScaleFrom722,.65);
 
   const nativePresentationState = await page.evaluate(() => {
     const map=window.ALAN_MAP_INSTANCE.map;
-    const diagnostics=window.ALAN_MAP_PRESENTATION_722;
+    const diagnostics=window.ALAN_MAP_PRESENTATION_723;
     const style=map.getStyle();
     const layerIds=Object.values(diagnostics.layerIds);
     return {
@@ -154,7 +172,7 @@ try {
   const fixedGeometryBefore=JSON.stringify(nativePresentationState.geometry);
   await page.evaluate(() => window.ALAN_MAP_INSTANCE.map.easeTo({zoom:7.7,bearing:145,pitch:48,duration:350}));
   await page.waitForTimeout(450);
-  const fixedGeometryAfter=await page.evaluate(() => JSON.stringify(window.ALAN_MAP_PRESENTATION_722.geometry()));
+  const fixedGeometryAfter=await page.evaluate(() => JSON.stringify(window.ALAN_MAP_PRESENTATION_723.geometry()));
   assert.equal(fixedGeometryAfter,fixedGeometryBefore);
 
   // Motion must not hide visual layers in 7.2.
@@ -214,6 +232,6 @@ try {
   assert.ok(errors.length === 0, errors.join('\n'));
   console.log('map-smoke: ok');
 } finally {
-  await browser.close();
+  if (browser) await browser.close();
   server.kill('SIGTERM');
 }

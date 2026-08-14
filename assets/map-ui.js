@@ -6,7 +6,7 @@
 })(typeof self !== 'undefined' ? self : this, function (root) {
   'use strict';
 
-  const VERSION = '7.2';
+  const VERSION = '7.2.3';
   const DEFAULT_STORAGE_KEY = 'alan-map-stage7.2-view';
   const STATE_SCHEMA_VERSION = 1;
   const STATE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -46,14 +46,18 @@
   const REGIONAL_LABEL_ALTITUDE_M = 10000;
   const REGIONAL_LABEL_NARSANA_SCALE = 0.666667;
   const DEM_EDGE_COLLAR_M = 4500;
+  const DEM_EDGE_SAFE_MAX_M = 1000;
+  const DEM_EDGE_INNER_BAND_M = 900;
+  const DEM_EDGE_OUTER_SKIRT_M = 3200;
+  const DEM_TECHNICAL_BASE_M = -10000;
   const HISTORICAL_ETHNOGRAPHIC_BOUNDARY_ID = 'karachay_balkaria_historical_ethnographic_divide';
   const CONTEXT_SETTLEMENT_IDS = new Set(['cherkessk','nalchik','kislovodsk_narsana']);
   const PARCHMENT_CORNER = Object.freeze({
+    edgeA:Object.freeze([43.959202,43.298704]),
     corner:Object.freeze([44.184003,43.856420]),
-    edgeADistanceM:105000,
-    edgeCDistanceM:140000,
-    compassSafeEdgeMarginM:34000
+    edgeC:Object.freeze([42.946104,44.117789])
   });
+  const PARCHMENT_COMPASS = Object.freeze([43.82900045,43.71487991]);
 
   function requireElement(target) {
     if (typeof target === 'string') {
@@ -262,57 +266,14 @@
     return points;
   }
 
-  function parchmentMetricProjection(points) {
-    const center = points.reduce((sum,point) => [sum[0] + point[0],sum[1] + point[1]],[0,0]).map((value) => value / Math.max(1,points.length));
-    const mx = Math.max(1,111320 * Math.cos(center[1] * Math.PI / 180));
-    const my = 110574;
+  function resolveParchmentLayout() {
     return {
-      toMeters:([lon,lat]) => [(lon - center[0]) * mx,(lat - center[1]) * my],
-      toLngLat:([x,y]) => [center[0] + x / mx,center[1] + y / my]
-    };
-  }
-
-  function resolveParchmentLayout(data) {
-    const ring = frameRing(data);
-    if (ring.length < 3) throw new Error('AlanMap: mapFrame is unavailable for parchment layout.');
-    const projection = parchmentMetricProjection(ring);
-    const metric = ring.map(projection.toMeters);
-    const target = projection.toMeters(PARCHMENT_CORNER.corner);
-    let cornerIndex = 0;
-    let best = Infinity;
-    metric.forEach((point,index) => {
-      const distance = Math.hypot(point[0] - target[0],point[1] - target[1]);
-      if (distance < best) {best = distance;cornerIndex = index;}
-    });
-    const corner = metric[cornerIndex];
-    const previous = metric[(cornerIndex - 1 + metric.length) % metric.length];
-    const next = metric[(cornerIndex + 1) % metric.length];
-    const vectorPrevious = [previous[0] - corner[0],previous[1] - corner[1]];
-    const vectorNext = [next[0] - corner[0],next[1] - corner[1]];
-    const previousLength = Math.hypot(...vectorPrevious) || 1;
-    const nextLength = Math.hypot(...vectorNext) || 1;
-    const unitPrevious = [vectorPrevious[0] / previousLength,vectorPrevious[1] / previousLength];
-    const unitNext = [vectorNext[0] / nextLength,vectorNext[1] / nextLength];
-    const edgeADistance = Math.min(PARCHMENT_CORNER.edgeADistanceM,previousLength * 0.92);
-    const edgeCDistance = Math.min(PARCHMENT_CORNER.edgeCDistanceM,nextLength * 0.92);
-    const edgeA = [corner[0] + unitPrevious[0] * edgeADistance,corner[1] + unitPrevious[1] * edgeADistance];
-    const edgeC = [corner[0] + unitNext[0] * edgeCDistance,corner[1] + unitNext[1] * edgeCDistance];
-    const dot = clamp(unitPrevious[0] * unitNext[0] + unitPrevious[1] * unitNext[1],-1,1);
-    const sinHalf = Math.max(0.1,Math.sqrt(Math.max(0,(1 - dot) / 2)));
-    const bisectorRaw = [unitPrevious[0] + unitNext[0],unitPrevious[1] + unitNext[1]];
-    const bisectorLength = Math.hypot(...bisectorRaw) || 1;
-    const bisector = [bisectorRaw[0] / bisectorLength,bisectorRaw[1] / bisectorLength];
-    const compassTravel = PARCHMENT_CORNER.compassSafeEdgeMarginM / sinHalf;
-    const compass = [corner[0] + bisector[0] * compassTravel,corner[1] + bisector[1] * compassTravel];
-    return {
-      edgeA:projection.toLngLat(edgeA),
-      corner:projection.toLngLat(corner),
-      edgeC:projection.toLngLat(edgeC),
-      compass:projection.toLngLat(compass),
-      cornerIndex,
-      compassSafeEdgeMarginM:PARCHMENT_CORNER.compassSafeEdgeMarginM,
-      edgeADistanceM:edgeADistance,
-      edgeCDistanceM:edgeCDistance
+      edgeA:[...PARCHMENT_CORNER.edgeA],
+      corner:[...PARCHMENT_CORNER.corner],
+      edgeC:[...PARCHMENT_CORNER.edgeC],
+      compass:[...PARCHMENT_COMPASS],
+      maskGeometry:'fixed-7.2',
+      compassIndependent:true
     };
   }
 
@@ -1293,6 +1254,10 @@
         vectorPhysicallyClipped:Boolean(data.regionalVector?.physicallyClipped),
         demPhysicallyClipped:Boolean(data.regionalDem?.physicallyClipped),
         demEdgeCollarM:DEM_EDGE_COLLAR_M,
+        demEdgeSafeMaxM:DEM_EDGE_SAFE_MAX_M,
+        demEdgeInnerBandM:DEM_EDGE_INNER_BAND_M,
+        demEdgeOuterSkirtM:DEM_EDGE_OUTER_SKIRT_M,
+        demTechnicalBaseM:DEM_TECHNICAL_BASE_M,
         demSourceBounds:expandedDemBounds(data.regionalDem?.bounds)
       }),
       getNetworkDiagnostics:() => ({loaded:[...sourceLoaded],errors:Object.fromEntries(sourceErrors),demMode:activeDemMode,vectorMode:activeVectorMode,demUrlTemplate:activeDemTemplate}),
@@ -1353,9 +1318,14 @@
       frameRing,
       expandedDemBounds,
       demEdgeCollarM:DEM_EDGE_COLLAR_M,
+      demEdgeSafeMaxM:DEM_EDGE_SAFE_MAX_M,
+      demEdgeInnerBandM:DEM_EDGE_INNER_BAND_M,
+      demEdgeOuterSkirtM:DEM_EDGE_OUTER_SKIRT_M,
+      demTechnicalBaseM:DEM_TECHNICAL_BASE_M,
       regionalLabelAltitudeM:REGIONAL_LABEL_ALTITUDE_M,
       regionalLabelNarsanaScale:REGIONAL_LABEL_NARSANA_SCALE,
       parchmentCorner:PARCHMENT_CORNER,
+      parchmentCompass:PARCHMENT_COMPASS,
     }
   };
 });

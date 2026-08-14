@@ -10,7 +10,7 @@ const page = fs.readFileSync('assets/map-page.js','utf8');
 const dataSource = fs.readFileSync('assets/map-data.part-000.js','utf8') + fs.readFileSync('assets/map-data.part-001.js','utf8');
 const indexSource = fs.readFileSync('index.html','utf8');
 
-assert.match(uiSource, /const VERSION = '7\.2'/);
+assert.match(uiSource, /const VERSION = '7\.2\.3'/);
 assert.ok(!bootstrap.includes('fantasy-relief.js'));
 assert.ok(!bootstrap.includes('fantasy-style.js'));
 assert.ok(!fs.existsSync('assets/fantasy-relief.js'));
@@ -33,7 +33,7 @@ assert.match(page, /installPrefetch/);
 assert.match(page, /RANGE_RETRY_DELAYS_MS/);
 assert.match(page, /navigator\.maxTouchPoints/);
 assert.match(page, /prefetchEnabled/);
-assert.match(indexSource, /map-presentation-r2\.js\?v=7\.2\.2-r5/);
+assert.match(indexSource, /map-presentation-r2\.js\?v=7\.2\.3-r1/);
 assert.ok(!indexSource.includes('map-presentation.js?v='));
 assert.ok(!uiSource.includes('updateParchmentOverlay'));
 assert.ok(!uiSource.includes("map.on('render',updateParchmentOverlay)"));
@@ -81,7 +81,8 @@ assert.equal(regional.config.mapPlaneAligned, true);
 assert.equal(regional.config.billboard, false);
 assert.equal(regional.config.fixedGroundScale, true);
 assert.equal(regional.config.fixedScreenScale, false);
-assert.equal(regional.config.sizingModel, 'fixed-world-axis-length');
+assert.equal(regional.config.sizingModel, 'fixed-world-shared-chegem-font-scale');
+assert.equal(regional.config.sharedSizeReferenceId, 'region_chegem');
 assert.match(coreSource, /attribute vec3 a_position/);
 assert.ok(!coreSource.includes('u_viewport'));
 assert.ok(!coreSource.includes('constant-css-pixel-height'));
@@ -89,7 +90,12 @@ assert.ok(!coreSource.includes('constant-css-pixel-height'));
 const mockMapLibre = {
   MercatorCoordinate: {
     fromLngLat({lng,lat}, altitude) {
-      return {x:lng / 360, y:lat / 180, z:altitude / 1_000_000};
+      return {
+        x:lng / 360,
+        y:lat / 180,
+        z:altitude / 1_000_000,
+        meterInMercatorCoordinateUnits:() => 1 / 40_000_000
+      };
     }
   }
 };
@@ -107,6 +113,31 @@ assert.ok(zValues.every(value => Math.abs(value - 0.01) < 1e-6));
 assert.notEqual(quad[0], quad[5]);
 assert.notEqual(quad[1], quad[6]);
 
+const equalSizeLabels = [
+  {
+    id:'region_chegem',
+    line:[[42,43],[42.2,43.1]],
+    midpoint:[42.1,43.05],
+    imageWidth:400,
+    imageHeight:72,
+    worldScale:0.666667
+  },
+  {
+    id:'region_basxan',
+    line:[[41,43],[43,44]],
+    midpoint:[42,43.5],
+    imageWidth:650,
+    imageHeight:100,
+    worldScale:0.666667
+  }
+];
+const sharedMetersPerPixel = regional.__test.resolveSharedLabelMetersPerPixel(equalSizeLabels,mockMapLibre,10000);
+assert.ok(sharedMetersPerPixel > 0);
+const labelQuads = equalSizeLabels.map(label => regional.__test.buildLabelQuad(label,mockMapLibre,10000,sharedMetersPerPixel));
+const quadHeight = value => Math.hypot(value[25] - value[0],value[26] - value[1]);
+const quadPixelScales = labelQuads.map((value,index) => quadHeight(value) / equalSizeLabels[index].imageHeight);
+assert.ok(Math.abs(quadPixelScales[0] - quadPixelScales[1]) < 1e-8);
+
 const marker = 'window.ALAN_MAP_DATA = ';
 let payload = dataSource.slice(dataSource.indexOf(marker) + marker.length).trim();
 if (payload.endsWith(';')) payload = payload.slice(0,-1);
@@ -121,6 +152,10 @@ assert.equal(data.regionalDem.lodModel, 'single-pyramid-z7-z12');
 assert.equal(data.regionalDem.heightQuantizationM, 1);
 assert.equal(data.regionalDem.archivePath, 'data/alan-dem-7.2.pmtiles');
 assert.equal(ui.__test.demEdgeCollarM,4500);
+assert.equal(ui.__test.demEdgeSafeMaxM,1000);
+assert.equal(ui.__test.demEdgeInnerBandM,900);
+assert.equal(ui.__test.demEdgeOuterSkirtM,3200);
+assert.equal(ui.__test.demTechnicalBaseM,-10000);
 const expandedDemBounds=ui.__test.expandedDemBounds(data.regionalDem.bounds);
 assert.ok(expandedDemBounds[0] < data.regionalDem.bounds[0]);
 assert.ok(expandedDemBounds[1] < data.regionalDem.bounds[1]);
@@ -160,20 +195,41 @@ assert.equal(ui.__test.regionalLabelAltitudeM, 10000);
 assert.equal(ui.__test.regionalLabelNarsanaScale, 0.666667);
 const regionalScales = new Set((data.regionalLabels?.features || []).map(feature => Number(feature.properties?.display_icon_scale)));
 assert.deepEqual([...regionalScales], [0.666667]);
+const preparedRegionalLabels = data.regionalLabels.features.map(feature => {
+  const properties=feature.properties || {};
+  const line=regional.__test.resolveLine(feature);
+  const dimensions=regional.__test.pngDimensions(data.regionalLabelImages[properties.icon_id]);
+  return {
+    id:String(properties.label_id),
+    line,
+    midpoint:regional.__test.lineMidpoint(line),
+    imageWidth:dimensions.width,
+    imageHeight:dimensions.height,
+    worldScale:Number(properties.display_icon_scale)
+  };
+});
+const actualSharedMetersPerPixel=regional.__test.resolveSharedLabelMetersPerPixel(preparedRegionalLabels,mockMapLibre,10000);
+const actualMetersPerPixel=preparedRegionalLabels.map(label => {
+  const value=regional.__test.buildLabelQuad(label,mockMapLibre,10000,actualSharedMetersPerPixel);
+  return quadHeight(value) * 40_000_000 / label.imageHeight;
+});
+assert.equal(preparedRegionalLabels.find(label => label.id==='region_chegem')?.id,'region_chegem');
+assert.ok(Math.max(...actualMetersPerPixel)-Math.min(...actualMetersPerPixel) < .02);
 assert.ok(!(data.boundaries?.features || []).some(feature => feature.properties?.boundary_id === 'karachay_balkaria_historical_ethnographic_divide'));
 assert.ok(!(data.boundaries?.features || []).some(feature => feature.properties?.boundary_type === 'historical_ethnographic'));
 assert.equal(runtimeSources.presentation.beamCount, 0);
 assert.ok(!runtimeSources.polygons.features.some(feature => feature.properties?.alan_source === 'settlementBeamHalo'));
 assert.ok(!runtimeSources.polygons.features.some(feature => feature.properties?.alan_source === 'settlementBeamCore'));
 assert.deepEqual(ui.__test.parchmentCorner.corner, [44.184003,43.85642]);
-assert.equal(ui.__test.parchmentCorner.edgeADistanceM, 105000);
-assert.equal(ui.__test.parchmentCorner.edgeCDistanceM, 140000);
-assert.equal(ui.__test.parchmentCorner.compassSafeEdgeMarginM, 34000);
+assert.deepEqual(ui.__test.parchmentCorner.edgeA, [43.959202,43.298704]);
+assert.deepEqual(ui.__test.parchmentCorner.edgeC, [42.946104,44.117789]);
+assert.deepEqual(ui.__test.parchmentCompass, [43.82900045,43.71487991]);
 const parchment = ui.__test.parchmentCornerCollections(data);
 assert.deepEqual(parchment.tornEdge[0], parchment.anchors.edgeC);
 assert.deepEqual(parchment.tornEdge.at(-1), parchment.anchors.edgeA);
 assert.equal(parchment.ornament.features.length,0);
-assert.equal(parchment.layout.compassSafeEdgeMarginM,34000);
+assert.equal(parchment.layout.maskGeometry,'fixed-7.2');
+assert.equal(parchment.layout.compassIndependent,true);
 assert.deepEqual(parchment.compassCoordinates,parchment.layout.compass);
 assert.ok(!uiSource.includes("id:'settlement-beam-halo'"));
 assert.ok(!uiSource.includes("id:'settlement-beam-core'"));
@@ -184,13 +240,23 @@ if (data.regionalLandcover?.available) {
 
 if (fs.existsSync('data/dem-edge-collar-report.json')) {
   const collar = JSON.parse(fs.readFileSync('data/dem-edge-collar-report.json','utf8'));
-  assert.equal(collar.version,'7.2.2-r5');
-  assert.equal(collar.mode,'hidden-dem-edge-collar');
+  assert.equal(collar.version,'7.2.3-r1');
+  assert.equal(collar.mode,'hidden-tapered-dem-edge-collar');
   assert.equal(collar.collar_m,4500);
+  assert.equal(collar.inner_taper_m,900);
+  assert.equal(collar.outer_skirt_m,3200);
+  assert.equal(collar.safe_max_elevation_m,1000);
+  assert.equal(collar.technical_base_m,-10000);
+  assert.equal(collar.rendered_safe_max_m,2550);
+  assert.equal(collar.frame_clearance_m,1450);
   assert.equal(collar.terrain_base_drop_removed_near_map_frame,true);
+  assert.equal(collar.terrain_above_frame_prevented,true);
   assert.ok(collar.changed_tiles > 0);
   assert.ok(collar.new_tiles > 0);
   assert.ok(collar.collar_pixels > 0);
+  assert.ok(collar.inside_capped_pixels > 0);
+  assert.ok(collar.outer_descent_pixels > 0);
+  assert.ok(collar.per_zoom.every(item => item.maximum_written_height_m <= 1000));
 }
 
 console.log('runtime-contract: ok');

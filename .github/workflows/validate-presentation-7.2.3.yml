@@ -1,0 +1,90 @@
+name: Validate Alan Map 7.2.3 frame-safe presentation
+
+on:
+  push:
+    branches: ['7.2.3']
+    paths:
+      - 'assets/bootstrap.js'
+      - 'assets/map-presentation.js'
+      - 'assets/map-presentation-r2.js'
+      - 'assets/map-granite-frame.js'
+      - 'assets/map-core.js'
+      - 'assets/map-ui.js'
+      - 'assets/map-page.js'
+      - 'index.html'
+      - 'README.md'
+      - 'tests/**'
+      - 'tools/patch_dem_edge_collar.py'
+      - 'tools/requirements-dem.txt'
+      - 'data/alan-dem-7.2.pmtiles'
+      - 'data/dem-edge-collar-report.json'
+      - '.github/workflows/validate-presentation-7.2.3.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install DEM verification dependencies
+        run: python -m pip install -r tools/requirements-dem.txt
+
+      - name: Verify published GitHub Pages byte-range transport
+        run: |
+          set -euxo pipefail
+          for file in alan-dem-7.2.pmtiles alan-vector-7.2.pmtiles; do
+            url="https://karachay-malkar.github.io/alania_map/data/${file}"
+            code="$(curl -L --retry 2 --retry-delay 1 -sS -o /tmp/range.bin -w '%{http_code}' -H 'Range: bytes=0-126' "$url")"
+            test "$code" = "206"
+            test "$(stat -c%s /tmp/range.bin)" = "127"
+          done
+
+      - name: Validate 7.2.3 DEM frame profile
+        run: python tests/dem-edge-profile.py
+
+      - name: Validate 7.2.3 runtime contract
+        run: node tests/runtime-contract.mjs
+
+      - name: Validate native world-space presentation geometry
+        run: node tests/presentation-world-space.mjs
+
+      - name: Install browser smoke dependencies
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Validate browser rendering, Range transport and presentation
+        run: node tests/map-smoke.mjs
+
+      - name: Package complete 7.2.3 project and file sizes
+        run: |
+          set -euxo pipefail
+          mkdir -p /tmp/alan-map-7-2-3
+          find . -type f \
+            -not -path './.git/*' -not -path './node_modules/*' -not -path '*/__pycache__/*' \
+            -printf '%P\t%s\n' | sort > /tmp/alan-map-7-2-3/file-sizes-7.2.3.tsv
+          zip -qr /tmp/alan-map-7-2-3/alan-map-7.2.3.zip . \
+            -x '.git/*' 'node_modules/*' '*/__pycache__/*'
+          unzip -tq /tmp/alan-map-7-2-3/alan-map-7.2.3.zip
+          ls -lh /tmp/alan-map-7-2-3/alan-map-7.2.3.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: alan-map-7.2.3-full
+          path: /tmp/alan-map-7-2-3/
+          retention-days: 30

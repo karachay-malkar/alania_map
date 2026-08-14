@@ -6,7 +6,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  const VERSION = '6.0.0';
+  const VERSION = '6.1.0';
   const DEFAULT_ALTITUDE_M = 10000;
   const MIN_ZOOM = 7.0;
   const FULL_OPACITY_ZOOM = 9.5;
@@ -16,6 +16,8 @@
   const ATLAS_PADDING = 2;
   const FLOATS_PER_VERTEX = 5;
   const STRIDE_BYTES = FLOATS_PER_VERTEX * 4;
+  const EARTH_CIRCUMFERENCE_M = 40075016.68557849;
+  const SHARED_SIZE_REFERENCE_ID = 'region_chegem';
 
   const VERTEX_SHADER = `
     precision highp float;
@@ -128,7 +130,38 @@
     return safeWidth / safeHeight;
   }
 
-  function buildLabelQuad(label, maplibregl, altitudeM = DEFAULT_ALTITUDE_M) {
+  function mercatorUnitsPerMeter(coordinate, latitude) {
+    const nativeValue = coordinate?.meterInMercatorCoordinateUnits?.();
+    if (Number.isFinite(nativeValue) && nativeValue > 0) return nativeValue;
+    const cosine = Math.max(0.01, Math.cos(Number(latitude || 0) * Math.PI / 180));
+    return 1 / (EARTH_CIRCUMFERENCE_M * cosine);
+  }
+
+  function naturalLabelWidthM(label, maplibregl, altitudeM = DEFAULT_ALTITUDE_M) {
+    const line = label?.line;
+    if (!Array.isArray(line) || line.length < 2) return null;
+    const midpoint = label.midpoint || lineMidpoint(line);
+    if (!midpoint) return null;
+    const first = line[0];
+    const last = line[line.length - 1];
+    const center = maplibregl.MercatorCoordinate.fromLngLat({lng: midpoint[0], lat: midpoint[1]}, altitudeM);
+    const start = maplibregl.MercatorCoordinate.fromLngLat({lng: first[0], lat: first[1]}, altitudeM);
+    const end = maplibregl.MercatorCoordinate.fromLngLat({lng: last[0], lat: last[1]}, altitudeM);
+    const axisLength = Math.hypot(end.x - start.x, end.y - start.y);
+    if (!(axisLength > 0)) return null;
+    const scale = clamp(Number(label.worldScale || 1), 0.25, 1.5);
+    const widthWorld = axisLength * scale;
+    return widthWorld / mercatorUnitsPerMeter(center, midpoint[1]);
+  }
+
+  function resolveSharedLabelMetersPerPixel(labels, maplibregl, altitudeM = DEFAULT_ALTITUDE_M) {
+    const reference = labels.find((label) => label.id === SHARED_SIZE_REFERENCE_ID) || labels[0];
+    const referenceWidthM = naturalLabelWidthM(reference, maplibregl, altitudeM);
+    const referenceImageWidth = Math.max(1, Number(reference?.imageWidth || 1));
+    return Number(referenceWidthM) > 0 ? referenceWidthM / referenceImageWidth : null;
+  }
+
+  function buildLabelQuad(label, maplibregl, altitudeM = DEFAULT_ALTITUDE_M, sharedLabelMetersPerPixel = null) {
     const line = label?.line;
     if (!Array.isArray(line) || line.length < 2) return null;
     const midpoint = label.midpoint || lineMidpoint(line);
@@ -146,9 +179,16 @@
     const axisLength = Math.hypot(axisX, axisY);
     if (!(axisLength > 0)) return null;
 
-    const scale = clamp(Number(label.worldScale || 1), 0.25, 1.5);
-    const halfWidth = axisLength * scale / 2;
-    const halfHeight = halfWidth / Math.max(1, labelAspectRatio(label));
+    const aspect = Math.max(1, labelAspectRatio(label));
+    const fixedMetersPerPixel = Number(sharedLabelMetersPerPixel);
+    const unitsPerMeter = mercatorUnitsPerMeter(center, midpoint[1]);
+    const sharedScale = Number.isFinite(fixedMetersPerPixel) && fixedMetersPerPixel > 0;
+    const halfWidth = sharedScale
+      ? Math.max(1, Number(label.imageWidth || 1)) * fixedMetersPerPixel * unitsPerMeter / 2
+      : axisLength * clamp(Number(label.worldScale || 1), 0.25, 1.5) / 2;
+    const halfHeight = sharedScale
+      ? Math.max(1, Number(label.imageHeight || 1)) * fixedMetersPerPixel * unitsPerMeter / 2
+      : halfWidth / aspect;
     const unitX = axisX / axisLength;
     const unitY = axisY / axisLength;
     const perpendicularX = -unitY;
@@ -176,11 +216,14 @@
     ]);
   }
 
-  function buildCombinedVertices(labels, maplibregl, altitudeM) {
-    const quads = labels.map((label) => buildLabelQuad(label, maplibregl, altitudeM)).filter(Boolean);
+  function buildCombinedVertices(labels, maplibregl, altitudeM, requestedMetersPerPixel = null) {
+    const sharedLabelMetersPerPixel = Number(requestedMetersPerPixel) > 0
+      ? Number(requestedMetersPerPixel)
+      : resolveSharedLabelMetersPerPixel(labels, maplibregl, altitudeM);
+    const quads = labels.map((label) => buildLabelQuad(label, maplibregl, altitudeM, sharedLabelMetersPerPixel)).filter(Boolean);
     const vertices = new Float32Array(quads.length * 6 * FLOATS_PER_VERTEX);
     quads.forEach((quad, index) => vertices.set(quad, index * 6 * FLOATS_PER_VERTEX));
-    return {vertices, vertexCount: quads.length * 6};
+    return {vertices, vertexCount: quads.length * 6, sharedLabelMetersPerPixel};
   }
 
   function compileShader(gl, type, source) {
@@ -397,6 +440,7 @@
       })
       .filter(Boolean)
       .sort((left, right) => left.priority - right.priority);
+    const sharedLabelMetersPerPixel = resolveSharedLabelMetersPerPixel(preparedLabels, maplibregl, altitudeM);
 
     let visible = options.visible !== false;
     let destroyed = false;
@@ -434,7 +478,7 @@
 
     function uploadGeometry(gl) {
       if (!atlas || !vertexBuffer) return;
-      const geometry = buildCombinedVertices(preparedLabels, maplibregl, altitudeM);
+      const geometry = buildCombinedVertices(preparedLabels, maplibregl, altitudeM, sharedLabelMetersPerPixel);
       gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
       gl.bufferData(gl.ARRAY_BUFFER, geometry.vertices, gl.STATIC_DRAW);
       vertexCount = geometry.vertexCount;
@@ -587,7 +631,9 @@
           minZoom: MIN_ZOOM,
           maxZoom: MAX_ZOOM,
           fullOpacityZoom: FULL_OPACITY_ZOOM,
-          sizingModel: 'fixed-world-axis-length',
+          sizingModel: 'fixed-world-shared-chegem-font-scale',
+          sharedSizeReferenceId: SHARED_SIZE_REFERENCE_ID,
+          sharedLabelMetersPerPixel: Number.isFinite(sharedLabelMetersPerPixel) ? sharedLabelMetersPerPixel : null,
           sharedAbsolutePlane: true,
           mapPlaneAligned: true,
           screenRotationDegrees: null,
@@ -628,7 +674,8 @@
       billboard: false,
       fixedGroundScale: true,
       fixedScreenScale: false,
-      sizingModel: 'fixed-world-axis-length',
+      sizingModel: 'fixed-world-shared-chegem-font-scale',
+      sharedSizeReferenceId: SHARED_SIZE_REFERENCE_ID,
       drawCallsPerRenderedFrame: 1
     },
     __test: {
@@ -637,6 +684,9 @@
       resolveLine,
       pngDimensions,
       labelAspectRatio,
+      mercatorUnitsPerMeter,
+      naturalLabelWidthM,
+      resolveSharedLabelMetersPerPixel,
       buildLabelQuad,
       buildCombinedVertices,
       matrixFromRenderInput,
@@ -646,6 +696,3 @@
     }
   };
 });
-
-  
-  

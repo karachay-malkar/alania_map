@@ -12,11 +12,12 @@ let payload = dataSource.slice(dataSource.indexOf(marker) + marker.length).trim(
 if (payload.endsWith(';')) payload = payload.slice(0,-1);
 const data = JSON.parse(payload);
 
-assert.equal(presentation.version,'7.2.2-r5');
+assert.equal(presentation.version,'7.2.3-r1');
 assert.equal(presentation.config.presentationSpace,'native-map-scene');
 assert.equal(presentation.config.frameWidthM,2000);
 assert.equal(presentation.config.ornamentRepeatM,4800);
-assert.equal(presentation.config.compassRadiusM,22000);
+assert.equal(presentation.config.compassRadiusM,14300);
+assert.equal(presentation.config.compassScaleFrom722,.65);
 assert.ok(!source.includes('map.project('));
 assert.ok(!source.includes('requestAnimationFrame'));
 assert.ok(!source.includes('createElementNS'));
@@ -27,6 +28,14 @@ assert.match(source,/addSource\(SOURCE/);
 assert.match(source,/addLayer\(layer\)/);
 
 const parchment = ui.__test.parchmentCornerCollections(data);
+assert.deepEqual(parchment.anchors,{
+  edgeA:[43.959202,43.298704],
+  corner:[44.184003,43.85642],
+  edgeC:[42.946104,44.117789]
+});
+assert.deepEqual(parchment.compassCoordinates,[43.82900045,43.71487991]);
+assert.equal(parchment.layout.maskGeometry,'fixed-7.2');
+assert.equal(parchment.layout.compassIndependent,true);
 const diagnostics={parchmentAnchors:parchment.anchors,parchmentCompass:parchment.compassCoordinates};
 const outer=presentation.__test.frameRingFromData(data);
 const inner=presentation.__test.insetPolygonMeters(outer,2000);
@@ -40,7 +49,7 @@ const geojson=presentation.buildGeoJSON(data,diagnostics);
 assert.equal(geojson.type,'FeatureCollection');
 assert.equal(geojson.metadata.coordinateSpace,'geographic-world');
 assert.equal(geojson.metadata.frameWidthM,2000);
-assert.equal(geojson.metadata.compassRadiusM,22000);
+assert.equal(geojson.metadata.compassRadiusM,14300);
 const kinds=new Set(geojson.features.map((feature)=>feature.properties.kind));
 for(const kind of ['frame','frame_outer','frame_inner','frame_ornament','parchment','parchment_edge','compass_ring_outer','compass_needle','compass_letter']) assert.ok(kinds.has(kind),kind);
 const frame=geojson.features.find((feature)=>feature.properties.kind==='frame');
@@ -82,12 +91,22 @@ const compassCoordinates=geojson.features
   .flatMap((feature)=>flattenCoordinates(feature.geometry));
 assert.ok(compassCoordinates.length>100);
 assert.ok(compassCoordinates.every((point)=>pointInPolygon(point,outer)), 'compass must remain inside mapFrame');
+const parchmentRing=geojson.features.find((feature)=>feature.properties.kind==='parchment').geometry.coordinates[0];
+assert.ok(compassCoordinates.every((point)=>pointInPolygon(point,parchmentRing)), 'compass must remain inside restored parchment mask');
 let minimumFrameDistance=Infinity;
 for(const coordinate of compassCoordinates) {
   const point=projection.toMeters(coordinate);
   for(let index=0;index<frameMeters.length;index+=1) minimumFrameDistance=Math.min(minimumFrameDistance,segmentDistance(point,frameMeters[index],frameMeters[(index+1)%frameMeters.length]));
 }
 assert.ok(minimumFrameDistance>1500,`compass clearance is too small: ${minimumFrameDistance.toFixed(1)} m`);
-assert.equal(parchment.layout.compassSafeEdgeMarginM,34000);
+const parchmentProjection=presentation.__test.metersProjection(parchmentRing);
+const parchmentMeters=parchmentRing.map(parchmentProjection.toMeters);
+let minimumParchmentDistance=Infinity;
+for(const coordinate of compassCoordinates) {
+  const point=parchmentProjection.toMeters(coordinate);
+  for(let index=0;index<parchmentMeters.length-1;index+=1) minimumParchmentDistance=Math.min(minimumParchmentDistance,segmentDistance(point,parchmentMeters[index],parchmentMeters[index+1]));
+}
+assert.ok(minimumParchmentDistance>4000,`compass clearance inside parchment is too small: ${minimumParchmentDistance.toFixed(1)} m`);
+assert.equal(presentation.config.compassRadiusM / 22000,.65);
 
 console.log('presentation-world-space: ok');

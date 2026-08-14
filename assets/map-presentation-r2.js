@@ -8,11 +8,11 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  const RELEASE = '7.2.2-r5';
+  const RELEASE = '7.2.3-r1';
   const SOURCE = 'alan-native-presentation';
   const FRAME_WIDTH_M = 2000;
   const ORNAMENT_REPEAT_M = 4800;
-  const COMPASS_RADIUS_M = 22000;
+  const COMPASS_RADIUS_M = 14300;
   const PARCHMENT = '#ead7ad';
   const BROWN = '#68482f';
   const BEAM_LAYER_IDS = Object.freeze(['settlement-beam-halo', 'settlement-beam-core']);
@@ -329,7 +329,7 @@
     for (const layer of definitions()) if (!map.getLayer(layer.id)) map.addLayer(layer);
     map.__alanNativePresentationR3 = true;
 
-    root.ALAN_MAP_PRESENTATION_722 = {
+    root.ALAN_MAP_PRESENTATION_723 = {
       version:RELEASE,
       presentationSpace:'native-map-scene',
       nativeMapScene:true,
@@ -342,13 +342,15 @@
       frameWidthM:FRAME_WIDTH_M,
       ornamentRepeatM:ORNAMENT_REPEAT_M,
       compassRadiusM:COMPASS_RADIUS_M,
+      compassScaleFrom722:.65,
       beamLayersRemoved:() => BEAM_LAYER_IDS.every((layerId) => !map.getLayer?.(layerId)),
       nativeSourceReady:() => Boolean(map.getSource?.(SOURCE)),
       nativeLayersReady:() => Object.values(layers).every((layerId) => Boolean(map.getLayer?.(layerId))),
       legacySvgCount:() => map.getContainer?.().querySelectorAll?.('[data-role="parchment-overlay"],[data-role="map-perimeter-frame"]').length || 0,
       geometry:() => geojson
     };
-    root.ALAN_MAP_PRESENTATION_7025 = root.ALAN_MAP_PRESENTATION_722;
+    root.ALAN_MAP_PRESENTATION_722 = root.ALAN_MAP_PRESENTATION_723;
+    root.ALAN_MAP_PRESENTATION_7025 = root.ALAN_MAP_PRESENTATION_723;
     return true;
   }
 
@@ -375,6 +377,7 @@
       frameWidthM:FRAME_WIDTH_M,
       ornamentRepeatM:ORNAMENT_REPEAT_M,
       compassRadiusM:COMPASS_RADIUS_M,
+      compassScaleFrom722:.65,
       parchmentColor:PARCHMENT,
       ornamentColor:BROWN
     }),
