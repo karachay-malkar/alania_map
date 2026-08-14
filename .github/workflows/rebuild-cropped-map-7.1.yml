@@ -19,7 +19,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-24.04
-    timeout-minutes: 108
+    timeout-minutes: 107
     steps:
       - uses: actions/checkout@v4
         with:
