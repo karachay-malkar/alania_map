@@ -19,7 +19,7 @@ try {
 
   await page.goto('http://127.0.0.1:4173/',{waitUntil:'domcontentloaded',timeout:30000});
   await page.waitForFunction(()=>Boolean(window.ALAN_MAP_INSTANCE?.map?.getLayer?.('focus-paper')),undefined,{timeout:60000});
-  await page.waitForFunction(()=>Boolean(window.ALAN_MAP_PRESENTATION_7025?.frameReady?.()),undefined,{timeout:30000});
+  await page.waitForFunction(()=>Boolean(window.ALAN_MAP_PRESENTATION_722?.nativeLayersReady?.()),undefined,{timeout:30000});
   assert.equal(await page.locator('[data-fantasy-toggle], .fantasy-toggle').count(),0);
 
   const diagnostics = await page.evaluate(() => {
@@ -39,12 +39,20 @@ try {
         settlementBeamCore:byId['settlement-beam-core'] || null,
         forestPattern:byId['forest-pattern'] || null
       },
-      overlay:{
-        version:window.ALAN_MAP_PRESENTATION_7025?.version,
-        frameWidthM:window.ALAN_MAP_PRESENTATION_7025?.frameWidthM,
-        compassRadiusM:window.ALAN_MAP_PRESENTATION_7025?.compassRadiusM,
-        beamLayersRemoved:window.ALAN_MAP_PRESENTATION_7025?.beamLayersRemoved?.(),
-        compassMapPlaneAligned:window.ALAN_MAP_PRESENTATION_7025?.compassMapPlaneAligned?.()
+      presentation:{
+        version:window.ALAN_MAP_PRESENTATION_722?.version,
+        presentationSpace:window.ALAN_MAP_PRESENTATION_722?.presentationSpace,
+        nativeMapScene:window.ALAN_MAP_PRESENTATION_722?.nativeMapScene,
+        usesMapProject:window.ALAN_MAP_PRESENTATION_722?.usesMapProject,
+        usesSvgOverlay:window.ALAN_MAP_PRESENTATION_722?.usesSvgOverlay,
+        sourceId:window.ALAN_MAP_PRESENTATION_722?.sourceId,
+        layerIds:window.ALAN_MAP_PRESENTATION_722?.layerIds,
+        frameWidthM:window.ALAN_MAP_PRESENTATION_722?.frameWidthM,
+        compassRadiusM:window.ALAN_MAP_PRESENTATION_722?.compassRadiusM,
+        beamLayersRemoved:window.ALAN_MAP_PRESENTATION_722?.beamLayersRemoved?.(),
+        nativeSourceReady:window.ALAN_MAP_PRESENTATION_722?.nativeSourceReady?.(),
+        nativeLayersReady:window.ALAN_MAP_PRESENTATION_722?.nativeLayersReady?.(),
+        legacySvgCount:window.ALAN_MAP_PRESENTATION_722?.legacySvgCount?.()
       },
       transport:window.ALAN_MAP_PMTILES_RANGE_DIAGNOSTICS?.()
     };
@@ -60,7 +68,16 @@ try {
   assert.ok(JSON.stringify(diagnostics.layers.peakLabel.filter).includes('peak_level'));
   assert.equal(diagnostics.layers.settlementBeamHalo,null);
   assert.equal(diagnostics.layers.settlementBeamCore,null);
-  assert.equal(diagnostics.overlay.beamLayersRemoved,true);
+  assert.equal(diagnostics.presentation.beamLayersRemoved,true);
+  assert.equal(diagnostics.presentation.version,'7.2.2-r2');
+  assert.equal(diagnostics.presentation.presentationSpace,'native-map-scene');
+  assert.equal(diagnostics.presentation.nativeMapScene,true);
+  assert.equal(diagnostics.presentation.usesMapProject,false);
+  assert.equal(diagnostics.presentation.usesSvgOverlay,false);
+  assert.equal(diagnostics.presentation.nativeSourceReady,true);
+  assert.equal(diagnostics.presentation.nativeLayersReady,true);
+  assert.equal(diagnostics.presentation.legacySvgCount,0);
+  assert.ok(diagnostics.sourceIds.includes(diagnostics.presentation.sourceId));
 
   assert.equal(diagnostics.transport.mode,'http-range');
   assert.ok(diagnostics.transport.archives.length >= 2);
@@ -83,44 +100,35 @@ try {
   assert.equal(presentation.regionalLabelScale,0.666667);
   assert.equal(presentation.historicalEthnographicBoundaryVisible,false);
   assert.deepEqual(presentation.parchmentAnchors.corner,[44.184003,43.85642]);
-  assert.equal(presentation.parchmentOverlayReady,true);
-  assert.equal(diagnostics.overlay.version,'7.2-r1');
-  assert.equal(diagnostics.overlay.frameWidthM,2000);
-  assert.equal(diagnostics.overlay.compassRadiusM,22000);
-  assert.equal(diagnostics.overlay.compassMapPlaneAligned,true);
+  assert.equal(presentation.parchmentOverlayReady,false);
+  assert.equal(diagnostics.presentation.frameWidthM,2000);
+  assert.equal(diagnostics.presentation.compassRadiusM,22000);
 
-  const overlayState = await page.evaluate(() => {
-    const parchment = document.querySelector('[data-role="parchment-overlay"]');
-    const compass = parchment?.querySelector('[data-role="parchment-compass"]');
-    const fill = parchment?.querySelector('[data-role="parchment-fill"]');
-    const frame = document.querySelector('[data-role="map-perimeter-frame"]');
-    const frameBase = frame?.querySelector('[data-role="map-perimeter-frame-base"]');
-    const frameOrnament = frame?.querySelector('[data-role="map-perimeter-frame-ornament"]');
+  const nativePresentationState = await page.evaluate(() => {
+    const map=window.ALAN_MAP_INSTANCE.map;
+    const diagnostics=window.ALAN_MAP_PRESENTATION_722;
+    const style=map.getStyle();
+    const layerIds=Object.values(diagnostics.layerIds);
     return {
-      parchmentCount:document.querySelectorAll('[data-role="parchment-overlay"]').length,
-      parchmentPointerEvents:parchment?.style.pointerEvents,
-      fillPath:fill?.getAttribute('d') || '',
-      cornerOrnamentCount:parchment?.querySelectorAll('[data-role="parchment-ornament"]').length || 0,
-      compassTransform:compass?.getAttribute('transform') || '',
-      compassWorldRadius:compass?.getAttribute('data-world-radius-m') || '',
-      frameCount:document.querySelectorAll('[data-role="map-perimeter-frame"]').length,
-      framePointerEvents:frame?.style.pointerEvents,
-      framePath:frameBase?.getAttribute('d') || '',
-      frameFill:frameBase?.getAttribute('fill') || '',
-      ornamentStroke:frameOrnament?.getAttribute('stroke') || ''
+      legacyParchmentCount:document.querySelectorAll('[data-role="parchment-overlay"]').length,
+      legacyFrameCount:document.querySelectorAll('[data-role="map-perimeter-frame"]').length,
+      sourcePresent:Boolean(map.getSource(diagnostics.sourceId)),
+      layersPresent:layerIds.every(id=>Boolean(map.getLayer(id))),
+      sourceInStyle:Boolean(style.sources?.[diagnostics.sourceId]),
+      geometry:diagnostics.geometry()
     };
   });
-  assert.equal(overlayState.parchmentCount,1);
-  assert.equal(overlayState.parchmentPointerEvents,'none');
-  assert.ok(overlayState.fillPath.startsWith('M'));
-  assert.equal(overlayState.cornerOrnamentCount,0);
-  assert.match(overlayState.compassTransform,/^matrix\(/);
-  assert.equal(overlayState.compassWorldRadius,'22000');
-  assert.equal(overlayState.frameCount,1);
-  assert.equal(overlayState.framePointerEvents,'none');
-  assert.ok(overlayState.framePath.startsWith('M'));
-  assert.equal(overlayState.frameFill,'#ead7ad');
-  assert.equal(overlayState.ornamentStroke,'#68482f');
+  assert.equal(nativePresentationState.legacyParchmentCount,0);
+  assert.equal(nativePresentationState.legacyFrameCount,0);
+  assert.equal(nativePresentationState.sourcePresent,true);
+  assert.equal(nativePresentationState.layersPresent,true);
+  assert.equal(nativePresentationState.sourceInStyle,true);
+  assert.equal(nativePresentationState.geometry.metadata.coordinateSpace,'geographic-world');
+  const fixedGeometryBefore=JSON.stringify(nativePresentationState.geometry);
+  await page.evaluate(() => window.ALAN_MAP_INSTANCE.map.easeTo({zoom:7.7,bearing:145,pitch:48,duration:350}));
+  await page.waitForTimeout(450);
+  const fixedGeometryAfter=await page.evaluate(() => JSON.stringify(window.ALAN_MAP_PRESENTATION_722.geometry()));
+  assert.equal(fixedGeometryAfter,fixedGeometryBefore);
 
   // Motion must not hide visual layers in 7.2.
   const visibilityBefore = await page.evaluate(() => ({

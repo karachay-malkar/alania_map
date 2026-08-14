@@ -9,16 +9,16 @@
   'use strict';
 
   const VERSION = '7.2-r1';
+  const RELEASE = '7.2.2-r1';
+  const PUBLIC_VERSION = '7.2.2';
   const FRAME_WIDTH_M = 2000;
+  const ORNAMENT_REPEAT_M = 4800;
   const COMPASS_RADIUS_M = 22000;
+  const COMPASS_LOCAL_RADIUS = 53;
   const PARCHMENT_COLOR = '#ead7ad';
   const ORNAMENT_COLOR = '#68482f';
   const BEAM_LAYER_IDS = Object.freeze(['settlement-beam-halo', 'settlement-beam-core']);
   const SVG_NS = 'http://www.w3.org/2000/svg';
-
-  function clamp(value, minimum, maximum) {
-    return Math.max(minimum, Math.min(maximum, value));
-  }
 
   function finitePoint(point) {
     return Array.isArray(point) && point.length >= 2 && point.slice(0, 2).every(Number.isFinite);
@@ -80,12 +80,77 @@
         direction
       };
     });
-    const inset = points.map((_, index) => {
+    return points.map((_, index) => {
       const previous = lines[(index - 1 + lines.length) % lines.length];
       const current = lines[index];
-      return lineIntersection(previous.point, previous.direction, current.point, current.direction) || current.point;
+      return projection.toLngLat(lineIntersection(previous.point, previous.direction, current.point, current.direction) || current.point);
     });
-    return inset.map(projection.toLngLat);
+  }
+
+  function interpolatePoint(start, end, amount) {
+    return [start[0] + (end[0] - start[0]) * amount, start[1] + (end[1] - start[1]) * amount];
+  }
+
+  function addScaled(point, tangent, normal, along, across) {
+    return [point[0] + tangent[0] * along + normal[0] * across, point[1] + tangent[1] * along + normal[1] * across];
+  }
+
+  function buildWorldOrnamentGeometry(outerLngLat, innerLngLat, repeatM = ORNAMENT_REPEAT_M) {
+    if (outerLngLat.length !== innerLngLat.length || outerLngLat.length < 3) return [];
+    const projection = metersProjection(outerLngLat);
+    if (!projection) return [];
+    const outer = outerLngLat.map(projection.toMeters);
+    const inner = innerLngLat.map(projection.toMeters);
+    const geometry = [];
+
+    for (let index = 0; index < outer.length; index += 1) {
+      const next = (index + 1) % outer.length;
+      const centerStart = interpolatePoint(outer[index], inner[index], 0.52);
+      const centerEnd = interpolatePoint(outer[next], inner[next], 0.52);
+      const dx = centerEnd[0] - centerStart[0];
+      const dy = centerEnd[1] - centerStart[1];
+      const length = Math.hypot(dx, dy);
+      if (!(length > 1)) continue;
+
+      const tangent = [dx / length, dy / length];
+      let normal = [-tangent[1], tangent[0]];
+      const inward = [inner[index][0] - outer[index][0], inner[index][1] - outer[index][1]];
+      if (normal[0] * inward[0] + normal[1] * inward[1] < 0) normal = [-normal[0], -normal[1]];
+      const bandWidth = Math.max(1, Math.min(
+        Math.hypot(inward[0], inward[1]),
+        Math.hypot(inner[next][0] - outer[next][0], inner[next][1] - outer[next][1])
+      ));
+      const count = Math.max(1, Math.floor(length / Math.max(1, repeatM)));
+      const cell = length / count;
+      const amplitude = Math.min(bandWidth * 0.22, cell * 0.16);
+      const diamondAlong = Math.min(cell * 0.12, bandWidth * 0.33);
+      const diamondAcross = Math.min(bandWidth * 0.23, cell * 0.12);
+
+      for (let cellIndex = 0; cellIndex < count; cellIndex += 1) {
+        const base = cellIndex * cell;
+        const wave = [];
+        const samples = 12;
+        for (let sample = 0; sample <= samples; sample += 1) {
+          const t = sample / samples;
+          const along = base + cell * (0.06 + 0.88 * t);
+          const across = Math.sin(t * Math.PI * 2) * amplitude;
+          wave.push(projection.toLngLat(addScaled(centerStart, tangent, normal, along, across)));
+        }
+        geometry.push({points:wave, close:false});
+
+        const center = addScaled(centerStart, tangent, normal, base + cell * 0.5, 0);
+        geometry.push({
+          points:[
+            projection.toLngLat(addScaled(center, tangent, normal, 0, -diamondAcross)),
+            projection.toLngLat(addScaled(center, tangent, normal, diamondAlong, 0)),
+            projection.toLngLat(addScaled(center, tangent, normal, 0, diamondAcross)),
+            projection.toLngLat(addScaled(center, tangent, normal, -diamondAlong, 0))
+          ],
+          close:true
+        });
+      }
+    }
+    return geometry;
   }
 
   function projectPoint(map, lngLat) {
@@ -97,119 +162,25 @@
     }
   }
 
-  function polygonPath(points) {
-    if (!points.length) return '';
-    return points.map((point, index) => `${index ? 'L' : 'M'}${point[0].toFixed(2)} ${point[1].toFixed(2)}`).join(' ') + ' Z';
+  function projectedPath(map, points, close = false) {
+    const projected = points.map((point) => projectPoint(map, point));
+    if (!projected.length || projected.some((point) => !point)) return '';
+    const path = projected.map((point, index) => `${index ? 'L' : 'M'}${point[0].toFixed(2)} ${point[1].toFixed(2)}`).join(' ');
+    return close ? `${path} Z` : path;
   }
 
-  function ringPath(outer, inner) {
-    if (!outer.length || !inner.length) return '';
-    return `${polygonPath(outer)} ${polygonPath([...inner].reverse())}`;
+  function polygonPath(map, points) {
+    return projectedPath(map, points, true);
   }
 
-  function interpolatePoint(start, end, amount) {
-    return [start[0] + (end[0] - start[0]) * amount, start[1] + (end[1] - start[1]) * amount];
+  function ringPath(map, outer, inner) {
+    const outerPath = polygonPath(map, outer);
+    const innerPath = polygonPath(map, [...inner].reverse());
+    return outerPath && innerPath ? `${outerPath} ${innerPath}` : '';
   }
 
-  function addScaled(point, tangent, normal, along, across) {
-    return [point[0] + tangent[0] * along + normal[0] * across, point[1] + tangent[1] * along + normal[1] * across];
-  }
-
-  function clipSegmentRange(start, end, bounds) {
-    if (!bounds) return [0, 1];
-    const dx = end[0] - start[0];
-    const dy = end[1] - start[1];
-    let t0 = 0;
-    let t1 = 1;
-    const tests = [
-      [-dx, start[0] - bounds.minX],
-      [dx, bounds.maxX - start[0]],
-      [-dy, start[1] - bounds.minY],
-      [dy, bounds.maxY - start[1]]
-    ];
-    for (const [p, q] of tests) {
-      if (Math.abs(p) < 1e-9) {
-        if (q < 0) return null;
-        continue;
-      }
-      const ratio = q / p;
-      if (p < 0) {
-        if (ratio > t1) return null;
-        if (ratio > t0) t0 = ratio;
-      } else {
-        if (ratio < t0) return null;
-        if (ratio < t1) t1 = ratio;
-      }
-    }
-    return [clamp(t0, 0, 1), clamp(t1, 0, 1)];
-  }
-
-  function ornamentPathForSide(outerStart, outerEnd, innerStart, innerEnd, viewport = null) {
-    const centerStart = interpolatePoint(outerStart, innerStart, 0.52);
-    const centerEnd = interpolatePoint(outerEnd, innerEnd, 0.52);
-    const dx = centerEnd[0] - centerStart[0];
-    const dy = centerEnd[1] - centerStart[1];
-    const length = Math.hypot(dx, dy);
-    if (length < 8) return '';
-    const tangent = [dx / length, dy / length];
-    let normal = [-tangent[1], tangent[0]];
-    const inwardVector = [innerStart[0] - outerStart[0], innerStart[1] - outerStart[1]];
-    if (normal[0] * inwardVector[0] + normal[1] * inwardVector[1] < 0) normal = [-normal[0], -normal[1]];
-    const widthStart = Math.hypot(inwardVector[0], inwardVector[1]);
-    const widthEnd = Math.hypot(innerEnd[0] - outerEnd[0], innerEnd[1] - outerEnd[1]);
-    const bandWidth = Math.max(1, Math.min(widthStart, widthEnd));
-    const repeatLength = clamp(bandWidth * 2.55, 20, 58);
-    const count = Math.max(1, Math.floor(length / repeatLength));
-    const cell = length / count;
-    const amplitude = Math.min(bandWidth * 0.22, cell * 0.16);
-    const diamondAlong = Math.min(cell * 0.12, bandWidth * 0.33);
-    const diamondAcross = Math.min(bandWidth * 0.23, cell * 0.12);
-    const commands = [];
-    let firstIndex = 0;
-    let lastIndex = count - 1;
-    if (viewport) {
-      const margin = Math.max(80, bandWidth * 1.25);
-      const range = clipSegmentRange(centerStart, centerEnd, {
-        minX:-margin,
-        minY:-margin,
-        maxX:viewport.width + margin,
-        maxY:viewport.height + margin
-      });
-      if (!range) return '';
-      firstIndex = Math.max(0, Math.floor(range[0] * length / cell) - 2);
-      lastIndex = Math.min(count - 1, Math.ceil(range[1] * length / cell) + 2);
-    }
-
-    for (let index = firstIndex; index <= lastIndex; index += 1) {
-      const base = index * cell;
-      const p0 = addScaled(centerStart, tangent, normal, base + cell * 0.06, 0);
-      const p1 = addScaled(centerStart, tangent, normal, base + cell * 0.27, amplitude);
-      const p2 = addScaled(centerStart, tangent, normal, base + cell * 0.48, 0);
-      const p3 = addScaled(centerStart, tangent, normal, base + cell * 0.69, -amplitude);
-      const p4 = addScaled(centerStart, tangent, normal, base + cell * 0.94, 0);
-      commands.push(
-        `M${p0[0].toFixed(2)} ${p0[1].toFixed(2)} ` +
-        `C${p1[0].toFixed(2)} ${p1[1].toFixed(2)} ${p1[0].toFixed(2)} ${p1[1].toFixed(2)} ${p2[0].toFixed(2)} ${p2[1].toFixed(2)} ` +
-        `C${p3[0].toFixed(2)} ${p3[1].toFixed(2)} ${p3[0].toFixed(2)} ${p3[1].toFixed(2)} ${p4[0].toFixed(2)} ${p4[1].toFixed(2)}`
-      );
-      const center = addScaled(centerStart, tangent, normal, base + cell * 0.5, 0);
-      const top = addScaled(center, tangent, normal, 0, -diamondAcross);
-      const right = addScaled(center, tangent, normal, diamondAlong, 0);
-      const bottom = addScaled(center, tangent, normal, 0, diamondAcross);
-      const left = addScaled(center, tangent, normal, -diamondAlong, 0);
-      commands.push(`M${top[0].toFixed(2)} ${top[1].toFixed(2)} L${right[0].toFixed(2)} ${right[1].toFixed(2)} L${bottom[0].toFixed(2)} ${bottom[1].toFixed(2)} L${left[0].toFixed(2)} ${left[1].toFixed(2)} Z`);
-    }
-    return commands.join(' ');
-  }
-
-  function ornamentPath(outer, inner, viewport = null) {
-    if (outer.length !== inner.length || outer.length < 3) return '';
-    const commands = [];
-    for (let index = 0; index < outer.length; index += 1) {
-      const next = (index + 1) % outer.length;
-      commands.push(ornamentPathForSide(outer[index], outer[next], inner[index], inner[next], viewport));
-    }
-    return commands.filter(Boolean).join(' ');
+  function worldOrnamentPath(map, geometry) {
+    return geometry.map((segment) => projectedPath(map, segment.points, segment.close)).filter(Boolean).join(' ');
   }
 
   function createSvgElement(name, attributes = {}) {
@@ -221,6 +192,7 @@
   function createFrameOverlay(container) {
     const svg = createSvgElement('svg', {
       'data-role':'map-perimeter-frame',
+      'data-space':'map-world-projected',
       'aria-hidden':'true',
       'focusable':'false'
     });
@@ -245,7 +217,8 @@
       stroke:ORNAMENT_COLOR,
       'stroke-opacity':'0.82',
       'stroke-width':'1.35',
-      'stroke-linejoin':'round'
+      'stroke-linejoin':'round',
+      'vector-effect':'non-scaling-stroke'
     });
     const innerLine = createSvgElement('path', {
       'data-role':'map-perimeter-frame-inner',
@@ -253,10 +226,12 @@
       stroke:ORNAMENT_COLOR,
       'stroke-opacity':'0.62',
       'stroke-width':'1.05',
-      'stroke-linejoin':'round'
+      'stroke-linejoin':'round',
+      'vector-effect':'non-scaling-stroke'
     });
     const ornament = createSvgElement('path', {
       'data-role':'map-perimeter-frame-ornament',
+      'data-sizing':'fixed-world-geometry',
       fill:'none',
       stroke:ORNAMENT_COLOR,
       'stroke-opacity':'0.86',
@@ -283,6 +258,14 @@
     if (ornament) ornament.remove();
   }
 
+  function markParchmentWorldSpace(container) {
+    const parchment = container.querySelector('[data-role="parchment-overlay"]');
+    if (!parchment) return false;
+    parchment.setAttribute('data-space', 'map-world-projected');
+    parchment.setAttribute('data-fixed-world-geometry', 'true');
+    return true;
+  }
+
   function offsetLngLat([lon, lat], eastM, northM) {
     const latRadians = lat * Math.PI / 180;
     const lonScale = Math.max(1, 111320 * Math.cos(latRadians));
@@ -294,12 +277,11 @@
     const east = projectPoint(map, offsetLngLat(centerLngLat, radiusM, 0));
     const south = projectPoint(map, offsetLngLat(centerLngLat, 0, -radiusM));
     if (!center || !east || !south) return null;
-    const localRadius = 53;
     return {
-      a:(east[0] - center[0]) / localRadius,
-      b:(east[1] - center[1]) / localRadius,
-      c:(south[0] - center[0]) / localRadius,
-      d:(south[1] - center[1]) / localRadius,
+      a:(east[0] - center[0]) / COMPASS_LOCAL_RADIUS,
+      b:(east[1] - center[1]) / COMPASS_LOCAL_RADIUS,
+      c:(south[0] - center[0]) / COMPASS_LOCAL_RADIUS,
+      d:(south[1] - center[1]) / COMPASS_LOCAL_RADIUS,
       e:center[0],
       f:center[1]
     };
@@ -312,70 +294,109 @@
     if (!matrix) return false;
     compass.setAttribute(
       'transform',
-      `matrix(${matrix.a.toFixed(6)} ${matrix.b.toFixed(6)} ${matrix.c.toFixed(6)} ${matrix.d.toFixed(6)} ${matrix.e.toFixed(2)} ${matrix.f.toFixed(2)})`
+      `matrix(${matrix.a.toFixed(7)} ${matrix.b.toFixed(7)} ${matrix.c.toFixed(7)} ${matrix.d.toFixed(7)} ${matrix.e.toFixed(2)} ${matrix.f.toFixed(2)})`
     );
     compass.setAttribute('data-map-plane-aligned', 'true');
+    compass.setAttribute('data-fixed-world-scale', 'true');
+    compass.setAttribute('data-fixed-screen-scale', 'false');
     compass.setAttribute('data-world-radius-m', String(COMPASS_RADIUS_M));
     return true;
   }
 
+
+  function syncReleaseLabels(root) {
+    const document = root?.document;
+    if (!document) return;
+    const title = document.querySelector('.alan-map-title');
+    if (title) title.textContent = `Alan Map · ${PUBLIC_VERSION}`;
+    const status = document.querySelector('[data-role="status"]');
+    if (status?.textContent?.includes('Alan Map 7.2')) {
+      status.textContent = status.textContent.replace(/Alan Map 7\.2(?=\s|$)/, `Alan Map ${PUBLIC_VERSION}`);
+    }
+  }
+
   function installOnMap(root, api) {
     const map = api?.map;
-    if (!map?.getContainer || map.__alanPresentationR4Installed) return;
-    map.__alanPresentationR4Installed = true;
+    if (!map?.getContainer || map.__alanPresentation722Installed) return;
+    map.__alanPresentation722Installed = true;
+
     const container = map.getContainer();
     const data = root.ALAN_MAP_DATA || {};
     const outerLngLat = frameRingFromData(data);
     const innerLngLat = insetPolygonMeters(outerLngLat, FRAME_WIDTH_M);
+    const ornamentGeometry = buildWorldOrnamentGeometry(outerLngLat, innerLngLat, ORNAMENT_REPEAT_M);
     const frame = createFrameOverlay(container);
     const compassLngLat = api?.getPresentationDiagnostics?.().parchmentCompass || null;
-    let framePending = false;
+    let updatePending = false;
+    let lastState = null;
 
     const update = () => {
-      framePending = false;
+      updatePending = false;
       const width = container.clientWidth || 1;
       const height = container.clientHeight || 1;
       frame.svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
-      const outer = outerLngLat.map((point) => projectPoint(map, point));
-      const inner = innerLngLat.map((point) => projectPoint(map, point));
-      if (outer.some((point) => !point) || inner.some((point) => !point)) return;
-      frame.base.setAttribute('d', ringPath(outer, inner));
-      frame.outerLine.setAttribute('d', polygonPath(outer));
-      frame.innerLine.setAttribute('d', polygonPath(inner));
-      frame.ornament.setAttribute('d', ornamentPath(outer, inner, {width, height}));
+
+      const framePath = ringPath(map, outerLngLat, innerLngLat);
+      const outerPath = polygonPath(map, outerLngLat);
+      const innerPath = polygonPath(map, innerLngLat);
+      if (framePath && outerPath && innerPath) {
+        frame.base.setAttribute('d', framePath);
+        frame.outerLine.setAttribute('d', outerPath);
+        frame.innerLine.setAttribute('d', innerPath);
+        frame.ornament.setAttribute('d', worldOrnamentPath(map, ornamentGeometry));
+      }
+
       removeSettlementBeams(map);
       removeCornerOrnament(container);
-      applyCompassTransform(map, container, compassLngLat);
+      const parchmentReady = markParchmentWorldSpace(container);
+      syncReleaseLabels(root);
+      const compassReady = applyCompassTransform(map, container, compassLngLat);
+      lastState = {width, height, parchmentReady, compassReady};
     };
+
     const queueUpdate = () => {
-      if (framePending) return;
-      framePending = true;
+      if (updatePending) return;
+      updatePending = true;
       const raf = root.requestAnimationFrame || ((callback) => setTimeout(callback, 16));
       raf(update);
     };
 
     removeSettlementBeams(map);
     removeCornerOrnament(container);
+    markParchmentWorldSpace(container);
+    syncReleaseLabels(root);
     update();
     map.on?.('render', queueUpdate);
     map.on?.('styledata', () => { removeSettlementBeams(map); queueUpdate(); });
     map.on?.('resize', queueUpdate);
 
-    root.ALAN_MAP_PRESENTATION_7025 = {
-      version:VERSION,
+    const diagnostics = {
+      version:RELEASE,
+      presentationSpace:'map-world-projected',
+      worldProjectedPresentation:true,
+      fixedScreenPresentation:false,
       frameWidthM:FRAME_WIDTH_M,
+      ornamentRepeatM:ORNAMENT_REPEAT_M,
       compassRadiusM:COMPASS_RADIUS_M,
+      frameGeometryFixed:true,
+      ornamentGeometryFixed:true,
       beamLayersRemoved:() => BEAM_LAYER_IDS.every((layerId) => !map.getLayer?.(layerId)),
       frameReady:() => Boolean(frame.svg.isConnected && frame.base.getAttribute('d')),
-      compassMapPlaneAligned:() => container.querySelector('[data-role="parchment-compass"]')?.getAttribute('data-map-plane-aligned') === 'true'
+      frameMapPlaneAligned:() => frame.svg.getAttribute('data-space') === 'map-world-projected',
+      parchmentMapPlaneAligned:() => container.querySelector('[data-role="parchment-overlay"]')?.getAttribute('data-space') === 'map-world-projected',
+      compassMapPlaneAligned:() => container.querySelector('[data-role="parchment-compass"]')?.getAttribute('data-map-plane-aligned') === 'true',
+      compassFixedWorldScale:() => container.querySelector('[data-role="parchment-compass"]')?.getAttribute('data-fixed-world-scale') === 'true',
+      state:() => lastState ? {...lastState} : null
     };
+    root.ALAN_MAP_PRESENTATION_722 = diagnostics;
+    root.ALAN_MAP_PRESENTATION_7025 = {...diagnostics, version:VERSION};
   }
 
   function install(root) {
     if (!root?.document) return;
     const host = root.document.getElementById('alan-map-root');
-    if (!host || host.__alanPresentationR4Listening) return;
-    host.__alanPresentationR4Listening = true;
+    if (!host || host.__alanPresentation722Listening) return;
+    host.__alanPresentation722Listening = true;
     host.addEventListener('alan-map:ready', (event) => installOnMap(root, event.detail?.api || root.ALAN_MAP_INSTANCE), {once:true});
     if (root.ALAN_MAP_INSTANCE?.map) installOnMap(root, root.ALAN_MAP_INSTANCE);
   }
@@ -383,22 +404,30 @@
   return {
     install,
     config:Object.freeze({
-      version:VERSION,
+      version:RELEASE,
+      presentationSpace:'map-world-projected',
       frameWidthM:FRAME_WIDTH_M,
+      ornamentRepeatM:ORNAMENT_REPEAT_M,
       compassRadiusM:COMPASS_RADIUS_M,
       parchmentColor:PARCHMENT_COLOR,
       ornamentColor:ORNAMENT_COLOR,
       beamLayerIds:BEAM_LAYER_IDS
     }),
     __test:{
+      finitePoint,
       frameRingFromData,
+      metersProjection,
       signedArea,
+      lineIntersection,
       insetPolygonMeters,
+      interpolatePoint,
+      addScaled,
+      buildWorldOrnamentGeometry,
+      projectedPath,
       ringPath,
-      clipSegmentRange,
-      ornamentPathForSide,
-      ornamentPath,
-      offsetLngLat
+      worldOrnamentPath,
+      offsetLngLat,
+      compassMatrix
     }
   };
 });
