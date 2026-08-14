@@ -10,6 +10,9 @@
   })();
   const RANGE_CACHE_ENTRIES = 256;
   const PREFETCH_NEIGHBORS = Object.freeze([[1,0],[-1,0],[0,1],[0,-1]]);
+  const RANGE_RETRY_DELAYS_MS = Object.freeze([0,220,680]);
+  const VECTOR_RANGE_RETRY_DELAYS_MS = Object.freeze([0,360,1050,2200]);
+  const VECTOR_FULL_FILE_FALLBACK_MAX_BYTES = 24 * 1024 * 1024;
 
   const root = document.getElementById('alan-map-root');
   if (!root) throw new Error('Alan Map root container was not found.');
@@ -31,7 +34,8 @@
     lastRenderAt:null,
     prefetchRuns:0,
     prefetchedTiles:0,
-    prefetchErrors:0
+    prefetchErrors:0,
+    prefetchEnabled:false
   };
 
   class RangeLruCache {
@@ -106,57 +110,230 @@
     }
   }
 
+  class NetworkGate {
+    constructor(limit) {
+      this.limit = Math.max(1,Number(limit) || 1);
+      this.active = 0;
+      this.queue = [];
+    }
+
+    acquire(signal) {
+      if (signal?.aborted) return Promise.reject(signal.reason || new DOMException('Aborted','AbortError'));
+      if (this.active < this.limit) {
+        this.active += 1;
+        return Promise.resolve();
+      }
+      return new Promise((resolve,reject) => {
+        const entry = {resolve,reject,signal,onAbort:null};
+        entry.onAbort = () => {
+          const index = this.queue.indexOf(entry);
+          if (index >= 0) this.queue.splice(index,1);
+          reject(signal.reason || new DOMException('Aborted','AbortError'));
+        };
+        signal?.addEventListener?.('abort',entry.onAbort,{once:true});
+        this.queue.push(entry);
+      });
+    }
+
+    release() {
+      this.active = Math.max(0,this.active - 1);
+      while (this.queue.length) {
+        const entry = this.queue.shift();
+        entry.signal?.removeEventListener?.('abort',entry.onAbort);
+        if (entry.signal?.aborted) continue;
+        this.active += 1;
+        entry.resolve();
+        break;
+      }
+    }
+
+    async run(factory, signal) {
+      await this.acquire(signal);
+      try { return await factory(); } finally { this.release(); }
+    }
+
+    diagnostics() { return {limit:this.limit,active:this.active,queued:this.queue.length}; }
+  }
+
   class InstrumentedRangeSource {
-    constructor(archivePath, cache) {
+    constructor(archivePath, cache, options = {}) {
       this.archivePath = archivePath;
+      this.sourceId = String(options.sourceId || 'unknown');
       this.url = new URL(archivePath, document.baseURI).href;
-      this.inner = new window.pmtiles.FetchSource(this.url);
       this.cache = cache;
+      this.customHeaders = new Headers();
+      this.mustReload = false;
+      this.retryDelays = Object.freeze([...(options.retryDelays || RANGE_RETRY_DELAYS_MS)]);
+      this.gate = new NetworkGate(options.maxConcurrent || 8);
+      this.allowFullFileFallback = Boolean(options.allowFullFileFallback);
+      this.fullFileFallbackMaxBytes = Number(options.fullFileFallbackMaxBytes || 0);
+      this.fullBuffer = null;
+      this.fullFilePromise = null;
+      this.fullEtag = undefined;
       this.requests = 0;
       this.networkBytes = 0;
       this.rangeBytesRequested = 0;
       this.lastRequestMs = 0;
       this.status206Confirmed = false;
+      this.retries = 0;
+      this.failures = 0;
+      this.lastHttpStatus = null;
+      this.lastError = '';
+      this.lastFailureOffset = null;
+      this.lastFailureLength = null;
+      this.fullFileFallbackDownloads = 0;
+      this.fullFileFallbackBytes = 0;
+      this.fullFileFallbackFailures = 0;
     }
 
-    getKey() {
-      return this.inner.getKey();
+    getKey() { return this.url; }
+
+    setHeaders(headers) { this.customHeaders = new Headers(headers || {}); }
+
+    responseHeaders(response) {
+      let etag = response.headers.get('Etag');
+      if (etag?.startsWith('W/')) etag = null;
+      return {
+        etag:etag || undefined,
+        cacheControl:response.headers.get('Cache-Control') || undefined,
+        expires:response.headers.get('Expires') || undefined
+      };
     }
 
-    setHeaders(headers) {
-      this.inner.setHeaders?.(headers);
+    async useWholeResponse(response, offset, length, expectedEtag) {
+      const headerLength = Number(response.headers.get('Content-Length') || 0);
+      if (!this.allowFullFileFallback || !(this.fullFileFallbackMaxBytes > 0) || !headerLength || headerLength > this.fullFileFallbackMaxBytes) {
+        throw new Error(`Server returned HTTP 200 for a byte-range request (${headerLength || 'unknown'} bytes).`);
+      }
+      const before = performance.now();
+      const buffer = await response.arrayBuffer();
+      if (buffer.byteLength > this.fullFileFallbackMaxBytes || offset + length > buffer.byteLength) {
+        throw new Error(`Full-file fallback size is invalid: ${buffer.byteLength} bytes.`);
+      }
+      const headers = this.responseHeaders(response);
+      this.fullBuffer = buffer;
+      this.fullEtag = expectedEtag || headers.etag;
+      this.fullFileFallbackDownloads += 1;
+      this.fullFileFallbackBytes += buffer.byteLength;
+      this.networkBytes += buffer.byteLength;
+      this.requests += 1;
+      this.lastRequestMs = performance.now() - before;
+      document.dispatchEvent(new CustomEvent('alan-map:pmtiles-range-loaded',{detail:{archivePath:this.archivePath,sourceId:this.sourceId,offset,length,bytes:length,durationMs:this.lastRequestMs,transport:'full-file-fallback'}}));
+      return {data:buffer.slice(offset,offset + length),etag:this.fullEtag,cacheControl:headers.cacheControl,expires:headers.expires};
+    }
+
+    async fetchRange(offset, length, signal, etag) {
+      return this.gate.run(async () => {
+        const before = performance.now();
+        const headers = new Headers(this.customHeaders);
+        headers.set('Range',`bytes=${offset}-${offset + length - 1}`);
+        const response = await fetch(this.url,{signal,headers,cache:this.mustReload ? 'reload' : undefined});
+        this.lastHttpStatus = response.status;
+        if (offset === 0 && response.status === 416) {
+          const contentRange = response.headers.get('Content-Range');
+          if (!contentRange?.startsWith('bytes */')) throw new Error('Missing content-length on HTTP 416 response.');
+        }
+        const responseHeaders = this.responseHeaders(response);
+        if (response.status === 416 || (etag && responseHeaders.etag && etag !== responseHeaders.etag)) {
+          this.mustReload = true;
+          throw new Error(`PMTiles ETag/range mismatch (HTTP ${response.status}).`);
+        }
+        if (response.status >= 300) throw new Error(`Bad response code: ${response.status}`);
+        if (response.status === 200) return this.useWholeResponse(response,offset,length,etag);
+        if (response.status !== 206) throw new Error(`Unexpected byte-range response: HTTP ${response.status}`);
+        const result = {data:await response.arrayBuffer(),...responseHeaders};
+        if (result.data.byteLength !== length) throw new Error(`Incomplete byte range: expected ${length}, received ${result.data.byteLength}.`);
+        this.requests += 1;
+        this.networkBytes += result.data.byteLength;
+        this.lastRequestMs = performance.now() - before;
+        this.status206Confirmed = true;
+        this.lastError = '';
+        document.dispatchEvent(new CustomEvent('alan-map:pmtiles-range-loaded',{detail:{archivePath:this.archivePath,sourceId:this.sourceId,offset,length,bytes:result.data.byteLength,durationMs:this.lastRequestMs,retries:this.retries,httpStatus:response.status,transport:'http-range'}}));
+        return result;
+      },signal);
+    }
+
+    async ensureFullFile() {
+      if (this.fullBuffer) return this.fullBuffer;
+      if (!this.allowFullFileFallback || !(this.fullFileFallbackMaxBytes > 0)) throw new Error('Full-file fallback is disabled.');
+      if (this.fullFilePromise) return this.fullFilePromise;
+      this.fullFilePromise = (async () => {
+        try {
+          const before = performance.now();
+          const response = await fetch(this.url,{headers:this.customHeaders,cache:'reload'});
+          this.lastHttpStatus = response.status;
+          if (!response.ok) throw new Error(`Full-file fallback failed: HTTP ${response.status}`);
+          const contentLength = Number(response.headers.get('Content-Length') || 0);
+          if (contentLength && contentLength > this.fullFileFallbackMaxBytes) throw new Error(`Full-file fallback exceeds ${this.fullFileFallbackMaxBytes} bytes.`);
+          const buffer = await response.arrayBuffer();
+          if (buffer.byteLength > this.fullFileFallbackMaxBytes) throw new Error(`Full-file fallback exceeds ${this.fullFileFallbackMaxBytes} bytes.`);
+          const headers = this.responseHeaders(response);
+          this.fullBuffer = buffer;
+          this.fullEtag = headers.etag;
+          this.fullFileFallbackDownloads += 1;
+          this.fullFileFallbackBytes += buffer.byteLength;
+          this.networkBytes += buffer.byteLength;
+          this.requests += 1;
+          this.lastRequestMs = performance.now() - before;
+          this.lastError = '';
+          return buffer;
+        } catch (error) {
+          this.fullFileFallbackFailures += 1;
+          throw error;
+        } finally {
+          if (!this.fullBuffer) this.fullFilePromise = null;
+        }
+      })();
+      return this.fullFilePromise;
+    }
+
+    async fallbackSlice(offset, length, etag) {
+      const buffer = await this.ensureFullFile();
+      if (offset + length > buffer.byteLength) throw new Error(`Full-file fallback range exceeds archive size: ${offset}+${length}>${buffer.byteLength}.`);
+      document.dispatchEvent(new CustomEvent('alan-map:pmtiles-range-loaded',{detail:{archivePath:this.archivePath,sourceId:this.sourceId,offset,length,bytes:length,durationMs:0,transport:'full-file-fallback'}}));
+      return {data:buffer.slice(offset,offset + length),etag:etag || this.fullEtag};
     }
 
     async getBytes(offset, length, signal, etag) {
-      const key = `${this.url}|${offset}|${length}|${etag || ''}`;
       this.rangeBytesRequested += Number(length || 0);
+      if (this.fullBuffer) return this.fallbackSlice(offset,length,etag);
+      const key = `${this.url}|${offset}|${length}|${etag || ''}`;
       return this.cache.getOrCreate(key, async () => {
-        const before = performance.now();
-        const result = await this.inner.getBytes(offset, length, signal, etag);
-        const byteLength = Number(result?.data?.byteLength || 0);
-        this.requests += 1;
-        this.networkBytes += byteLength;
-        this.lastRequestMs = performance.now() - before;
-        // FetchSource rejects a full-file 200 response when it exceeds the requested range,
-        // so a successful partial request proves byte serving for normal archive reads.
-        if (byteLength <= length) this.status206Confirmed = true;
-        document.dispatchEvent(new CustomEvent('alan-map:pmtiles-range-loaded', {
-          detail:{archivePath:this.archivePath,offset,length,bytes:byteLength,durationMs:this.lastRequestMs}
-        }));
-        return result;
+        let lastError = null;
+        for (let attempt = 0; attempt < this.retryDelays.length; attempt += 1) {
+          if (attempt > 0) {
+            this.retries += 1;
+            await waitForRetry(this.retryDelays[attempt],signal);
+          }
+          try {
+            return await this.fetchRange(offset,length,signal,etag);
+          } catch (error) {
+            lastError = error;
+            this.lastError = String(error?.message || error || 'Range request failed');
+            this.lastFailureOffset = offset;
+            this.lastFailureLength = length;
+            if (!retryableRangeError(error,signal) || attempt === this.retryDelays.length - 1) break;
+          }
+        }
+        if (this.allowFullFileFallback && !signal?.aborted && retryableRangeError(lastError,signal)) {
+          try { return await this.fallbackSlice(offset,length,etag); } catch (fallbackError) { lastError = fallbackError; this.lastError = String(fallbackError?.message || fallbackError); }
+        }
+        this.failures += 1;
+        document.dispatchEvent(new CustomEvent('alan-map:pmtiles-range-failed',{detail:{archivePath:this.archivePath,sourceId:this.sourceId,offset,length,httpStatus:this.lastHttpStatus,error:this.lastError}}));
+        throw lastError || new Error(`Range request failed for ${this.archivePath}`);
       });
     }
 
     diagnostics() {
       return {
-        archivePath:this.archivePath,
-        url:this.url,
-        mode:'http-range',
-        requests:this.requests,
-        networkBytes:this.networkBytes,
-        rangeBytesRequested:this.rangeBytesRequested,
-        lastRequestMs:this.lastRequestMs,
-        byteServingConfirmed:this.status206Confirmed
+        archivePath:this.archivePath,sourceId:this.sourceId,url:this.url,
+        mode:this.fullBuffer ? 'full-file-fallback' : 'http-range',
+        requests:this.requests,networkBytes:this.networkBytes,rangeBytesRequested:this.rangeBytesRequested,
+        lastRequestMs:this.lastRequestMs,byteServingConfirmed:this.status206Confirmed,retries:this.retries,failures:this.failures,
+        lastHttpStatus:this.lastHttpStatus,lastError:this.lastError,lastFailureOffset:this.lastFailureOffset,lastFailureLength:this.lastFailureLength,
+        fullFileFallbackAllowed:this.allowFullFileFallback,fullFileFallbackActive:Boolean(this.fullBuffer),
+        fullFileFallbackDownloads:this.fullFileFallbackDownloads,fullFileFallbackBytes:this.fullFileFallbackBytes,fullFileFallbackFailures:this.fullFileFallbackFailures,
+        concurrency:this.gate.diagnostics()
       };
     }
   }
@@ -198,10 +375,41 @@
     return Math.max(0, Math.min(count - 1, Math.floor(value)));
   }
 
+  function isMobileTransportProfile() {
+    const coarsePointer = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+    const touchDevice = Number(navigator.maxTouchPoints || 0) > 0;
+    const narrowViewport = Math.min(Number(window.innerWidth || 0), Number(window.innerHeight || 0)) > 0 && Math.min(Number(window.innerWidth || 0), Number(window.innerHeight || 0)) <= 820;
+    return coarsePointer || touchDevice || narrowViewport;
+  }
+
   function canPrefetch() {
     const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
     if (connection?.saveData) return false;
-    return !['slow-2g','2g'].includes(String(connection?.effectiveType || '').toLowerCase());
+    const effectiveType = String(connection?.effectiveType || '').toLowerCase();
+    if (['slow-2g','2g','3g'].includes(effectiveType)) return false;
+    return !isMobileTransportProfile();
+  }
+
+  function waitForRetry(delayMs, signal) {
+    if (!(delayMs > 0)) return Promise.resolve();
+    return new Promise((resolve, reject) => {
+      if (signal?.aborted) {
+        reject(signal.reason || new DOMException('Aborted','AbortError'));
+        return;
+      }
+      const timer = setTimeout(resolve,delayMs);
+      signal?.addEventListener?.('abort',() => {
+        clearTimeout(timer);
+        reject(signal.reason || new DOMException('Aborted','AbortError'));
+      },{once:true});
+    });
+  }
+
+  function retryableRangeError(error, signal) {
+    if (signal?.aborted || String(error?.name || '') === 'AbortError') return false;
+    const message = String(error?.message || error || '');
+    if (/404|416|range not satisfiable|etag mismatch/i.test(message)) return false;
+    return /failed to fetch|network|load failed|timeout|timed out|connection|bad response code: (429|5\d\d)|unexpected byte-range response|http 200 for a byte-range request|incomplete byte range|502|503|504|429/i.test(message) || error instanceof TypeError;
   }
 
   function scheduleIdle(callback) {
@@ -210,7 +418,7 @@
   }
 
   function installPrefetch(map, archiveRecords, data) {
-    if (!map || !canPrefetch()) return;
+    if (!map || !canPrefetch()) return false;
     const seen = new Set();
     let scheduled = false;
 
@@ -263,6 +471,7 @@
     map.on('moveend',queue);
     map.on('idle',queue);
     queue();
+    return true;
   }
 
   function installRenderMetrics(map) {
@@ -297,14 +506,15 @@
     const rangeCache = new RangeLruCache(RANGE_CACHE_ENTRIES,RANGE_CACHE_BYTES);
     const protocol = new window.pmtiles.Protocol();
     const archiveRecords = [];
+    const mobileTransport = isMobileTransportProfile();
     const configurations = [
-      {path:data.regionalDem.archivePath,config:data.regionalDem,prefetch:true},
-      {path:data.regionalVector.archivePath,config:data.regionalVector,prefetch:true},
-      ...(data.regionalLandcover?.archivePath ? [{path:data.regionalLandcover.archivePath,config:data.regionalLandcover,prefetch:false}] : [])
+      {path:data.regionalDem.archivePath,sourceId:'terrain-dem',config:data.regionalDem,prefetch:true,maxConcurrent:mobileTransport?6:10,retryDelays:RANGE_RETRY_DELAYS_MS},
+      {path:data.regionalVector.archivePath,sourceId:'openmaptiles',config:data.regionalVector,prefetch:true,maxConcurrent:mobileTransport?3:8,retryDelays:VECTOR_RANGE_RETRY_DELAYS_MS,allowFullFileFallback:true,fullFileFallbackMaxBytes:VECTOR_FULL_FILE_FALLBACK_MAX_BYTES},
+      ...(data.regionalLandcover?.archivePath ? [{path:data.regionalLandcover.archivePath,sourceId:'copernicus-landcover',config:data.regionalLandcover,prefetch:false,maxConcurrent:mobileTransport?3:6,retryDelays:RANGE_RETRY_DELAYS_MS}] : [])
     ];
 
     for (const entry of configurations) {
-      const source = new InstrumentedRangeSource(entry.path,rangeCache);
+      const source = new InstrumentedRangeSource(entry.path,rangeCache,entry);
       const archive = new window.pmtiles.PMTiles(source);
       protocol.add(archive);
       archiveRecords.push({...entry,source,archive});
@@ -313,7 +523,8 @@
     window.maplibregl.addProtocol('pmtiles',protocol.tile);
     window.ALAN_MAP_PMTILES_PROTOCOL = protocol;
     window.ALAN_MAP_PMTILES_RANGE_DIAGNOSTICS = () => ({
-      mode:'http-range',
+      mode:'adaptive-http-range',
+      mobileProfile:mobileTransport,
       cache:rangeCache.diagnostics(),
       archives:archiveRecords.map((record) => record.source.diagnostics())
     });
@@ -334,7 +545,7 @@
     const map = mapInstance?.map;
     if (map) {
       installRenderMetrics(map);
-      installPrefetch(map,archiveRecords,data);
+      performanceState.prefetchEnabled = installPrefetch(map,archiveRecords,data);
     }
 
     window.ALAN_MAP_PERFORMANCE_DIAGNOSTICS = () => {
@@ -352,6 +563,7 @@
         prefetchRuns:performanceState.prefetchRuns,
         prefetchedTiles:performanceState.prefetchedTiles,
         prefetchErrors:performanceState.prefetchErrors,
+        prefetchEnabled:performanceState.prefetchEnabled,
         transport
       };
     };

@@ -45,12 +45,14 @@
   });
   const REGIONAL_LABEL_ALTITUDE_M = 10000;
   const REGIONAL_LABEL_NARSANA_SCALE = 0.666667;
+  const DEM_EDGE_COLLAR_M = 4500;
   const HISTORICAL_ETHNOGRAPHIC_BOUNDARY_ID = 'karachay_balkaria_historical_ethnographic_divide';
   const CONTEXT_SETTLEMENT_IDS = new Set(['cherkessk','nalchik','kislovodsk_narsana']);
   const PARCHMENT_CORNER = Object.freeze({
-    edgeA:Object.freeze([43.959202,43.298704]),
     corner:Object.freeze([44.184003,43.856420]),
-    edgeC:Object.freeze([42.946104,44.117789])
+    edgeADistanceM:105000,
+    edgeCDistanceM:140000,
+    compassSafeEdgeMarginM:34000
   });
 
   function requireElement(target) {
@@ -98,6 +100,18 @@
       Number(bounds?.[2]) + 0.05,
       Number(bounds?.[3]) + 0.05
     ];
+  }
+
+  function expandedDemBounds(bounds, collarM = DEM_EDGE_COLLAR_M) {
+    const west = Number(bounds?.[0]);
+    const south = Number(bounds?.[1]);
+    const east = Number(bounds?.[2]);
+    const north = Number(bounds?.[3]);
+    if (![west,south,east,north].every(Number.isFinite)) return bounds;
+    const centerLat = (south + north) / 2;
+    const dLat = collarM / 110574;
+    const dLon = collarM / Math.max(1,111320 * Math.cos(centerLat * Math.PI / 180));
+    return [west - dLon,south - dLat,east + dLon,north + dLat];
   }
 
   function softCameraBounds(bounds) {
@@ -239,10 +253,74 @@
     return [start[0] + (end[0] - start[0]) * t,start[1] + (end[1] - start[1]) * t];
   }
 
-  function parchmentCornerCollections() {
-    const a = [...PARCHMENT_CORNER.edgeA];
-    const b = [...PARCHMENT_CORNER.corner];
-    const c = [...PARCHMENT_CORNER.edgeC];
+  function frameRing(data) {
+    const geometry = data?.mapFrame?.features?.[0]?.geometry;
+    const ring = geometry?.type === 'Polygon' ? geometry.coordinates?.[0] : null;
+    if (!Array.isArray(ring)) return [];
+    const points = ring.filter((point) => Array.isArray(point) && point.length >= 2 && point.slice(0,2).every(Number.isFinite)).map((point) => [Number(point[0]),Number(point[1])]);
+    if (points.length > 1 && points[0][0] === points.at(-1)[0] && points[0][1] === points.at(-1)[1]) points.pop();
+    return points;
+  }
+
+  function parchmentMetricProjection(points) {
+    const center = points.reduce((sum,point) => [sum[0] + point[0],sum[1] + point[1]],[0,0]).map((value) => value / Math.max(1,points.length));
+    const mx = Math.max(1,111320 * Math.cos(center[1] * Math.PI / 180));
+    const my = 110574;
+    return {
+      toMeters:([lon,lat]) => [(lon - center[0]) * mx,(lat - center[1]) * my],
+      toLngLat:([x,y]) => [center[0] + x / mx,center[1] + y / my]
+    };
+  }
+
+  function resolveParchmentLayout(data) {
+    const ring = frameRing(data);
+    if (ring.length < 3) throw new Error('AlanMap: mapFrame is unavailable for parchment layout.');
+    const projection = parchmentMetricProjection(ring);
+    const metric = ring.map(projection.toMeters);
+    const target = projection.toMeters(PARCHMENT_CORNER.corner);
+    let cornerIndex = 0;
+    let best = Infinity;
+    metric.forEach((point,index) => {
+      const distance = Math.hypot(point[0] - target[0],point[1] - target[1]);
+      if (distance < best) {best = distance;cornerIndex = index;}
+    });
+    const corner = metric[cornerIndex];
+    const previous = metric[(cornerIndex - 1 + metric.length) % metric.length];
+    const next = metric[(cornerIndex + 1) % metric.length];
+    const vectorPrevious = [previous[0] - corner[0],previous[1] - corner[1]];
+    const vectorNext = [next[0] - corner[0],next[1] - corner[1]];
+    const previousLength = Math.hypot(...vectorPrevious) || 1;
+    const nextLength = Math.hypot(...vectorNext) || 1;
+    const unitPrevious = [vectorPrevious[0] / previousLength,vectorPrevious[1] / previousLength];
+    const unitNext = [vectorNext[0] / nextLength,vectorNext[1] / nextLength];
+    const edgeADistance = Math.min(PARCHMENT_CORNER.edgeADistanceM,previousLength * 0.92);
+    const edgeCDistance = Math.min(PARCHMENT_CORNER.edgeCDistanceM,nextLength * 0.92);
+    const edgeA = [corner[0] + unitPrevious[0] * edgeADistance,corner[1] + unitPrevious[1] * edgeADistance];
+    const edgeC = [corner[0] + unitNext[0] * edgeCDistance,corner[1] + unitNext[1] * edgeCDistance];
+    const dot = clamp(unitPrevious[0] * unitNext[0] + unitPrevious[1] * unitNext[1],-1,1);
+    const sinHalf = Math.max(0.1,Math.sqrt(Math.max(0,(1 - dot) / 2)));
+    const bisectorRaw = [unitPrevious[0] + unitNext[0],unitPrevious[1] + unitNext[1]];
+    const bisectorLength = Math.hypot(...bisectorRaw) || 1;
+    const bisector = [bisectorRaw[0] / bisectorLength,bisectorRaw[1] / bisectorLength];
+    const compassTravel = PARCHMENT_CORNER.compassSafeEdgeMarginM / sinHalf;
+    const compass = [corner[0] + bisector[0] * compassTravel,corner[1] + bisector[1] * compassTravel];
+    return {
+      edgeA:projection.toLngLat(edgeA),
+      corner:projection.toLngLat(corner),
+      edgeC:projection.toLngLat(edgeC),
+      compass:projection.toLngLat(compass),
+      cornerIndex,
+      compassSafeEdgeMarginM:PARCHMENT_CORNER.compassSafeEdgeMarginM,
+      edgeADistanceM:edgeADistance,
+      edgeCDistanceM:edgeCDistance
+    };
+  }
+
+  function parchmentCornerCollections(data) {
+    const layout = resolveParchmentLayout(data);
+    const a = [...layout.edgeA];
+    const b = [...layout.corner];
+    const c = [...layout.edgeC];
     const chordX = a[0] - c[0];
     const chordY = a[1] - c[1];
     const chordLength = Math.hypot(chordX,chordY) || 1;
@@ -274,76 +352,25 @@
       type:'Feature',properties:{kind:'parchment_torn_edge',visible:1},geometry:{type:'LineString',coordinates:tornEdge}
     }]);
 
-    const chevrons = [0.10,0.16,0.22,0.28].map((t,index) => {
-      const left = interpolatePoint(b,a,t);
-      const right = interpolatePoint(b,c,t);
-      const average = [(left[0] + right[0]) / 2,(left[1] + right[1]) / 2];
-      const tip = interpolatePoint(b,average,0.42 + index * 0.015);
-      return {type:'Feature',properties:{kind:'parchment_ornament',visible:1},geometry:{type:'LineString',coordinates:[left,tip,right]}};
-    });
-    const diamondCenter = interpolatePoint(b,[(a[0] + c[0]) / 2,(a[1] + c[1]) / 2],0.19);
-    const dx = 0.018;
-    const dy = 0.014;
-    chevrons.push({
-      type:'Feature',properties:{kind:'parchment_ornament',visible:1},
-      geometry:{type:'LineString',coordinates:[
-        [diamondCenter[0],diamondCenter[1] + dy],
-        [diamondCenter[0] + dx,diamondCenter[1]],
-        [diamondCenter[0],diamondCenter[1] - dy],
-        [diamondCenter[0] - dx,diamondCenter[1]],
-        [diamondCenter[0],diamondCenter[1] + dy]
-      ]}
-    });
-    const ornament = featureCollection(chevrons);
-    const compassCoordinates = [
-      a[0] * 0.22 + b[0] * 0.58 + c[0] * 0.20,
-      a[1] * 0.22 + b[1] * 0.58 + c[1] * 0.20
-    ];
+    const ornament = featureCollection([]);
+    const compassCoordinates = [...layout.compass];
     const compass = featureCollection([{
       type:'Feature',properties:{kind:'parchment_compass',visible:1},geometry:{type:'Point',coordinates:compassCoordinates}
     }]);
-    return {polygon,edge,ornament,compass,tornEdge,compassCoordinates};
-  }
-
-  function parchmentOverlayMarkup() {
-    return `<svg data-role="parchment-overlay" aria-hidden="true" focusable="false" style="position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none;overflow:hidden">
-      <path data-role="parchment-fill" fill="#ead7ad" fill-opacity=".985"/>
-      <path data-role="parchment-wash" fill="#c49253" fill-opacity=".055"/>
-      <path data-role="parchment-edge-feather" fill="none" stroke="#ead7ad" stroke-width="28" stroke-opacity=".48" stroke-linecap="round" stroke-linejoin="round" style="filter:blur(9px)"/>
-      <path data-role="parchment-edge-aged" fill="none" stroke="#a67846" stroke-width="9" stroke-opacity=".22" stroke-linecap="round" stroke-linejoin="round" style="filter:blur(3px)"/>
-      <path data-role="parchment-edge-pencil" fill="none" stroke="#755137" stroke-width="1.25" stroke-opacity=".46" stroke-linecap="round" stroke-linejoin="round"/>
-      <path data-role="parchment-ornament" fill="none" stroke="#68482f" stroke-width="1.5" stroke-opacity=".68" stroke-linecap="round" stroke-linejoin="round"/>
-      <g data-role="parchment-compass" fill="none" stroke="#62442e" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="0" cy="0" r="42" stroke-width="2.2" opacity=".74"/>
-        <circle cx="0" cy="0" r="28" stroke-width="1.2" opacity=".52"/>
-        <path d="M0 -53 7 -10 0 0 -7 -10Z" fill="#62442e" stroke-width="1.5"/>
-        <path d="M0 53 7 10 0 0 -7 10Z" fill="#b48756" stroke-width="1.5"/>
-        <path d="M-53 0 -10 -7 0 0 -10 7Z" fill="#8b6241" stroke-width="1.5"/>
-        <path d="M53 0 10 -7 0 0 10 7Z" fill="#8b6241" stroke-width="1.5"/>
-        <path d="M-36 -36 -8 -8M36 -36 8 -8M-36 36 -8 8M36 36 8 8" stroke-width="1.5" opacity=".72"/>
-        <circle cx="0" cy="0" r="4" fill="#62442e" stroke-width="1"/>
-        <g fill="#573c29" stroke="none" font-family="Georgia,serif" font-weight="700" text-anchor="middle">
-          <text x="0" y="-60" font-size="13">N</text><text x="0" y="69" font-size="12">S</text>
-          <text x="63" y="4" font-size="12">E</text><text x="-63" y="4" font-size="12">W</text>
-        </g>
-      </g>
-    </svg>`;
+    return {polygon,edge,ornament,compass,tornEdge,compassCoordinates,anchors:{edgeA:a,corner:b,edgeC:c},layout};
   }
 
   function buildRuntimeSourceData(data) {
     const regionalLabels = normalizeRegionalLabels(data?.regionalLabels);
     const boundaries = visibleBoundaryCollection(data?.boundaries);
-    const beams = settlementBeamCollections(data?.objects);
-    const parchment = parchmentCornerCollections();
+    const parchment = parchmentCornerCollections(data);
     return {
       polygons: taggedFeatureCollection([
         ['focus', data.focus],
         ['frameMask', data.frameMask],
         ['glaciers', data.glaciers],
         ['elbrusSnow', data.elbrusSnow],
-        ['peakSnow', data.peakSnow],
-        ['settlementBeamHalo', beams.halo],
-        ['settlementBeamCore', beams.core]
+        ['peakSnow', data.peakSnow]
       ]),
       lines: taggedFeatureCollection([
         ['rivers', data.rivers],
@@ -358,7 +385,7 @@
         ['highPeaks', data.highPeaks],
         ['passes', data.passes]
       ]),
-      presentation:{regionalLabels,boundaries,beamCount:beams.count,parchment}
+      presentation:{regionalLabels,boundaries,beamCount:0,parchment}
     };
   }
 
@@ -507,7 +534,6 @@
     let destroyed = false;
     let regionalLabels3d = null;
     let regionalLabels3dFailed = false;
-    let parchmentOverlay = null;
     let ready = false;
     let readyFrame = null;
     let resizeFrame = null;
@@ -658,7 +684,7 @@
       activeDemMode = 'local-pmtiles';
       activeVectorMode = 'local-pmtiles';
       const sources = {
-        'terrain-dem': {type:'raster-dem',url:demTemplate,tileSize:demTileSize,minzoom:Number(data.regionalDem.minzoom),maxzoom:Number(data.regionalDem.maxzoom),encoding:String(data.regionalDem.encoding || 'terrarium'),bounds:data.regionalDem.bounds,attribution:data.regionalDem.attribution},
+        'terrain-dem': {type:'raster-dem',url:demTemplate,tileSize:demTileSize,minzoom:Number(data.regionalDem.minzoom),maxzoom:Number(data.regionalDem.maxzoom),encoding:String(data.regionalDem.encoding || 'terrarium'),bounds:expandedDemBounds(data.regionalDem.bounds),attribution:data.regionalDem.attribution},
         polygons: {type:'geojson',data:runtimeSources.polygons,maxzoom:14,tolerance:0.25,buffer:64},
         lines: {type:'geojson',data:runtimeSources.lines,maxzoom:14,tolerance:0.35,buffer:128},
         points: {type:'geojson',data:runtimeSources.points,maxzoom:14,tolerance:0.1,buffer:64}
@@ -710,10 +736,6 @@
         ] : [])
       ];
 
-      const settlementBeamLayers = [
-        {id:'settlement-beam-halo',type:'fill-extrusion',source:'polygons',minzoom:VISIBILITY_ZOOM.DISTANT,maxzoom:OBJECT_PRESENTATION.currentSettlements.minZoom,filter:sourceFilter('settlementBeamHalo'),paint:{'fill-extrusion-color':'#f2e1b8','fill-extrusion-base':80,'fill-extrusion-height':10000,'fill-extrusion-opacity':['interpolate',['linear'],['zoom'],7.0,0.075,8.4,0.065,9.5,0.035,9.98,0],'fill-extrusion-vertical-gradient':true}},
-        {id:'settlement-beam-core',type:'fill-extrusion',source:'polygons',minzoom:VISIBILITY_ZOOM.DISTANT,maxzoom:OBJECT_PRESENTATION.currentSettlements.minZoom,filter:sourceFilter('settlementBeamCore'),paint:{'fill-extrusion-color':'#fff0cf','fill-extrusion-base':80,'fill-extrusion-height':10000,'fill-extrusion-opacity':['interpolate',['linear'],['zoom'],7.0,0.22,8.4,0.18,9.5,0.08,9.98,0],'fill-extrusion-vertical-gradient':true}}
-      ];
 
       const pointLayers = [
         {id:'settlement-current-points',type:'circle',source:'points',minzoom:OBJECT_PRESENTATION.currentSettlements.minZoom,filter:['all',sourceFilter('objects'),['==',['get','visible'],1],['==',['get','object_type'],'settlement'],['!=',['get','object_subtype'],'historic_settlement']],paint:pointPaint(OBJECT_PRESENTATION.currentSettlements.pointStyle,'#f3ead8','#5f4a36',0.98)},
@@ -749,7 +771,6 @@
         ...baseLayers,
         ...natureLayers,
         ...lineLayers,
-        ...settlementBeamLayers,
         ...pointLayers,
         ...labelLayers,
         {id:'frame-mask',type:'fill',source:'polygons',filter:sourceFilter('frameMask'),paint:{'fill-color':'#25282a','fill-opacity':1}}
@@ -779,58 +800,6 @@
       return context.getImageData(0,0,size,size);
     }
 
-
-
-    function projectMapPoint(coordinates) {
-      const point = map?.project?.(coordinates);
-      return point && Number.isFinite(point.x) && Number.isFinite(point.y) ? [point.x,point.y] : null;
-    }
-
-    function projectedPath(coordinates, close = false) {
-      const points = coordinates.map(projectMapPoint).filter(Boolean);
-      if (!points.length) return '';
-      return points.map((point,index) => `${index === 0 ? 'M' : 'L'}${point[0].toFixed(2)} ${point[1].toFixed(2)}`).join(' ') + (close ? ' Z' : '');
-    }
-
-    function updateParchmentOverlay() {
-      if (!map || !parchmentOverlay) return;
-      const geometry = runtimeSources.presentation.parchment;
-      const width = map.getContainer().clientWidth || 1;
-      const height = map.getContainer().clientHeight || 1;
-      parchmentOverlay.setAttribute('viewBox',`0 0 ${width} ${height}`);
-      const a = PARCHMENT_CORNER.edgeA;
-      const b = PARCHMENT_CORNER.corner;
-      const c = PARCHMENT_CORNER.edgeC;
-      const polygonCoordinates = [a,b,c,...geometry.tornEdge.slice(1)];
-      const polygonPath = projectedPath(polygonCoordinates,true);
-      const edgePath = projectedPath(geometry.tornEdge,false);
-      parchmentOverlay.querySelector('[data-role="parchment-fill"]')?.setAttribute('d',polygonPath);
-      parchmentOverlay.querySelector('[data-role="parchment-wash"]')?.setAttribute('d',polygonPath);
-      ['parchment-edge-feather','parchment-edge-aged','parchment-edge-pencil'].forEach((role) => {
-        parchmentOverlay.querySelector(`[data-role="${role}"]`)?.setAttribute('d',edgePath);
-      });
-      const ornamentPath = geometry.ornament.features.map((feature) => projectedPath(feature.geometry.coordinates,false)).filter(Boolean).join(' ');
-      parchmentOverlay.querySelector('[data-role="parchment-ornament"]')?.setAttribute('d',ornamentPath);
-      const compassPoint = projectMapPoint(geometry.compassCoordinates);
-      if (compassPoint) {
-        const scale = clamp(Math.min(width,height) / 820,0.72,1.08);
-        const bearing = Number(map.getBearing?.() || 0);
-        parchmentOverlay.querySelector('[data-role="parchment-compass"]')?.setAttribute(
-          'transform',
-          `translate(${compassPoint[0].toFixed(2)} ${compassPoint[1].toFixed(2)}) rotate(${-bearing.toFixed(3)}) scale(${scale.toFixed(3)})`
-        );
-      }
-    }
-
-    function initializeParchmentOverlay() {
-      if (!map || parchmentOverlay) return;
-      const wrapper = document.createElement('div');
-      wrapper.innerHTML = parchmentOverlayMarkup().trim();
-      parchmentOverlay = wrapper.firstElementChild;
-      if (!parchmentOverlay) return;
-      map.getContainer().appendChild(parchmentOverlay);
-      updateParchmentOverlay();
-    }
 
 
     function showRegionalLabelsFallback(message) {
@@ -1218,9 +1187,6 @@
       map.addControl(new maplibregl.AttributionControl({compact:true}),'bottom-left');
       map.addControl(new maplibregl.ScaleControl({unit:'metric',maxWidth:120}),'bottom-left');
       map.dragPan.enable(); map.touchZoomRotate.enable(); map.keyboard.enable(); map.doubleClickZoom.enable();
-      initializeParchmentOverlay();
-      map.on('render',updateParchmentOverlay);
-
       map.once('render',() => queueFinalizeReady('first-render'));
       map.on('styledata',() => {
         if (!ready && map.getLayer('focus-paper')) queueFinalizeReady('styledata');
@@ -1242,6 +1208,8 @@
 
       map.on('error',(event) => {
         const message = String(event?.error?.message || 'Ошибка загрузки карты');
+        const errorName = String(event?.error?.name || '');
+        if (errorName === 'AbortError' || /abort|aborted|cancelled|canceled/i.test(message)) return;
         const sourceId = event?.sourceId || (/openfreemap|openmaptiles|\.pbf|vector/i.test(message) ? 'openmaptiles' : /terrain|elevation|terrarium/i.test(message) ? 'terrain-dem' : 'unknown');
         sourceErrors.set(sourceId,message);
         updateNetworkStatus();
@@ -1251,6 +1219,18 @@
         const archivePath = String(event.detail?.archivePath || '');
         const sourceId = archivePath.includes('dem') ? 'terrain-dem' : archivePath.includes('landcover') ? 'copernicus-landcover' : archivePath.includes('vector') ? 'openmaptiles' : '';
         if (sourceId && sourceErrors.delete(sourceId)) updateNetworkStatus();
+      },{signal:uiAbort.signal});
+
+      document.addEventListener('alan-map:pmtiles-range-failed',(event) => {
+        const detail = event.detail || {};
+        const archivePath = String(detail.archivePath || '');
+        const sourceId = String(detail.sourceId || (archivePath.includes('dem') ? 'terrain-dem' : archivePath.includes('landcover') ? 'copernicus-landcover' : archivePath.includes('vector') ? 'openmaptiles' : 'unknown'));
+        const status = detail.httpStatus ? `HTTP ${detail.httpStatus}; ` : '';
+        const start = Number(detail.offset);
+        const length = Number(detail.length);
+        const range = Number.isFinite(start) && Number.isFinite(length) ? `bytes ${start}-${start + Math.max(0,length - 1)}; ` : '';
+        sourceErrors.set(sourceId,`${status}${range}${String(detail.error || 'PMTiles range request failed')}`);
+        updateNetworkStatus();
       },{signal:uiAbort.signal});
 
       map.on('moveend',() => {
@@ -1271,8 +1251,6 @@
       if (resizeFrame !== null) cancelAnimationFrame(resizeFrame);
       resizeObserver?.disconnect();
       if (regionalLabels3d) regionalLabels3d.destroy();
-      parchmentOverlay?.remove();
-      parchmentOverlay = null;
       if (map) map.remove();
       host.innerHTML = '';
       host.classList.remove('alan-map-shell','alan-map-no-toolbar','alan-map-no-legend','alan-map-no-dpad');
@@ -1296,9 +1274,11 @@
         regionalLabelScale:REGIONAL_LABEL_NARSANA_SCALE,
         settlementBeamCount:runtimeSources.presentation.beamCount,
         historicalEthnographicBoundaryVisible:runtimeSources.presentation.boundaries.features.some((feature) => feature.properties?.boundary_id === HISTORICAL_ETHNOGRAPHIC_BOUNDARY_ID),
-        parchmentAnchors:{...PARCHMENT_CORNER},
+        parchmentAnchors:{...runtimeSources.presentation.parchment.anchors},
         parchmentCompass:runtimeSources.presentation.parchment.compassCoordinates,
-        parchmentOverlayReady:Boolean(parchmentOverlay?.isConnected)
+        parchmentLayout:{...runtimeSources.presentation.parchment.layout},
+        parchmentOverlayReady:false,
+        parchmentRenderer:'native-map-scene'
       }),
       getFrameClipDiagnostics:() => ({
         active:true,
@@ -1311,7 +1291,9 @@
         vectorWithinFilters:false,
         strictDataClip:true,
         vectorPhysicallyClipped:Boolean(data.regionalVector?.physicallyClipped),
-        demPhysicallyClipped:Boolean(data.regionalDem?.physicallyClipped)
+        demPhysicallyClipped:Boolean(data.regionalDem?.physicallyClipped),
+        demEdgeCollarM:DEM_EDGE_COLLAR_M,
+        demSourceBounds:expandedDemBounds(data.regionalDem?.bounds)
       }),
       getNetworkDiagnostics:() => ({loaded:[...sourceLoaded],errors:Object.fromEntries(sourceErrors),demMode:activeDemMode,vectorMode:activeVectorMode,demUrlTemplate:activeDemTemplate}),
       getStyleDiagnostics:() => {
@@ -1367,7 +1349,10 @@
       visibleBoundaryCollection,
       settlementBeamCollections,
       parchmentCornerCollections,
-      parchmentOverlayMarkup,
+      resolveParchmentLayout,
+      frameRing,
+      expandedDemBounds,
+      demEdgeCollarM:DEM_EDGE_COLLAR_M,
       regionalLabelAltitudeM:REGIONAL_LABEL_ALTITUDE_M,
       regionalLabelNarsanaScale:REGIONAL_LABEL_NARSANA_SCALE,
       parchmentCorner:PARCHMENT_CORNER,

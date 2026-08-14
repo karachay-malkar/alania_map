@@ -1,0 +1,77 @@
+{
+  "version": "7.2.2-r5",
+  "mode": "hidden-dem-edge-collar",
+  "collar_m": 4500,
+  "fill_method": "nearest-valid-terrain-rgb",
+  "alpha_inside_collar": 255,
+  "terrain_base_drop_removed_near_map_frame": true,
+  "pmtiles_bytes_before": 53530484,
+  "pmtiles_bytes_after": 54677451,
+  "total_tiles_before": 1077,
+  "total_tiles_after": 1174,
+  "changed_tiles": 271,
+  "new_tiles": 97,
+  "collar_pixels": 6403216,
+  "per_zoom": [
+    {
+      "zoom": 7,
+      "boundary_tiles": 4,
+      "candidate_tiles": 16,
+      "changed_tiles": 4,
+      "new_tiles": 0,
+      "collar_pixels": 5303,
+      "collar_px": 6,
+      "ground_m_per_pixel": 885.148
+    },
+    {
+      "zoom": 8,
+      "boundary_tiles": 9,
+      "candidate_tiles": 27,
+      "changed_tiles": 9,
+      "new_tiles": 1,
+      "collar_pixels": 19712,
+      "collar_px": 11,
+      "ground_m_per_pixel": 442.574
+    },
+    {
+      "zoom": 9,
+      "boundary_tiles": 16,
+      "candidate_tiles": 44,
+      "changed_tiles": 16,
+      "new_tiles": 1,
+      "collar_pixels": 76750,
+      "collar_px": 21,
+      "ground_m_per_pixel": 221.287
+    },
+    {
+      "zoom": 10,
+      "boundary_tiles": 34,
+      "candidate_tiles": 99,
+      "changed_tiles": 34,
+      "new_tiles": 4,
+      "collar_pixels": 300909,
+      "collar_px": 41,
+      "ground_m_per_pixel": 110.644
+    },
+    {
+      "zoom": 11,
+      "boundary_tiles": 70,
+      "candidate_tiles": 206,
+      "changed_tiles": 70,
+      "new_tiles": 16,
+      "collar_pixels": 1204946,
+      "collar_px": 82,
+      "ground_m_per_pixel": 55.322
+    },
+    {
+      "zoom": 12,
+      "boundary_tiles": 138,
+      "candidate_tiles": 414,
+      "changed_tiles": 138,
+      "new_tiles": 75,
+      "collar_pixels": 4795596,
+      "collar_px": 163,
+      "ground_m_per_pixel": 27.661
+    }
+  ]
+}
