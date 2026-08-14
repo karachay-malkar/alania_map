@@ -107,14 +107,20 @@ try {
   assert.equal(overlayState.frameFill,'#ead7ad');
   assert.equal(overlayState.ornamentStroke,'#68482f');
 
-  const readCompassScale = () => page.evaluate(() => {
-    const transform = document.querySelector('[data-role="parchment-compass"]')?.getAttribute('transform') || '';
-    const match = transform.match(/^matrix\(([^)]+)\)/);
-    if (!match) return 0;
-    const values = match[1].trim().split(/[,\s]+/).filter(Boolean).map(Number);
-    if (values.length < 4 || values.slice(0,4).some(value => !Number.isFinite(value))) return 0;
-    return Math.hypot(values[0],values[1]);
-  });
+  const waitForCompassScale = async (minimum) => {
+    const handle = await page.waitForFunction((threshold) => {
+      const transform = document.querySelector('[data-role="parchment-compass"]')?.getAttribute('transform') || '';
+      const match = transform.match(/^matrix\(([^)]+)\)/);
+      if (!match) return false;
+      const values = match[1].trim().split(/[,\s]+/).filter(Boolean).map(Number);
+      if (values.length < 4 || values.slice(0,4).some(value => !Number.isFinite(value))) return false;
+      const scale = Math.hypot(values[0],values[1]);
+      return scale > threshold ? scale : false;
+    },minimum,{timeout:5000});
+    const value = Number(await handle.jsonValue());
+    await handle.dispose();
+    return value;
+  };
 
   await page.evaluate(() => {
     const map = window.ALAN_MAP_INSTANCE?.map;
@@ -124,30 +130,15 @@ try {
     map.jumpTo({zoom:targetZoom});
     map.triggerRepaint?.();
   });
-  await page.waitForFunction(() => {
-    const transform = document.querySelector('[data-role="parchment-compass"]')?.getAttribute('transform') || '';
-    const match = transform.match(/^matrix\(([^)]+)\)/);
-    if (!match) return false;
-    const values = match[1].trim().split(/[,\s]+/).filter(Boolean).map(Number);
-    return values.length >= 4 && values.slice(0,4).every(Number.isFinite) && Math.hypot(values[0],values[1]) > 0;
-  },undefined,{timeout:5000});
-
-  const compassScaleBefore = await readCompassScale();
+  const compassScaleBefore = await waitForCompassScale(0);
   assert.ok(compassScaleBefore > 0);
+
   await page.evaluate(() => {
     const map = window.ALAN_MAP_INSTANCE.map;
     map.jumpTo({zoom:Math.min(map.getMaxZoom(),map.getZoom()+0.6)});
     map.triggerRepaint?.();
   });
-  await page.waitForFunction((before) => {
-    const transform = document.querySelector('[data-role="parchment-compass"]')?.getAttribute('transform') || '';
-    const match = transform.match(/^matrix\(([^)]+)\)/);
-    if (!match) return false;
-    const values = match[1].trim().split(/[,\s]+/).filter(Boolean).map(Number);
-    if (values.length < 4 || values.slice(0,4).some(value => !Number.isFinite(value))) return false;
-    return Math.hypot(values[0],values[1]) > before;
-  },compassScaleBefore,{timeout:5000});
-  const compassScaleAfter = await readCompassScale();
+  const compassScaleAfter = await waitForCompassScale(compassScaleBefore);
   assert.ok(compassScaleAfter > compassScaleBefore, `compass did not grow with zoom: ${compassScaleBefore} -> ${compassScaleAfter}`);
 
   assert.ok(errors.length === 0, errors.join('\n'));
