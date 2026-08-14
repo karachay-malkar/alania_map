@@ -107,23 +107,47 @@ try {
   assert.equal(overlayState.frameFill,'#ead7ad');
   assert.equal(overlayState.ornamentStroke,'#68482f');
 
-  const compassScaleBefore = await page.evaluate(() => {
+  const readCompassScale = () => page.evaluate(() => {
     const transform = document.querySelector('[data-role="parchment-compass"]')?.getAttribute('transform') || '';
-    const values = transform.match(/^matrix\(([^)]+)\)/)?.[1].trim().split(/\s+/).map(Number) || [];
-    return values.length >= 4 ? Math.hypot(values[0],values[1]) * 0.5 : 0;
+    const match = transform.match(/^matrix\(([^)]+)\)/);
+    if (!match) return 0;
+    const values = match[1].trim().split(/[,\s]+/).filter(Boolean).map(Number);
+    if (values.length < 4 || values.slice(0,4).some(value => !Number.isFinite(value))) return 0;
+    return Math.hypot(values[0],values[1]);
   });
+
+  await page.evaluate(() => {
+    const map = window.ALAN_MAP_INSTANCE?.map;
+    if (!map) return;
+    const maxZoom = map.getMaxZoom();
+    const targetZoom = Math.max(map.getMinZoom(),Math.min(map.getZoom(),maxZoom-1.2));
+    map.jumpTo({zoom:targetZoom});
+    map.triggerRepaint?.();
+  });
+  await page.waitForFunction(() => {
+    const transform = document.querySelector('[data-role="parchment-compass"]')?.getAttribute('transform') || '';
+    const match = transform.match(/^matrix\(([^)]+)\)/);
+    if (!match) return false;
+    const values = match[1].trim().split(/[,\s]+/).filter(Boolean).map(Number);
+    return values.length >= 4 && values.slice(0,4).every(Number.isFinite) && Math.hypot(values[0],values[1]) > 0;
+  },undefined,{timeout:5000});
+
+  const compassScaleBefore = await readCompassScale();
+  assert.ok(compassScaleBefore > 0);
   await page.evaluate(() => {
     const map = window.ALAN_MAP_INSTANCE.map;
     map.jumpTo({zoom:Math.min(map.getMaxZoom(),map.getZoom()+0.6)});
     map.triggerRepaint?.();
   });
-  await page.waitForTimeout(250);
-  const compassScaleAfter = await page.evaluate(() => {
+  await page.waitForFunction((before) => {
     const transform = document.querySelector('[data-role="parchment-compass"]')?.getAttribute('transform') || '';
-    const values = transform.match(/^matrix\(([^)]+)\)/)?.[1].trim().split(/\s+/).map(Number) || [];
-    return values.length >= 4 ? Math.hypot(values[0],values[1]) : 0;
-  });
-  assert.ok(compassScaleBefore > 0);
+    const match = transform.match(/^matrix\(([^)]+)\)/);
+    if (!match) return false;
+    const values = match[1].trim().split(/[,\s]+/).filter(Boolean).map(Number);
+    if (values.length < 4 || values.slice(0,4).some(value => !Number.isFinite(value))) return false;
+    return Math.hypot(values[0],values[1]) > before;
+  },compassScaleBefore,{timeout:5000});
+  const compassScaleAfter = await readCompassScale();
   assert.ok(compassScaleAfter > compassScaleBefore, `compass did not grow with zoom: ${compassScaleBefore} -> ${compassScaleAfter}`);
 
   assert.ok(errors.length === 0, errors.join('\n'));
