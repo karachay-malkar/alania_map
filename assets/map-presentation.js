@@ -8,7 +8,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  const VERSION = '7.1-r1';
+  const VERSION = '7.2-r1';
   const FRAME_WIDTH_M = 2000;
   const COMPASS_RADIUS_M = 22000;
   const PARCHMENT_COLOR = '#ead7ad';

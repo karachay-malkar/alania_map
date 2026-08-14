@@ -1,0 +1,18 @@
+{
+  "version": "7.2",
+  "generated_at": "2026-08-14T09:06:47.765650+00:00",
+  "transport": "direct PMTiles HTTP Range",
+  "range_cache": {
+    "max_entries": 256,
+    "max_bytes_default": 41943040,
+    "adaptive_for_low_memory": true
+  },
+  "neighbor_prefetch": {
+    "enabled": true,
+    "neighbors": 4,
+    "timing": "idle after moveend",
+    "disabled_on_save_data_or_2g": true
+  },
+  "visual_layer_hiding_during_motion": false,
+  "performance_diagnostics": "window.ALAN_MAP_PERFORMANCE_DIAGNOSTICS()"
+}

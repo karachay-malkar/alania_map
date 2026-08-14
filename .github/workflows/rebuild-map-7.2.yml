@@ -1,0 +1,256 @@
+name: Build Alan Map 7.2 streaming LOD
+
+on:
+  push:
+    branches: [7.2]
+    paths:
+      - 'assets/map-page.js'
+      - 'assets/map-ui.js'
+      - 'tests/map-smoke.mjs'
+      - 'tests/runtime-contract.mjs'
+      - 'tools/build_dem_lod_7_2.py'
+      - 'tools/range_http_server.py'
+      - 'tools/release_7_2.py'
+      - '.github/workflows/rebuild-map-7.2.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: alan-map-7-2-build
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Materialize 7.2 source files
+        run: |
+          set -euxo pipefail
+          if [ ! -f tools/bootstrap_7_2.py ]; then
+            cat tools/.bootstrap_7_2.b64.part-* | base64 -d > tools/bootstrap_7_2.py
+            chmod +x tools/bootstrap_7_2.py
+          fi
+          python tools/bootstrap_7_2.py
+          rm -f tools/.bootstrap_7_2.b64.part-*
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.x'
+
+      - name: Install build tools
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install -y gdal-bin python3-gdal sqlite3 zip
+          python -m pip install --break-system-packages --upgrade pip
+          python -m pip install --break-system-packages rasterio pillow numpy shapely
+          go install github.com/protomaps/go-pmtiles@v1.30.1
+          GO_BIN="$(go env GOPATH)/bin"
+          test -x "$GO_BIN/go-pmtiles"
+          ln -sf "$GO_BIN/go-pmtiles" "$GO_BIN/pmtiles"
+          echo "$GO_BIN" >> "$GITHUB_PATH"
+
+      - name: Prepare 7.2 runtime and exact map frame
+        run: |
+          set -euxo pipefail
+          python tools/release_7_2.py prepare
+          python - <<'PY'
+          import json
+          expected=[40.51784,42.734095,44.184003,44.534975]
+          expected_ring=[[40.51784,43.41265],[43.731622,42.734095],[44.184003,43.85642],[40.970221,44.534975],[40.51784,43.41265]]
+          actual=json.load(open('build/rectangular-bounds.json'))['bounds']
+          frame=json.load(open('build/map-frame.geojson'))['features'][0]['geometry']['coordinates'][0]
+          if actual != expected:
+              raise SystemExit(f'Unexpected tile envelope: {actual}')
+          if frame != expected_ring:
+              raise SystemExit(f'Unexpected rotated frame: {frame}')
+          print('7.2 frame:', frame)
+          PY
+
+      - name: Reconstruct verified vector PMTiles for direct Range serving
+        run: |
+          set -euxo pipefail
+          python - <<'PY'
+          import hashlib, json, pathlib
+          manifest=json.load(open('data/shards-manifest.json'))
+          logical='data/alan-vector-7.0.25.pmtiles'
+          record=manifest['archives'][logical]
+          target=pathlib.Path('build/alan-vector-7.2.pmtiles')
+          target.parent.mkdir(exist_ok=True)
+          digest=hashlib.sha256()
+          size=0
+          with target.open('wb') as out:
+              for item in record['shards']:
+                  path=pathlib.Path(record['parts_path'])/item['file']
+                  data=path.read_bytes()
+                  if len(data) != item['size'] or hashlib.sha256(data).hexdigest() != item['sha256']:
+                      raise SystemExit(f'Vector shard validation failed: {path}')
+                  out.write(data)
+                  digest.update(data)
+                  size += len(data)
+          if size != 16913027:
+              raise SystemExit(f'Unexpected vector size: {size}')
+          if digest.hexdigest() != '1d8d9417aeeba39147e7db2a6680d2032b7876633d1031f3a6fe93dde96d17fb':
+              raise SystemExit('Vector SHA256 differs from verified 7.0.25 payload')
+          print('vector bytes:',size)
+          PY
+          pmtiles verify build/alan-vector-7.2.pmtiles
+
+      - name: Download Copernicus DEM GLO-30 source COGs
+        run: |
+          set -euxo pipefail
+          mkdir -p build/copernicus-dem
+          python - <<'PY'
+          import json, math, pathlib, urllib.request
+          west,south,east,north=json.load(open('build/rectangular-bounds.json'))['bounds']
+          out=pathlib.Path('build/copernicus-dem')
+          for lat in range(math.floor(south),math.ceil(north)):
+              for lon in range(math.floor(west),math.ceil(east)):
+                  ns='N' if lat >= 0 else 'S'
+                  ew='E' if lon >= 0 else 'W'
+                  tile=f'Copernicus_DSM_COG_10_{ns}{abs(lat):02d}_00_{ew}{abs(lon):03d}_00_DEM'
+                  url=f'https://copernicus-dem-30m.s3.eu-central-1.amazonaws.com/{tile}/{tile}.tif'
+                  target=out/f'{tile}.tif'
+                  request=urllib.request.Request(url,headers={'User-Agent':'AlanMap/7.2'})
+                  print('download',url)
+                  with urllib.request.urlopen(request,timeout=240) as response,target.open('wb') as handle:
+                      while True:
+                          chunk=response.read(1024*1024)
+                          if not chunk:
+                              break
+                          handle.write(chunk)
+          PY
+
+      - name: Warp DEM through exact polygon cutline
+        run: |
+          set -euxo pipefail
+          read WEST SOUTH EAST NORTH < <(python - <<'PY'
+          import json
+          print(*json.load(open('build/rectangular-bounds.json'))['bounds'])
+          PY
+          )
+          gdalbuildvrt build/copernicus-dem.vrt build/copernicus-dem/*.tif
+          gdalwarp -overwrite \
+            -t_srs EPSG:4326 \
+            -te "$WEST" "$SOUTH" "$EAST" "$NORTH" \
+            -cutline build/map-frame.geojson -crop_to_cutline \
+            -dstnodata -10000 -r bilinear \
+            -of GTiff -co TILED=YES -co COMPRESS=DEFLATE -co BIGTIFF=IF_SAFER \
+            build/copernicus-dem.vrt build/copernicus-dem-7.2-cutline.tif
+          gdalinfo -json build/copernicus-dem-7.2-cutline.tif > build/copernicus-dem-7.2-cutline.info.json
+
+      - name: Build lossless 1 m quantized DEM LOD pyramid
+        run: |
+          set -euxo pipefail
+          python tools/build_dem_lod_7_2.py \
+            --build-from-dem build/copernicus-dem-7.2-cutline.tif \
+            --output build/alan-dem-7.2.mbtiles \
+            --frame build/map-frame.geojson --minzoom 7 --maxzoom 12 \
+            | tee build/dem-build-report.json
+          python tools/build_dem_lod_7_2.py \
+            build/alan-dem-7.2.mbtiles --frame build/map-frame.geojson --validate \
+            | tee build/dem-validation.json
+          pmtiles convert build/alan-dem-7.2.mbtiles build/alan-dem-7.2.pmtiles
+          pmtiles verify build/alan-dem-7.2.pmtiles
+          ls -lh build/alan-dem-7.2.mbtiles build/alan-dem-7.2.pmtiles
+
+      - name: Verify 7.2 weight reduction
+        run: |
+          set -euxo pipefail
+          python - <<'PY'
+          import json, pathlib
+          baseline=89_296_988
+          current=pathlib.Path('build/alan-dem-7.2.pmtiles').stat().st_size
+          vector=pathlib.Path('build/alan-vector-7.2.pmtiles').stat().st_size
+          if current >= baseline:
+              raise SystemExit(f'7.2 DEM was not reduced: {current} >= {baseline}')
+          report=json.load(open('build/dem-build-report.json'))
+          if report.get('height_quantization_m') != 1.0:
+              raise SystemExit(f'Height quantization is not 1 m: {report}')
+          if report.get('rgb_tiles',0) <= 0 or report.get('rgba_tiles',0) <= 0:
+              raise SystemExit(f'Mixed RGB/RGBA optimization was not produced: {report}')
+          summary={
+              'baseline_dem_bytes_7_1':baseline,
+              'dem_bytes_7_2':current,
+              'dem_reduction_fraction':1-current/baseline,
+              'vector_bytes_7_2':vector,
+              'total_direct_pmtiles_bytes':current+vector,
+              'transport':'http-range',
+              'height_quantization_m':1,
+              'lod_model':'single-pyramid-z7-z12',
+              'build':report,
+          }
+          pathlib.Path('build/dem-size-summary.json').write_text(json.dumps(summary,indent=2))
+          print(json.dumps(summary,indent=2))
+          PY
+
+      - name: Integrate direct PMTiles and remove legacy shard transport
+        run: |
+          set -euxo pipefail
+          python tools/release_7_2.py finalize \
+            --dem build/alan-dem-7.2.pmtiles \
+            --vector build/alan-vector-7.2.pmtiles
+          cp build/dem-build-report.json data/dem-crop-report.json
+          cp build/dem-validation.json data/dem-crop-validation.json
+          cp build/dem-size-summary.json data/dem-size-summary.json
+          test -f data/alan-dem-7.2.pmtiles
+          test -f data/alan-vector-7.2.pmtiles
+          test ! -e data/shards-manifest.json
+          test ! -d data/shards
+
+      - name: Validate runtime and data contract
+        run: |
+          set -euxo pipefail
+          python tools/release_7_2.py validate
+          node tests/runtime-contract.mjs
+          python - <<'PY'
+          from pathlib import Path
+          for path in [Path('data/alan-dem-7.2.pmtiles'),Path('data/alan-vector-7.2.pmtiles')]:
+              if path.stat().st_size >= 100_000_000:
+                  raise SystemExit(f'{path} is too large for direct Git storage: {path.stat().st_size}')
+          PY
+
+      - name: Browser Range and visual smoke test
+        run: |
+          set -euxo pipefail
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+          node tests/map-smoke.mjs
+
+      - name: Amend into one final 7.2 commit
+        run: |
+          set -euxo pipefail
+          git config user.name 'Alan Map Builder'
+          git config user.email 'actions@users.noreply.github.com'
+          BASE_SHA='6440552355690a441abda44ced571660b2d189d7'
+          git reset --soft "$BASE_SHA"
+          git add -A
+          git commit -m 'Build Alan Map 7.2 streaming LOD [skip ci]'
+          git push --force-with-lease origin HEAD:7.2
+
+      - name: Package complete 7.2 project and file sizes
+        run: |
+          set -euxo pipefail
+          mkdir -p /tmp/alan-map-7-2
+          find . -type f \
+            -not -path './.git/*' -not -path './build/*' -not -path './node_modules/*' -not -path '*/__pycache__/*' \
+            -printf '%P\t%s\n' | sort > /tmp/alan-map-7-2/file-sizes-7.2.tsv
+          cp build/dem-size-summary.json /tmp/alan-map-7-2/dem-size-summary-7.2.json
+          zip -qr /tmp/alan-map-7-2/alan-map-7.2.zip . \
+            -x '.git/*' 'build/*' 'node_modules/*' '*/__pycache__/*'
+          unzip -tq /tmp/alan-map-7-2/alan-map-7.2.zip
+          ls -lh /tmp/alan-map-7-2/alan-map-7.2.zip
+          wc -l /tmp/alan-map-7-2/file-sizes-7.2.tsv
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: alan-map-7.2-full
+          path: /tmp/alan-map-7-2/
+          retention-days: 30

@@ -6,11 +6,12 @@
 })(typeof self !== 'undefined' ? self : this, function (root) {
   'use strict';
 
-  const VERSION = '7.1';
-  const DEFAULT_STORAGE_KEY = 'alan-map-stage7.1-view';
+  const VERSION = '7.2';
+  const DEFAULT_STORAGE_KEY = 'alan-map-stage7.2-view';
   const STATE_SCHEMA_VERSION = 1;
   const STATE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
   const LEGACY_STORAGE_KEYS = [
+    'alan-map-stage7.1-view',
     'alan-map-stage7.0.22-view',
     'alan-map-stage7.0.21-view',
     'alan-map-stage7.0.20-view',
@@ -156,8 +157,8 @@
     }
     const profiles = {
       low: {mode: 'low', pixelRatio: 1.25, maxTileCacheZoomLevels: 3, maxTileCacheSize: 64, maxCanvasSize: 6144, antialias: false, forestPattern: false},
-      balanced: {mode: 'balanced', pixelRatio: 1.75, maxTileCacheZoomLevels: 4, maxTileCacheSize: 80, maxCanvasSize: 6144, antialias: false, forestPattern: true},
-      high: {mode: 'high', pixelRatio: 2, maxTileCacheZoomLevels: 5, maxTileCacheSize: 96, maxCanvasSize: 8192, antialias: true, forestPattern: true}
+      balanced: {mode: 'balanced', pixelRatio: 1.75, maxTileCacheZoomLevels: 5, maxTileCacheSize: 128, maxCanvasSize: 6144, antialias: false, forestPattern: true},
+      high: {mode: 'high', pixelRatio: 2, maxTileCacheZoomLevels: 6, maxTileCacheSize: 192, maxCanvasSize: 8192, antialias: true, forestPattern: true}
     };
     return {...profiles[mode], detectedDevicePixelRatio: devicePixelRatio};
   }
@@ -418,7 +419,7 @@
       <div class="alan-map-canvas" data-role="map" aria-label="Интерактивная рельефная карта"></div>
       <div class="alan-map-loading" data-role="loading"><div class="alan-map-loading-card"><div class="alan-map-spinner"></div><div class="alan-map-loading-title">Загрузка карты</div><div class="alan-map-loading-text" data-role="loading-text">Подготавливается рельеф и законченный картографический стиль.</div></div></div>
       <div class="alan-map-toolbar" data-role="toolbar">
-        <div class="alan-map-toolbar-head"><div class="alan-map-toolbar-titles"><div class="alan-map-title">Alan Map · 7.1</div><div class="alan-map-subtitle">Автономная карта · физически обрезанные DEM и векторные данные</div></div><button class="alan-map-collapse-button" data-action="toggle-toolbar" type="button" aria-expanded="true" aria-label="Скрыть панель">−</button></div>
+        <div class="alan-map-toolbar-head"><div class="alan-map-toolbar-titles"><div class="alan-map-title">Alan Map · 7.2</div><div class="alan-map-subtitle">Автономная карта · физически обрезанные DEM и векторные данные</div></div><button class="alan-map-collapse-button" data-action="toggle-toolbar" type="button" aria-expanded="true" aria-label="Скрыть панель">−</button></div>
         <div class="alan-map-buttons alan-map-action-buttons"><button data-action="reset" type="button">Сброс</button><button class="alan-map-fullscreen-button" data-action="fullscreen" type="button" aria-pressed="false">На весь экран</button></div>
         <div class="alan-map-buttons alan-map-layer-buttons"><button data-toggle="roads" class="active" type="button">Дороги</button><button data-toggle="rivers" class="active" type="button">Вода</button><button data-toggle="regions" class="active" type="button">Районы</button><button data-toggle="labels" class="active" type="button">Подписи</button><button data-toggle="modern" type="button">Современные</button></div>
         <div class="alan-map-control-row"><label>Рельеф</label><input data-control="relief" type="range" min="1" max="4.2" step="0.05" value="2.55"><span data-value="relief" class="alan-map-value">2.6×</span></div>
@@ -512,7 +513,6 @@
     let resizeFrame = null;
     let resizeObserver = null;
     let correctingCamera = false;
-    let moving = false;
     let regionalLabelsInitializationScheduled = false;
     let api = null;
     let stateMigrationNeeded = false;
@@ -905,9 +905,8 @@
       setVisibility(layerIds.modernGeometry,modernVisible);
       setVisibility(layerIds.modernLabels,modernVisible && labelsVisible);
       setVisibility(layerIds.labels,labelsVisible);
-      if (moving) setVisibility(layerIds.secondaryLabels,false);
       if (map?.getLayer('forest-pattern')) {
-        map.setLayoutProperty('forest-pattern','visibility',qualityProfile.forestPattern && !moving ? 'visible' : 'none');
+        map.setLayoutProperty('forest-pattern','visibility',qualityProfile.forestPattern ? 'visible' : 'none');
       }
     }
 
@@ -1248,19 +1247,13 @@
         updateNetworkStatus();
       });
 
-      document.addEventListener('alan-map:pmtiles-shard-loaded',(event) => {
+      document.addEventListener('alan-map:pmtiles-range-loaded',(event) => {
         const archivePath = String(event.detail?.archivePath || '');
         const sourceId = archivePath.includes('dem') ? 'terrain-dem' : archivePath.includes('landcover') ? 'copernicus-landcover' : archivePath.includes('vector') ? 'openmaptiles' : '';
         if (sourceId && sourceErrors.delete(sourceId)) updateNetworkStatus();
       },{signal:uiAbort.signal});
 
-      map.on('movestart',() => {
-        moving = true;
-        applyLayerState();
-      });
       map.on('moveend',() => {
-        moving = false;
-        applyLayerState();
         if (correctingCamera) {correctingCamera=false;queueSave();return;}
         if (!enforceSoftCameraBounds()) queueSave();
       });

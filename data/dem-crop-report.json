@@ -1,46 +1,71 @@
 {
   "mode": "build",
-  "source_dem": "build/copernicus-dem-7.1-cutline.tif",
+  "source_dem": "build/copernicus-dem-7.2-cutline.tif",
+  "lod_model": "single-pyramid-z7-z12",
   "minzoom": 7,
   "maxzoom": 12,
+  "tile_size": 256,
+  "height_quantization_m": 1.0,
+  "png_compression": "Pillow optimize + zlib level 9",
   "candidate_tiles": 1718,
   "tiles_written": 1077,
   "outside_tiles_skipped": 641,
   "partial_tiles_masked": 272,
   "interior_tiles": 806,
-  "outside_pixels_transparent": 9422099,
+  "rgb_tiles": 806,
+  "rgba_tiles": 271,
+  "transparent_pixels": 9426892,
   "valid_pixels": 61155380,
-  "bytes_after": 90238976,
+  "encoded_png_bytes": 53527272,
+  "mbtiles_bytes": 54439936,
   "per_zoom": {
     "7": {
       "tiles_written": 4,
       "outside_tiles_skipped": 0,
-      "partial_tiles_masked": 4
+      "partial_tiles_masked": 4,
+      "rgb_tiles": 0,
+      "rgba_tiles": 4,
+      "png_bytes": 90866
     },
     "8": {
       "tiles_written": 9,
       "outside_tiles_skipped": 3,
-      "partial_tiles_masked": 9
+      "partial_tiles_masked": 9,
+      "rgb_tiles": 0,
+      "rgba_tiles": 9,
+      "png_bytes": 312014
     },
     "9": {
       "tiles_written": 20,
       "outside_tiles_skipped": 4,
-      "partial_tiles_masked": 16
+      "partial_tiles_masked": 16,
+      "rgb_tiles": 4,
+      "rgba_tiles": 16,
+      "png_bytes": 1089723
     },
     "10": {
       "tiles_written": 62,
       "outside_tiles_skipped": 26,
-      "partial_tiles_masked": 34
+      "partial_tiles_masked": 34,
+      "rgb_tiles": 28,
+      "rgba_tiles": 34,
+      "png_bytes": 3703837
     },
     "11": {
       "tiles_written": 212,
       "outside_tiles_skipped": 118,
-      "partial_tiles_masked": 70
+      "partial_tiles_masked": 70,
+      "rgb_tiles": 142,
+      "rgba_tiles": 70,
+      "png_bytes": 11988237
     },
     "12": {
       "tiles_written": 770,
       "outside_tiles_skipped": 490,
-      "partial_tiles_masked": 139
+      "partial_tiles_masked": 139,
+      "rgb_tiles": 632,
+      "rgba_tiles": 138,
+      "png_bytes": 36342595
     }
   }
 }

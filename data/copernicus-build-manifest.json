@@ -1,5 +1,6 @@
 {
-  "version": "7.1",
+  "version": "7.2",
+  "generated_at": "2026-08-14T09:06:47.765650+00:00",
   "bounds": [
     40.51784,
     42.734095,
@@ -8,13 +9,16 @@
   ],
   "dem": {
     "source": "Copernicus DEM GLO-30",
-    "archive": "data/alan-dem-7.1.pmtiles",
-    "bytes": 89296988,
-    "sha256": "a21974dca7d2dc36cc879ac462a82e1cf8e801fa211391bbfed94038c8e7ce29",
+    "archive": "data/alan-dem-7.2.pmtiles",
+    "bytes": 53530484,
+    "sha256": "80503c5010ede90ac15b074def7cbe36dd455b5a7a2cb347c025d7eeb040648e",
     "physical_clip": "rotated mapFrame polygon",
     "outside_tiles_removed": true,
     "outside_pixels_transparent": true,
-    "baseline_bytes_7_0_25": 408983932
+    "height_quantization_m": 1,
+    "lod_model": "single-pyramid-z7-z12",
+    "streaming": "http-range",
+    "baseline_bytes_7_1": 89296988
   },
   "landcover": {
     "source": "Copernicus CLMS LCM-10",
@@ -24,9 +28,10 @@
   },
   "vector": {
     "source": "OpenStreetMap / Geofabrik",
-    "archive": "data/alan-vector-7.0.25.pmtiles",
+    "archive": "data/alan-vector-7.2.pmtiles",
     "bytes": 16913027,
     "sha256": "1d8d9417aeeba39147e7db2a6680d2032b7876633d1031f3a6fe93dde96d17fb",
-    "reused_from": "7.0.25"
+    "reused_from": "7.0.25",
+    "streaming": "http-range"
   }
 }

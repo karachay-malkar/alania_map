@@ -9,7 +9,7 @@ const uiSource = fs.readFileSync('assets/map-ui.js','utf8');
 const page = fs.readFileSync('assets/map-page.js','utf8');
 const dataSource = fs.readFileSync('assets/map-data.part-000.js','utf8') + fs.readFileSync('assets/map-data.part-001.js','utf8');
 
-assert.match(uiSource, /const VERSION = '7\.1'/);
+assert.match(uiSource, /const VERSION = '7\.2'/);
 assert.ok(!bootstrap.includes('fantasy-relief.js'));
 assert.ok(!bootstrap.includes('fantasy-style.js'));
 assert.ok(!fs.existsSync('assets/fantasy-relief.js'));
@@ -17,6 +17,20 @@ assert.ok(!fs.existsSync('assets/fantasy-style.js'));
 assert.match(uiSource, /data\.regionalDem\.encoding \|\| 'terrarium'/);
 assert.match(uiSource, /copernicus-landcover/);
 assert.match(page, /regionalLandcover\?\.archivePath/);
+
+assert.ok(!page.includes('ShardedPmtilesSource'));
+assert.ok(!page.includes('ShardLruCache'));
+assert.ok(!page.includes('shards-manifest.json'));
+assert.match(page, /class RangeLruCache/);
+assert.match(page, /class InstrumentedRangeSource/);
+assert.match(page, /new window\.pmtiles\.FetchSource/);
+assert.match(page, /mode:'http-range'/);
+assert.match(page, /ALAN_MAP_PERFORMANCE_DIAGNOSTICS/);
+assert.match(page, /installPrefetch/);
+assert.ok(!uiSource.includes('if (moving) setVisibility'));
+assert.ok(!uiSource.includes('qualityProfile.forestPattern && !moving'));
+assert.match(uiSource, /balanced: \{mode: 'balanced'.*?maxTileCacheZoomLevels: 5, maxTileCacheSize: 128/s);
+assert.match(uiSource, /high: \{mode: 'high'.*?maxTileCacheZoomLevels: 6, maxTileCacheSize: 192/s);
 
 // Presentation contract: three visual scales only.
 const ui = require('../assets/map-ui.js');
@@ -87,10 +101,23 @@ const marker = 'window.ALAN_MAP_DATA = ';
 let payload = dataSource.slice(dataSource.indexOf(marker) + marker.length).trim();
 if (payload.endsWith(';')) payload = payload.slice(0,-1);
 const data = JSON.parse(payload);
-assert.equal(data.version, '7.1');
-assert.equal(data.applicationVersion, '7.1');
+assert.equal(data.version, '7.2');
+assert.equal(data.applicationVersion, '7.2');
 assert.equal(data.regionalDem.source, 'Copernicus DEM GLO-30');
 assert.equal(data.regionalDem.encoding, 'mapbox');
+
+assert.equal(data.regionalDem.streamingMode, 'http-range');
+assert.equal(data.regionalDem.lodModel, 'single-pyramid-z7-z12');
+assert.equal(data.regionalDem.heightQuantizationM, 1);
+assert.equal(data.regionalDem.archivePath, 'data/alan-dem-7.2.pmtiles');
+assert.equal(data.regionalVector.streamingMode, 'http-range');
+assert.equal(data.regionalVector.archivePath, 'data/alan-vector-7.2.pmtiles');
+assert.ok(!fs.existsSync('data/shards-manifest.json'));
+assert.ok(!fs.existsSync('data/shards'));
+assert.ok(fs.existsSync(data.regionalDem.archivePath));
+assert.ok(fs.existsSync(data.regionalVector.archivePath));
+assert.ok(fs.statSync(data.regionalDem.archivePath).size < 89296988);
+assert.equal(fs.statSync(data.regionalVector.archivePath).size, 16913027);
 const ring = data.mapFrame.features[0].geometry.coordinates[0];
 const expectedRing = [
   [40.51784,43.41265],
