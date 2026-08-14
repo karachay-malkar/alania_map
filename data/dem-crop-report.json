@@ -1,0 +1,46 @@
+{
+  "mode": "build",
+  "source_dem": "build/copernicus-dem-7.1-cutline.tif",
+  "minzoom": 7,
+  "maxzoom": 12,
+  "candidate_tiles": 1718,
+  "tiles_written": 1077,
+  "outside_tiles_skipped": 641,
+  "partial_tiles_masked": 272,
+  "interior_tiles": 806,
+  "outside_pixels_transparent": 9422099,
+  "valid_pixels": 61155380,
+  "bytes_after": 90238976,
+  "per_zoom": {
+    "7": {
+      "tiles_written": 4,
+      "outside_tiles_skipped": 0,
+      "partial_tiles_masked": 4
+    },
+    "8": {
+      "tiles_written": 9,
+      "outside_tiles_skipped": 3,
+      "partial_tiles_masked": 9
+    },
+    "9": {
+      "tiles_written": 20,
+      "outside_tiles_skipped": 4,
+      "partial_tiles_masked": 16
+    },
+    "10": {
+      "tiles_written": 62,
+      "outside_tiles_skipped": 26,
+      "partial_tiles_masked": 34
+    },
+    "11": {
+      "tiles_written": 212,
+      "outside_tiles_skipped": 118,
+      "partial_tiles_masked": 70
+    },
+    "12": {
+      "tiles_written": 770,
+      "outside_tiles_skipped": 490,
+      "partial_tiles_masked": 139
+    }
+  }
+}

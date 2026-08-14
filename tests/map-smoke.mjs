@@ -69,7 +69,7 @@ try {
   assert.equal(presentation.historicalEthnographicBoundaryVisible,false);
   assert.deepEqual(presentation.parchmentAnchors.corner,[44.184003,43.85642]);
   assert.equal(presentation.parchmentOverlayReady,true);
-  assert.equal(diagnostics.overlay.version,'7.0.25-r4');
+  assert.equal(diagnostics.overlay.version,'7.1-r1');
   assert.equal(diagnostics.overlay.frameWidthM,2000);
   assert.equal(diagnostics.overlay.compassRadiusM,22000);
   assert.equal(diagnostics.overlay.compassMapPlaneAligned,true);
