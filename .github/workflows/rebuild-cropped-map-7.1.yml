@@ -35,7 +35,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y gdal-bin python3-gdal sqlite3 zip
           python -m pip install --break-system-packages --upgrade pip
-          python -m pip install --break-system-packages rasterio rio-rgbify pillow numpy shapely
+          python -m pip install --break-system-packages rasterio pillow numpy shapely
           go install github.com/protomaps/go-pmtiles@v1.30.1
           GO_BIN="$(go env GOPATH)/bin"
           test -x "$GO_BIN/go-pmtiles"
@@ -102,13 +102,13 @@ jobs:
             build/copernicus-dem.vrt build/copernicus-dem-7.1-cutline.tif
           gdalinfo -json build/copernicus-dem-7.1-cutline.tif > build/copernicus-dem-7.1-cutline.info.json
 
-      - name: Encode Terrain-RGB and physically remove outside tiles and pixels
+      - name: Build only Terrain-RGB tiles intersecting the map frame
         run: |
           set -euxo pipefail
-          rio rgbify -b -10000 -i 0.1 --min-z 7 --max-z 12 -j 4 --format png \
-            build/copernicus-dem-7.1-cutline.tif build/alan-dem-7.1.mbtiles
           python tools/crop_dem_mbtiles_to_frame.py \
-            build/alan-dem-7.1.mbtiles --frame build/map-frame.geojson \
+            --build-from-dem build/copernicus-dem-7.1-cutline.tif \
+            --output build/alan-dem-7.1.mbtiles \
+            --frame build/map-frame.geojson --minzoom 7 --maxzoom 12 \
             | tee build/dem-crop-report.json
           python tools/crop_dem_mbtiles_to_frame.py \
             build/alan-dem-7.1.mbtiles --frame build/map-frame.geojson --validate \
@@ -127,10 +127,12 @@ jobs:
           if current >= baseline:
               raise SystemExit(f'7.1 DEM was not reduced: {current} >= {baseline}')
           report=json.load(open('build/dem-crop-report.json'))
-          if report.get('tiles_removed',0) <= 0:
-              raise SystemExit(f'No wholly outside tiles were removed: {report}')
+          if report.get('outside_tiles_skipped',0) <= 0:
+              raise SystemExit(f'No wholly outside candidate tiles were skipped: {report}')
           if report.get('partial_tiles_masked',0) <= 0:
               raise SystemExit(f'No boundary tiles were masked: {report}')
+          if report.get('outside_pixels_transparent',0) <= 0:
+              raise SystemExit(f'No outside-frame pixels were made transparent: {report}')
           reduction=1-current/baseline
           summary={
               'baseline_dem_bytes_7_0_25':baseline,
