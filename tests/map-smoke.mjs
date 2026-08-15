@@ -14,7 +14,7 @@ try {
   const errors=[];
   page.on('pageerror',e=>errors.push(String(e)));
 
-  const rangeProbe = await page.request.get('http://127.0.0.1:4173/data/alan-dem-7.2.pmtiles',{
+  const rangeProbe = await page.request.get('http://127.0.0.1:4173/data/alan-dem-7.3.pmtiles',{
     headers:{Range:'bytes=0-126'}
   });
   assert.equal(rangeProbe.status(),206);
@@ -131,7 +131,7 @@ try {
   assert.equal(vectorTransport.fullFileFallbackAllowed,true);
   assert.ok(vectorTransport.concurrency.limit >= 3);
   assert.ok(diagnostics.transport.archives.every(item => Number.isInteger(item.retries) && Number.isInteger(item.failures)));
-  assert.ok(diagnostics.transport.archives.some(item => item.archivePath === 'data/alan-dem-7.2.pmtiles'));
+  assert.ok(diagnostics.transport.archives.some(item => item.archivePath === 'data/alan-dem-7.3.pmtiles'));
   assert.ok(diagnostics.transport.archives.some(item => item.archivePath === 'data/alan-vector-7.2.pmtiles'));
   if (diagnostics.sourceIds.includes('snow-permanent')) {
     assert.ok(diagnostics.transport.archives.some(item => item.archivePath === 'data/alan-snow-permanent-7.2.5.pmtiles'));
@@ -215,7 +215,7 @@ try {
     return metrics && metrics.totalNetworkRequests > 0 && metrics.renderFrames > 0;
   },undefined,{timeout:30000});
   const performanceMetrics = await page.evaluate(() => window.ALAN_MAP_PERFORMANCE_DIAGNOSTICS());
-  assert.equal(performanceMetrics.version,'7.2.5');
+  assert.equal(performanceMetrics.version,'7.3');
   assert.ok(performanceMetrics.totalNetworkBytes > 0);
   assert.ok(performanceMetrics.totalNetworkRequests > 0);
   assert.ok(performanceMetrics.renderFrames > 0);

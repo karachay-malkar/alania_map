@@ -1,6 +1,6 @@
 {
-  "version": "7.2",
-  "generated_at": "2026-08-14T09:06:47.765650+00:00",
+  "version": "7.3",
+  "generated_at": "2026-08-15T21:54:10.473760+00:00",
   "transport": "direct PMTiles HTTP Range",
   "range_cache": {
     "max_entries": 256,
@@ -14,5 +14,10 @@
     "disabled_on_save_data_or_2g": true
   },
   "visual_layer_hiding_during_motion": false,
-  "performance_diagnostics": "window.ALAN_MAP_PERFORMANCE_DIAGNOSTICS()"
+  "performance_diagnostics": "window.ALAN_MAP_PERFORMANCE_DIAGNOSTICS()",
+  "dem_geometry": {
+    "native_zoom_range": "z7-z11",
+    "overzoom_after": 11,
+    "height_quantization_m": 1
+  }
 }

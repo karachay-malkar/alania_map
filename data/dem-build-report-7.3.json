@@ -1,0 +1,63 @@
+{
+  "mode": "build",
+  "source_dem": "build/copernicus-dem-7.3-cutline.tif",
+  "lod_model": "single-pyramid-z7-z11",
+  "minzoom": 7,
+  "maxzoom": 11,
+  "tile_size": 256,
+  "height_quantization_m": 1.0,
+  "png_compression": "Pillow optimize + zlib level 9",
+  "candidate_tiles": 458,
+  "tiles_written": 307,
+  "outside_tiles_skipped": 151,
+  "partial_tiles_masked": 133,
+  "interior_tiles": 174,
+  "rgb_tiles": 174,
+  "rgba_tiles": 133,
+  "transparent_pixels": 4841873,
+  "valid_pixels": 15277679,
+  "encoded_png_bytes": 17184677,
+  "mbtiles_bytes": 17465344,
+  "per_zoom": {
+    "7": {
+      "tiles_written": 4,
+      "outside_tiles_skipped": 0,
+      "partial_tiles_masked": 4,
+      "rgb_tiles": 0,
+      "rgba_tiles": 4,
+      "png_bytes": 90866
+    },
+    "8": {
+      "tiles_written": 9,
+      "outside_tiles_skipped": 3,
+      "partial_tiles_masked": 9,
+      "rgb_tiles": 0,
+      "rgba_tiles": 9,
+      "png_bytes": 312014
+    },
+    "9": {
+      "tiles_written": 20,
+      "outside_tiles_skipped": 4,
+      "partial_tiles_masked": 16,
+      "rgb_tiles": 4,
+      "rgba_tiles": 16,
+      "png_bytes": 1089723
+    },
+    "10": {
+      "tiles_written": 62,
+      "outside_tiles_skipped": 26,
+      "partial_tiles_masked": 34,
+      "rgb_tiles": 28,
+      "rgba_tiles": 34,
+      "png_bytes": 3703837
+    },
+    "11": {
+      "tiles_written": 212,
+      "outside_tiles_skipped": 118,
+      "partial_tiles_masked": 70,
+      "rgb_tiles": 142,
+      "rgba_tiles": 70,
+      "png_bytes": 11988237
+    }
+  }
+}

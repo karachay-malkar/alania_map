@@ -1,0 +1,11 @@
+{
+  "mode": "validate",
+  "tiles": 307,
+  "partial_tiles": 133,
+  "rgb_tiles": 174,
+  "rgba_tiles": 133,
+  "transparent_pixels_checked": 4840710,
+  "boundary_inside_pixels_checked": 3874415,
+  "height_quantization_m": 1.0,
+  "quantization_errors": 0
+}

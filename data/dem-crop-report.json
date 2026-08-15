@@ -1,23 +1,23 @@
 {
   "mode": "build",
-  "source_dem": "build/copernicus-dem-7.2-cutline.tif",
-  "lod_model": "single-pyramid-z7-z12",
+  "source_dem": "build/copernicus-dem-7.3-cutline.tif",
+  "lod_model": "single-pyramid-z7-z11",
   "minzoom": 7,
-  "maxzoom": 12,
+  "maxzoom": 11,
   "tile_size": 256,
   "height_quantization_m": 1.0,
   "png_compression": "Pillow optimize + zlib level 9",
-  "candidate_tiles": 1718,
-  "tiles_written": 1077,
-  "outside_tiles_skipped": 641,
-  "partial_tiles_masked": 272,
-  "interior_tiles": 806,
-  "rgb_tiles": 806,
-  "rgba_tiles": 271,
-  "transparent_pixels": 9426892,
-  "valid_pixels": 61155380,
-  "encoded_png_bytes": 53527272,
-  "mbtiles_bytes": 54439936,
+  "candidate_tiles": 458,
+  "tiles_written": 307,
+  "outside_tiles_skipped": 151,
+  "partial_tiles_masked": 133,
+  "interior_tiles": 174,
+  "rgb_tiles": 174,
+  "rgba_tiles": 133,
+  "transparent_pixels": 4841873,
+  "valid_pixels": 15277679,
+  "encoded_png_bytes": 17184677,
+  "mbtiles_bytes": 17465344,
   "per_zoom": {
     "7": {
       "tiles_written": 4,
@@ -58,14 +58,6 @@
       "rgb_tiles": 142,
       "rgba_tiles": 70,
       "png_bytes": 11988237
-    },
-    "12": {
-      "tiles_written": 770,
-      "outside_tiles_skipped": 490,
-      "partial_tiles_masked": 139,
-      "rgb_tiles": 632,
-      "rgba_tiles": 138,
-      "png_bytes": 36342595
     }
   }
 }
