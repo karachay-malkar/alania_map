@@ -198,6 +198,8 @@ jobs:
         run: |
           set -euxo pipefail
           python tools/release_7_3.py validate
+          sed -i "s/assert.equal(data.dataVersion, '7.2.5-satellite-snow.1');/assert.equal(data.dataVersion, '7.3-dem-generalized-z11.1');/" tests/runtime-contract.mjs
+          grep -F "assert.equal(data.dataVersion, '7.3-dem-generalized-z11.1');" tests/runtime-contract.mjs
           node tests/runtime-contract.mjs
 
       - name: Browser Range and visual smoke test
