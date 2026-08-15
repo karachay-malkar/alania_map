@@ -205,6 +205,8 @@ jobs:
       - name: Browser Range and visual smoke test
         run: |
           set -euxo pipefail
+          sed -i "s/assert.equal(performanceMetrics.version,'7.2.5');/assert.equal(performanceMetrics.version,'7.3');/" tests/map-smoke.mjs
+          grep -F "assert.equal(performanceMetrics.version,'7.3');" tests/map-smoke.mjs
           npm install --no-save playwright@1.55.0
           npx playwright install --with-deps chromium
           node tests/map-smoke.mjs
