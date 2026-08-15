@@ -48,7 +48,9 @@ try {
         riverLine:byId['osm-river-line'] || null,
         waterFill:byId['osm-water-fill'] || null,
         glacierFill:byId['osm-glacier-fill'] || null,
-        snowFill:byId['osm-snow-fill'] || null
+        snowFill:byId['osm-snow-fill'] || null,
+        satelliteSnowPermanent:byId['satellite-snow-permanent'] || null,
+        satelliteSnowSeasonal:byId['satellite-snow-seasonal'] || null
       },
       presentation:{
         version:window.ALAN_MAP_PRESENTATION_723?.version,
@@ -77,7 +79,17 @@ try {
 
   assert.ok(diagnostics.sourceIds.includes('terrain-dem'));
   assert.ok(diagnostics.sourceIds.includes('openmaptiles'));
-  for (const layer of [diagnostics.layers.roadMain,diagnostics.layers.riverLine,diagnostics.layers.waterFill,diagnostics.layers.forestPattern,diagnostics.layers.glacierFill,diagnostics.layers.snowFill]) assert.ok(layer);
+  for (const layer of [diagnostics.layers.roadMain,diagnostics.layers.riverLine,diagnostics.layers.waterFill,diagnostics.layers.forestPattern]) assert.ok(layer);
+  if (diagnostics.sourceIds.includes('snow-permanent')) {
+    assert.ok(diagnostics.sourceIds.includes('snow-seasonal'));
+    assert.ok(diagnostics.layers.satelliteSnowPermanent);
+    assert.ok(diagnostics.layers.satelliteSnowSeasonal);
+    assert.equal(diagnostics.layers.glacierFill,null);
+    assert.equal(diagnostics.layers.snowFill,null);
+  } else {
+    assert.ok(diagnostics.layers.glacierFill);
+    assert.ok(diagnostics.layers.snowFill);
+  }
   assert.equal(diagnostics.layers.currentSettlement.minzoom,10);
   assert.equal(diagnostics.layers.historicSettlement.minzoom,12);
   assert.equal(diagnostics.layers.historicObject.minzoom,12);
@@ -121,9 +133,13 @@ try {
   assert.ok(diagnostics.transport.archives.every(item => Number.isInteger(item.retries) && Number.isInteger(item.failures)));
   assert.ok(diagnostics.transport.archives.some(item => item.archivePath === 'data/alan-dem-7.2.pmtiles'));
   assert.ok(diagnostics.transport.archives.some(item => item.archivePath === 'data/alan-vector-7.2.pmtiles'));
+  if (diagnostics.sourceIds.includes('snow-permanent')) {
+    assert.ok(diagnostics.transport.archives.some(item => item.archivePath === 'data/alan-snow-permanent-7.2.5.pmtiles'));
+    assert.ok(diagnostics.transport.archives.some(item => item.archivePath === 'data/alan-snow-seasonal-7.2.5.pmtiles'));
+  }
   assert.ok(diagnostics.transport.archives.reduce((sum,item) => sum + item.networkBytes,0) > 0);
 
-  await page.waitForFunction(() => Boolean(window.ALAN_MAP_INSTANCE?.getLabelDiagnostics?.().regional), {timeout:30000});
+  await page.waitForFunction(() => Boolean(window.ALAN_MAP_INSTANCE?.getLabelDiagnostics?.().regional), undefined, {timeout:120000});
   const regional = await page.evaluate(() => window.ALAN_MAP_INSTANCE.getLabelDiagnostics().regional);
   assert.equal(regional.altitudeM,10000);
   assert.equal(regional.mapPlaneAligned,true);
@@ -199,7 +215,7 @@ try {
     return metrics && metrics.totalNetworkRequests > 0 && metrics.renderFrames > 0;
   },undefined,{timeout:30000});
   const performanceMetrics = await page.evaluate(() => window.ALAN_MAP_PERFORMANCE_DIAGNOSTICS());
-  assert.equal(performanceMetrics.version,'7.2');
+  assert.equal(performanceMetrics.version,'7.2.5');
   assert.ok(performanceMetrics.totalNetworkBytes > 0);
   assert.ok(performanceMetrics.totalNetworkRequests > 0);
   assert.ok(performanceMetrics.renderFrames > 0);

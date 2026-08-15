@@ -11,7 +11,7 @@ const dataSource = fs.readFileSync('assets/map-data.part-000.js','utf8') + fs.re
 const indexSource = fs.readFileSync('index.html','utf8');
 const nameReview = JSON.parse(fs.readFileSync('data/settlement-name-review-7.2.4.json','utf8'));
 
-assert.match(uiSource, /const VERSION = '7\.2\.4'/);
+assert.match(uiSource, /const VERSION = '7\.2\.5'/);
 assert.ok(!bootstrap.includes('fantasy-relief.js'));
 assert.ok(!bootstrap.includes('fantasy-style.js'));
 assert.ok(!fs.existsSync('assets/fantasy-relief.js'));
@@ -19,6 +19,10 @@ assert.ok(!fs.existsSync('assets/fantasy-style.js'));
 assert.match(uiSource, /data\.regionalDem\.encoding \|\| 'terrarium'/);
 assert.match(uiSource, /copernicus-landcover/);
 assert.match(page, /regionalLandcover\?\.archivePath/);
+assert.match(page, /regionalSnow\?\.available/);
+assert.match(uiSource, /satellite-snow-permanent/);
+assert.match(uiSource, /satellite-snow-seasonal/);
+assert.match(uiSource, /if \(!snowPermanentTemplate\) natureLayers\.push/);
 
 assert.ok(!page.includes('ShardedPmtilesSource'));
 assert.ok(!page.includes('ShardLruCache'));
@@ -34,7 +38,7 @@ assert.match(page, /installPrefetch/);
 assert.match(page, /RANGE_RETRY_DELAYS_MS/);
 assert.match(page, /navigator\.maxTouchPoints/);
 assert.match(page, /prefetchEnabled/);
-assert.match(indexSource, /map-presentation-r2\.js\?v=7\.2\.4-r2/);
+assert.match(indexSource, /map-presentation-r2\.js\?v=7\.2\.5/);
 assert.ok(!indexSource.includes('map-presentation.js?v='));
 assert.ok(!uiSource.includes('updateParchmentOverlay'));
 assert.ok(!uiSource.includes("map.on('render',updateParchmentOverlay)"));
@@ -269,6 +273,19 @@ assert.equal(parchment.layout.compassIndependent,true);
 assert.deepEqual(parchment.compassCoordinates,parchment.layout.compass);
 assert.ok(!uiSource.includes("id:'settlement-beam-halo'"));
 assert.ok(!uiSource.includes("id:'settlement-beam-core'"));
+
+if (data.regionalSnow?.available) {
+  assert.equal(data.regionalSnow.version, '7.2.5');
+  assert.equal(data.dataVersion, '7.2.5-satellite-snow.1');
+  assert.equal(data.regionalSnow.method, 'worldcover-class-70-plus-multiyear-late-summer-ndsi');
+  assert.deepEqual(data.regionalSnow.bounds, data.bounds);
+  assert.equal(data.regionalSnow.permanent.archivePath, 'data/alan-snow-permanent-7.2.5.pmtiles');
+  assert.equal(data.regionalSnow.seasonal.archivePath, 'data/alan-snow-seasonal-7.2.5.pmtiles');
+  assert.ok(fs.existsSync(data.regionalSnow.permanent.archivePath));
+  assert.ok(fs.existsSync(data.regionalSnow.seasonal.archivePath));
+  assert.ok(fs.existsSync(data.regionalSnow.reportPath));
+}
+
 if (data.regionalLandcover?.available) {
   assert.equal(data.regionalLandcover.source, 'Copernicus CLMS LCM-10');
   assert.ok(data.regionalLandcover.archivePath.includes('landcover-7.0.25.pmtiles'));

@@ -6,7 +6,7 @@
 })(typeof self !== 'undefined' ? self : this, function (root) {
   'use strict';
 
-  const VERSION = '7.2.4';
+  const VERSION = '7.2.5';
   const DEFAULT_STORAGE_KEY = 'alan-map-stage7.2-view';
   const STATE_SCHEMA_VERSION = 1;
   const STATE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -640,6 +640,8 @@
       const demTemplate = localArchiveUrl(data.regionalDem.archivePath);
       const vectorTemplate = localArchiveUrl(data.regionalVector.archivePath);
       const landcoverTemplate = data.regionalLandcover?.archivePath ? localArchiveUrl(data.regionalLandcover.archivePath) : null;
+      const snowPermanentTemplate = data.regionalSnow?.available && data.regionalSnow?.permanent?.archivePath ? localArchiveUrl(data.regionalSnow.permanent.archivePath) : null;
+      const snowSeasonalTemplate = data.regionalSnow?.available && data.regionalSnow?.seasonal?.archivePath ? localArchiveUrl(data.regionalSnow.seasonal.archivePath) : null;
       const glyphsTemplate = new URL('data/fonts/', document.baseURI).href + '{fontstack}/{range}.pbf';
       activeDemTemplate = demTemplate;
       activeDemMode = 'local-pmtiles';
@@ -652,6 +654,8 @@
       };
       if (natureEnabled) sources.openmaptiles = {type:'vector',url:vectorTemplate,minzoom:Number(data.regionalVector.minzoom),maxzoom:Number(data.regionalVector.maxzoom),bounds:data.regionalVector.bounds,attribution:data.regionalVector.attribution};
       if (landcoverTemplate) sources['copernicus-landcover'] = {type:'raster',url:landcoverTemplate,tileSize:Number(data.regionalLandcover.tileSize || 256),minzoom:Number(data.regionalLandcover.minzoom),maxzoom:Number(data.regionalLandcover.maxzoom),bounds:data.regionalLandcover.bounds,attribution:data.regionalLandcover.attribution};
+      if (snowPermanentTemplate) sources['snow-permanent'] = {type:'raster',url:snowPermanentTemplate,tileSize:Number(data.regionalSnow.permanent.tileSize || 256),minzoom:Number(data.regionalSnow.permanent.minzoom),maxzoom:Number(data.regionalSnow.permanent.maxzoom),bounds:data.regionalSnow.permanent.bounds,attribution:data.regionalSnow.attribution};
+      if (snowSeasonalTemplate) sources['snow-seasonal'] = {type:'raster',url:snowSeasonalTemplate,tileSize:Number(data.regionalSnow.seasonal.tileSize || 256),minzoom:Number(data.regionalSnow.seasonal.minzoom),maxzoom:Number(data.regionalSnow.seasonal.maxzoom),bounds:data.regionalSnow.seasonal.bounds,attribution:data.regionalSnow.attribution};
 
       const baseLayers = [
         {id:'background',type:'background',paint:{'background-color':'#25282a'}},
@@ -660,6 +664,8 @@
         {id:'ridge-lines',type:'line',source:'lines',filter:['all',sourceFilter('ridges'),['==',['get','visible'],1]],paint:{'line-color':'#675f55','line-width':['interpolate',['linear'],['zoom'],6,0.48,10,1.12],'line-opacity':['interpolate',['linear'],['zoom'],6,0.24,10,0.40],'line-dasharray':[1.2,2.1]}}
       ];
       if (landcoverTemplate) baseLayers.splice(2,0,{id:'copernicus-landcover',type:'raster',source:'copernicus-landcover',minzoom:Number(data.regionalLandcover.minzoom),maxzoom:Number(data.regionalLandcover.maxzoom),paint:{'raster-opacity':['interpolate',['linear'],['zoom'],7,0.54,10,0.62,13,0.68],'raster-fade-duration':100}});
+      if (snowSeasonalTemplate) baseLayers.splice(-1,0,{id:'satellite-snow-seasonal',type:'raster',source:'snow-seasonal',minzoom:Number(data.regionalSnow.seasonal.minzoom),maxzoom:Number(data.regionalSnow.seasonal.maxzoom),paint:{'raster-opacity':['interpolate',['linear'],['zoom'],7,0.26,9,0.36,12,0.52],'raster-fade-duration':100,'raster-resampling':'linear'}});
+      if (snowPermanentTemplate) baseLayers.splice(-1,0,{id:'satellite-snow-permanent',type:'raster',source:'snow-permanent',minzoom:Number(data.regionalSnow.permanent.minzoom),maxzoom:Number(data.regionalSnow.permanent.maxzoom),paint:{'raster-opacity':['interpolate',['linear'],['zoom'],7,0.74,9,0.86,12,0.94],'raster-fade-duration':100,'raster-resampling':'linear'}});
 
       const natureLayers = [];
       const roadLayers = [];
@@ -672,9 +678,11 @@
           {id:'forest-fill',type:'fill',source:'openmaptiles','source-layer':'landcover',minzoom:VISIBILITY_ZOOM.DISTANT,filter:['==',['get','class'],'wood'],paint:{'fill-color':'#647b5b','fill-opacity':['interpolate',['linear'],['zoom'],7.0,0.20,8,0.26,11,0.32]}},
           {id:'forest-pattern',type:'fill',source:'openmaptiles','source-layer':'landcover',minzoom:10.5,filter:['==',['get','class'],'wood'],layout:{'visibility':qualityProfile.forestPattern?'visible':'none'},paint:{'fill-pattern':'forest-canopy','fill-opacity':['interpolate',['linear'],['zoom'],10.5,0.28,12,0.52]}}
         );
-        natureLayers.push(
+        if (!snowPermanentTemplate) natureLayers.push(
           {id:'osm-glacier-fill',type:'fill',source:'openmaptiles','source-layer':'landcover',minzoom:VISIBILITY_ZOOM.DISTANT,filter:['all',['==',['get','class'],'ice'],['==',['get','subclass'],'glacier']],paint:{'fill-color':'#f2f8f7','fill-opacity':['interpolate',['linear'],['zoom'],7,0.72,9,0.90,12,0.94],'fill-outline-color':'#8fb6c1'}},
-          {id:'osm-snow-fill',type:'fill',source:'openmaptiles','source-layer':'landcover',minzoom:VISIBILITY_ZOOM.DISTANT,filter:['all',['==',['get','class'],'ice'],['==',['get','subclass'],'snow']],paint:{'fill-color':'#fbfdfc','fill-opacity':['interpolate',['linear'],['zoom'],7,0.58,9,0.78,12,0.86],'fill-outline-color':'#b8ced3'}},
+          {id:'osm-snow-fill',type:'fill',source:'openmaptiles','source-layer':'landcover',minzoom:VISIBILITY_ZOOM.DISTANT,filter:['all',['==',['get','class'],'ice'],['==',['get','subclass'],'snow']],paint:{'fill-color':'#fbfdfc','fill-opacity':['interpolate',['linear'],['zoom'],7,0.58,9,0.78,12,0.86],'fill-outline-color':'#b8ced3'}}
+        );
+        natureLayers.push(
           ...residentialLayerDefinitions(),
           {id:'osm-water-fill',type:'fill',source:'openmaptiles','source-layer':'water',minzoom:VISIBILITY_ZOOM.DISTANT,filter:['in',['get','class'],['literal',['lake','reservoir','pond']]],paint:{'fill-color':['match',['get','class'],'reservoir','#659db2','pond','#75a8b5','#6aa7bb'],'fill-opacity':['interpolate',['linear'],['zoom'],7.0,0.62,9.2,0.72,12,0.78]}},
           {id:'osm-water-outline',type:'line',source:'openmaptiles','source-layer':'water',minzoom:VISIBILITY_ZOOM.DISTANT,filter:['in',['get','class'],['literal',['lake','reservoir','pond']]],paint:{'line-color':'#79b6c9','line-width':['interpolate',['linear'],['zoom'],7.0,0.75,11,1.65],'line-opacity':['interpolate',['linear'],['zoom'],7.0,0.72,7.5,0.94]}},
@@ -804,11 +812,14 @@
     function scheduleRegionalLabels3D() {
       if (regionalLabelsInitializationScheduled || regionalLabels3d || regionalLabels3dFailed || !map) return;
       regionalLabelsInitializationScheduled = true;
-      map.once('idle', () => {
+      const finishInitialization = () => {
+        if (!regionalLabelsInitializationScheduled) return;
         regionalLabelsInitializationScheduled = false;
         initializeRegionalLabels3D();
         applyLayerState();
-      });
+      };
+      map.once('idle', finishInitialization);
+      setTimeout(finishInitialization, 1200);
     }
 
     function setVisibility(ids, visible) {

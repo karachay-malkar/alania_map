@@ -1,0 +1,1006 @@
+{
+  "version": "7.2.5",
+  "built_at": "2026-08-15T20:16:23.828750+00:00",
+  "bounds": [
+    40.51784,
+    42.734095,
+    44.184003,
+    44.534975
+  ],
+  "frame": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          40.51784,
+          43.41265
+        ],
+        [
+          43.731622,
+          42.734095
+        ],
+        [
+          44.184003,
+          43.85642
+        ],
+        [
+          40.970221,
+          44.534975
+        ],
+        [
+          40.51784,
+          43.41265
+        ]
+      ]
+    ]
+  },
+  "target_crs": "EPSG:3857",
+  "resolution_m": 30.0,
+  "requested_resolution_m": 20.0,
+  "grid": {
+    "width": 13604,
+    "height": 9235
+  },
+  "sources": {
+    "worldcover": {
+      "product": "ESA WorldCover 2021 v200",
+      "class": 70,
+      "class_name": "Snow and Ice",
+      "urls": [
+        "https://esa-worldcover.s3.eu-central-1.amazonaws.com/v200/2021/map/ESA_WorldCover_10m_2021_v200_N42E039_Map.tif",
+        "https://esa-worldcover.s3.eu-central-1.amazonaws.com/v200/2021/map/ESA_WorldCover_10m_2021_v200_N42E042_Map.tif"
+      ]
+    },
+    "sentinel2": {
+      "collections_by_year": {
+        "2020": "sentinel-2-l2a",
+        "2021": "sentinel-2-l2a",
+        "2023": "sentinel-2-c1-l2a",
+        "2024": "sentinel-2-c1-l2a",
+        "2025": "sentinel-2-c1-l2a"
+      },
+      "stac": "https://earth-search.aws.element84.com/v1/search",
+      "years": [
+        2020,
+        2021,
+        2023,
+        2024,
+        2025
+      ],
+      "late_summer_window": "08-15/09-30",
+      "bands": [
+        "B03",
+        "B11",
+        "SCL"
+      ],
+      "scenes": [
+        {
+          "year": 2020,
+          "id": "S2A_37TFH_20200929_0_L2A",
+          "datetime": "2020-09-29T08:18:13.317000Z",
+          "cloud_cover": 0.1321,
+          "mgrs_group": "MGRS-37TFH"
+        },
+        {
+          "year": 2020,
+          "id": "S2A_37TFH_20200929_1_L2A",
+          "datetime": "2020-09-29T08:18:13.316000Z",
+          "cloud_cover": 0.190643,
+          "mgrs_group": "MGRS-37TFH"
+        },
+        {
+          "year": 2020,
+          "id": "S2A_37TFJ_20200922_0_L2A",
+          "datetime": "2020-09-22T08:27:53.890000Z",
+          "cloud_cover": 0.026969,
+          "mgrs_group": "MGRS-37TFJ"
+        },
+        {
+          "year": 2020,
+          "id": "S2A_37TFJ_20200922_1_L2A",
+          "datetime": "2020-09-22T08:27:53.886000Z",
+          "cloud_cover": 0.038026,
+          "mgrs_group": "MGRS-37TFJ"
+        },
+        {
+          "year": 2020,
+          "id": "S2A_37TFK_20200912_1_L2A",
+          "datetime": "2020-09-12T08:27:38.758000Z",
+          "cloud_cover": 0.000427,
+          "mgrs_group": "MGRS-37TFK"
+        },
+        {
+          "year": 2020,
+          "id": "S2A_37TFK_20200922_1_L2A",
+          "datetime": "2020-09-22T08:27:39.921000Z",
+          "cloud_cover": 0.000935,
+          "mgrs_group": "MGRS-37TFK"
+        },
+        {
+          "year": 2020,
+          "id": "S2B_37TGH_20200921_1_L2A",
+          "datetime": "2020-09-21T08:08:09.903000Z",
+          "cloud_cover": 0.003948,
+          "mgrs_group": "MGRS-37TGH"
+        },
+        {
+          "year": 2020,
+          "id": "S2B_37TGH_20200921_0_L2A",
+          "datetime": "2020-09-21T08:08:09.901000Z",
+          "cloud_cover": 0.329289,
+          "mgrs_group": "MGRS-37TGH"
+        },
+        {
+          "year": 2020,
+          "id": "S2B_37TGJ_20200914_1_L2A",
+          "datetime": "2020-09-14T08:17:51.761000Z",
+          "cloud_cover": 0.00066,
+          "mgrs_group": "MGRS-37TGJ"
+        },
+        {
+          "year": 2020,
+          "id": "S2A_37TGJ_20200916_1_L2A",
+          "datetime": "2020-09-16T08:07:57.486000Z",
+          "cloud_cover": 0.001517,
+          "mgrs_group": "MGRS-37TGJ"
+        },
+        {
+          "year": 2020,
+          "id": "S2B_37TGK_20200914_1_L2A",
+          "datetime": "2020-09-14T08:17:37.269000Z",
+          "cloud_cover": 0.000206,
+          "mgrs_group": "MGRS-37TGK"
+        },
+        {
+          "year": 2020,
+          "id": "S2B_37TGK_20200911_1_L2A",
+          "datetime": "2020-09-11T08:07:40.389000Z",
+          "cloud_cover": 0.000384,
+          "mgrs_group": "MGRS-37TGK"
+        },
+        {
+          "year": 2020,
+          "id": "S2B_38TLN_20200914_0_L2A",
+          "datetime": "2020-09-14T08:18:00.916000Z",
+          "cloud_cover": 0.4322,
+          "mgrs_group": "MGRS-38TLN"
+        },
+        {
+          "year": 2020,
+          "id": "S2B_38TLN_20200914_1_L2A",
+          "datetime": "2020-09-14T08:18:00.913000Z",
+          "cloud_cover": 0.696566,
+          "mgrs_group": "MGRS-38TLN"
+        },
+        {
+          "year": 2020,
+          "id": "S2B_38TLP_20200921_1_L2A",
+          "datetime": "2020-09-21T08:07:51.803000Z",
+          "cloud_cover": 0.002037,
+          "mgrs_group": "MGRS-38TLP"
+        },
+        {
+          "year": 2020,
+          "id": "S2A_38TLP_20200916_1_L2A",
+          "datetime": "2020-09-16T08:07:54.114000Z",
+          "cloud_cover": 0.002389,
+          "mgrs_group": "MGRS-38TLP"
+        },
+        {
+          "year": 2020,
+          "id": "S2B_38TLQ_20200911_1_L2A",
+          "datetime": "2020-09-11T08:07:37.518000Z",
+          "cloud_cover": 0.000103,
+          "mgrs_group": "MGRS-38TLQ"
+        },
+        {
+          "year": 2020,
+          "id": "S2B_38TLQ_20200914_1_L2A",
+          "datetime": "2020-09-14T08:17:33.344000Z",
+          "cloud_cover": 0.001181,
+          "mgrs_group": "MGRS-38TLQ"
+        },
+        {
+          "year": 2020,
+          "id": "S2B_38TMN_20200911_0_L2A",
+          "datetime": "2020-09-11T08:08:02.258000Z",
+          "cloud_cover": 2.893989,
+          "mgrs_group": "MGRS-38TMN"
+        },
+        {
+          "year": 2020,
+          "id": "S2B_38TMN_20200911_1_L2A",
+          "datetime": "2020-09-11T08:08:02.261000Z",
+          "cloud_cover": 3.65887,
+          "mgrs_group": "MGRS-38TMN"
+        },
+        {
+          "year": 2020,
+          "id": "S2A_38TMP_20200916_1_L2A",
+          "datetime": "2020-09-16T08:07:50.122000Z",
+          "cloud_cover": 0.000285,
+          "mgrs_group": "MGRS-38TMP"
+        },
+        {
+          "year": 2020,
+          "id": "S2B_38TMP_20200911_1_L2A",
+          "datetime": "2020-09-11T08:07:48.004000Z",
+          "cloud_cover": 0.00074,
+          "mgrs_group": "MGRS-38TMP"
+        },
+        {
+          "year": 2020,
+          "id": "S2B_38TMQ_20200911_1_L2A",
+          "datetime": "2020-09-11T08:07:33.700000Z",
+          "cloud_cover": 0.000282,
+          "mgrs_group": "MGRS-38TMQ"
+        },
+        {
+          "year": 2020,
+          "id": "S2B_38TMQ_20200911_0_L2A",
+          "datetime": "2020-09-11T08:07:33.699000Z",
+          "cloud_cover": 0.00493,
+          "mgrs_group": "MGRS-38TMQ"
+        },
+        {
+          "year": 2021,
+          "id": "S2B_37TFH_20210909_0_L2A",
+          "datetime": "2021-09-09T08:18:04.119000Z",
+          "cloud_cover": 4.182302,
+          "mgrs_group": "MGRS-37TFH"
+        },
+        {
+          "year": 2021,
+          "id": "S2A_37TFH_20210914_0_L2A",
+          "datetime": "2021-09-14T08:18:08.920000Z",
+          "cloud_cover": 11.401329,
+          "mgrs_group": "MGRS-37TFH"
+        },
+        {
+          "year": 2021,
+          "id": "S2B_37TFJ_20210909_0_L2A",
+          "datetime": "2021-09-09T08:17:49.663000Z",
+          "cloud_cover": 4.388335,
+          "mgrs_group": "MGRS-37TFJ"
+        },
+        {
+          "year": 2021,
+          "id": "S2A_37TFJ_20210904_0_L2A",
+          "datetime": "2021-09-04T08:17:54.093000Z",
+          "cloud_cover": 4.736154,
+          "mgrs_group": "MGRS-37TFJ"
+        },
+        {
+          "year": 2021,
+          "id": "S2A_37TFK_20210927_0_L2A",
+          "datetime": "2021-09-27T08:27:38.734000Z",
+          "cloud_cover": 1.656824,
+          "mgrs_group": "MGRS-37TFK"
+        },
+        {
+          "year": 2021,
+          "id": "S2A_37TFK_20210927_2_L2A",
+          "datetime": "2021-09-27T08:27:38.734000Z",
+          "cloud_cover": 1.656824,
+          "mgrs_group": "MGRS-37TFK"
+        },
+        {
+          "year": 2021,
+          "id": "S2A_37TGH_20210904_0_L2A",
+          "datetime": "2021-09-04T08:18:04.839000Z",
+          "cloud_cover": 5.809317,
+          "mgrs_group": "MGRS-37TGH"
+        },
+        {
+          "year": 2021,
+          "id": "S2A_37TGH_20210904_1_L2A",
+          "datetime": "2021-09-04T08:18:04.837000Z",
+          "cloud_cover": 9.489018,
+          "mgrs_group": "MGRS-37TGH"
+        },
+        {
+          "year": 2021,
+          "id": "S2A_37TGJ_20210904_1_L2A",
+          "datetime": "2021-09-04T08:17:50.613000Z",
+          "cloud_cover": 3.943109,
+          "mgrs_group": "MGRS-37TGJ"
+        },
+        {
+          "year": 2021,
+          "id": "S2A_37TGJ_20210904_0_L2A",
+          "datetime": "2021-09-04T08:17:50.614000Z",
+          "cloud_cover": 4.064615,
+          "mgrs_group": "MGRS-37TGJ"
+        },
+        {
+          "year": 2021,
+          "id": "S2A_37TGK_20210904_0_L2A",
+          "datetime": "2021-09-04T08:17:36.120000Z",
+          "cloud_cover": 3.035614,
+          "mgrs_group": "MGRS-37TGK"
+        },
+        {
+          "year": 2021,
+          "id": "S2A_37TGK_20210904_1_L2A",
+          "datetime": "2021-09-04T08:17:36.119000Z",
+          "cloud_cover": 4.374272,
+          "mgrs_group": "MGRS-37TGK"
+        },
+        {
+          "year": 2021,
+          "id": "S2A_38TLN_20210904_1_L2A",
+          "datetime": "2021-09-04T08:17:59.744000Z",
+          "cloud_cover": 2.337918,
+          "mgrs_group": "MGRS-38TLN"
+        },
+        {
+          "year": 2021,
+          "id": "S2A_38TLN_20210904_0_L2A",
+          "datetime": "2021-09-04T08:17:59.748000Z",
+          "cloud_cover": 7.273179,
+          "mgrs_group": "MGRS-38TLN"
+        },
+        {
+          "year": 2021,
+          "id": "S2A_38TLP_20210914_0_L2A",
+          "datetime": "2021-09-14T08:17:47.063000Z",
+          "cloud_cover": 11.939886,
+          "mgrs_group": "MGRS-38TLP"
+        },
+        {
+          "year": 2021,
+          "id": "S2A_38TLP_20210904_0_L2A",
+          "datetime": "2021-09-04T08:17:46.688000Z",
+          "cloud_cover": 13.644613,
+          "mgrs_group": "MGRS-38TLP"
+        },
+        {
+          "year": 2021,
+          "id": "S2A_38TLQ_20210904_0_L2A",
+          "datetime": "2021-09-04T08:17:32.190000Z",
+          "cloud_cover": 4.406633,
+          "mgrs_group": "MGRS-38TLQ"
+        },
+        {
+          "year": 2021,
+          "id": "S2A_38TLQ_20210904_1_L2A",
+          "datetime": "2021-09-04T08:17:32.190000Z",
+          "cloud_cover": 6.19823,
+          "mgrs_group": "MGRS-38TLQ"
+        },
+        {
+          "year": 2021,
+          "id": "S2A_38TMN_20210921_0_L2A",
+          "datetime": "2021-09-21T08:08:02.731000Z",
+          "cloud_cover": 7.876249,
+          "mgrs_group": "MGRS-38TMN"
+        },
+        {
+          "year": 2021,
+          "id": "S2B_38TMN_20210926_0_L2A",
+          "datetime": "2021-09-26T08:07:58.463000Z",
+          "cloud_cover": 9.063318,
+          "mgrs_group": "MGRS-38TMN"
+        },
+        {
+          "year": 2021,
+          "id": "S2A_38TMP_20210921_0_L2A",
+          "datetime": "2021-09-21T08:07:48.488000Z",
+          "cloud_cover": 11.870949,
+          "mgrs_group": "MGRS-38TMP"
+        },
+        {
+          "year": 2021,
+          "id": "S2B_38TMP_20210916_0_L2A",
+          "datetime": "2021-09-16T08:07:41.693000Z",
+          "cloud_cover": 15.880083,
+          "mgrs_group": "MGRS-38TMP"
+        },
+        {
+          "year": 2021,
+          "id": "S2A_38TMQ_20210921_0_L2A",
+          "datetime": "2021-09-21T08:07:34.209000Z",
+          "cloud_cover": 15.127774,
+          "mgrs_group": "MGRS-38TMQ"
+        },
+        {
+          "year": 2021,
+          "id": "S2A_38TMQ_20210911_0_L2A",
+          "datetime": "2021-09-11T08:07:31.854000Z",
+          "cloud_cover": 29.114055,
+          "mgrs_group": "MGRS-38TMQ"
+        },
+        {
+          "year": 2023,
+          "id": "S2B_T37TFH_20230820T080823_L2A",
+          "datetime": "2023-08-20T08:18:12.737000Z",
+          "cloud_cover": 0.029214,
+          "mgrs_group": "MGRS-37TFH"
+        },
+        {
+          "year": 2023,
+          "id": "S2B_T37TFH_20230919T081455_L2A",
+          "datetime": "2023-09-19T08:18:11.290000Z",
+          "cloud_cover": 2.379654,
+          "mgrs_group": "MGRS-37TFH"
+        },
+        {
+          "year": 2023,
+          "id": "S2B_T37TFJ_20230820T080823_L2A",
+          "datetime": "2023-08-20T08:17:58.270000Z",
+          "cloud_cover": 0.279093,
+          "mgrs_group": "MGRS-37TFJ"
+        },
+        {
+          "year": 2023,
+          "id": "S2B_T37TFJ_20230922T082716_L2A",
+          "datetime": "2023-09-22T08:27:52.413000Z",
+          "cloud_cover": 0.637598,
+          "mgrs_group": "MGRS-37TFJ"
+        },
+        {
+          "year": 2023,
+          "id": "S2B_T37TFK_20230922T082716_L2A",
+          "datetime": "2023-09-22T08:27:38.469000Z",
+          "cloud_cover": 1.2e-05,
+          "mgrs_group": "MGRS-37TFK"
+        },
+        {
+          "year": 2023,
+          "id": "S2B_T37TFK_20230919T081455_L2A",
+          "datetime": "2023-09-19T08:17:42.189000Z",
+          "cloud_cover": 0.000634,
+          "mgrs_group": "MGRS-37TFK"
+        },
+        {
+          "year": 2023,
+          "id": "S2B_T37TGH_20230820T080823_L2A",
+          "datetime": "2023-08-20T08:18:09.014000Z",
+          "cloud_cover": 0.089367,
+          "mgrs_group": "MGRS-37TGH"
+        },
+        {
+          "year": 2023,
+          "id": "S2A_T37TGH_20230901T080717_L2A",
+          "datetime": "2023-09-01T08:08:12.992000Z",
+          "cloud_cover": 0.132868,
+          "mgrs_group": "MGRS-37TGH"
+        },
+        {
+          "year": 2023,
+          "id": "S2B_T37TGJ_20230919T081455_L2A",
+          "datetime": "2023-09-19T08:17:53.336000Z",
+          "cloud_cover": 0.012691,
+          "mgrs_group": "MGRS-37TGJ"
+        },
+        {
+          "year": 2023,
+          "id": "S2B_T37TGJ_20230827T075822_L2A",
+          "datetime": "2023-08-27T08:07:57.457000Z",
+          "cloud_cover": 0.09588,
+          "mgrs_group": "MGRS-37TGJ"
+        },
+        {
+          "year": 2023,
+          "id": "S2B_T37TGK_20230827T075822_L2A",
+          "datetime": "2023-08-27T08:07:42.492000Z",
+          "cloud_cover": 0.000147,
+          "mgrs_group": "MGRS-37TGK"
+        },
+        {
+          "year": 2023,
+          "id": "S2B_T37TGK_20230830T080827_L2A",
+          "datetime": "2023-08-30T08:17:39.994000Z",
+          "cloud_cover": 0.000275,
+          "mgrs_group": "MGRS-37TGK"
+        },
+        {
+          "year": 2023,
+          "id": "S2B_T38TLN_20230919T081455_L2A",
+          "datetime": "2023-09-19T08:18:02.446000Z",
+          "cloud_cover": 0.120557,
+          "mgrs_group": "MGRS-38TLN"
+        },
+        {
+          "year": 2023,
+          "id": "S2B_T38TLN_20230820T080823_L2A",
+          "datetime": "2023-08-20T08:18:03.885000Z",
+          "cloud_cover": 1.884842,
+          "mgrs_group": "MGRS-38TLN"
+        },
+        {
+          "year": 2023,
+          "id": "S2B_T38TLP_20230827T075822_L2A",
+          "datetime": "2023-08-27T08:07:54.082000Z",
+          "cloud_cover": 0.143483,
+          "mgrs_group": "MGRS-38TLP"
+        },
+        {
+          "year": 2023,
+          "id": "S2B_T38TLP_20230830T080827_L2A",
+          "datetime": "2023-08-30T08:17:50.566000Z",
+          "cloud_cover": 0.275079,
+          "mgrs_group": "MGRS-38TLP"
+        },
+        {
+          "year": 2023,
+          "id": "S2B_T38TLQ_20230827T075822_L2A",
+          "datetime": "2023-08-27T08:07:39.613000Z",
+          "cloud_cover": 4.6e-05,
+          "mgrs_group": "MGRS-38TLQ"
+        },
+        {
+          "year": 2023,
+          "id": "S2B_T38TLQ_20230830T080827_L2A",
+          "datetime": "2023-08-30T08:17:36.071000Z",
+          "cloud_cover": 0.002566,
+          "mgrs_group": "MGRS-38TLQ"
+        },
+        {
+          "year": 2023,
+          "id": "S2A_T38TMN_20230928T075212_L2A",
+          "datetime": "2023-09-28T07:58:05.680000Z",
+          "cloud_cover": 4.966272,
+          "mgrs_group": "MGRS-38TMN"
+        },
+        {
+          "year": 2023,
+          "id": "S2A_T38TMN_20230901T080717_L2A",
+          "datetime": "2023-09-01T08:08:05.136000Z",
+          "cloud_cover": 7.658193,
+          "mgrs_group": "MGRS-38TMN"
+        },
+        {
+          "year": 2023,
+          "id": "S2B_T38TMP_20230827T075822_L2A",
+          "datetime": "2023-08-27T08:07:50.093000Z",
+          "cloud_cover": 0.000322,
+          "mgrs_group": "MGRS-38TMP"
+        },
+        {
+          "year": 2023,
+          "id": "S2A_T38TMP_20230901T080717_L2A",
+          "datetime": "2023-09-01T08:07:50.897000Z",
+          "cloud_cover": 0.962303,
+          "mgrs_group": "MGRS-38TMP"
+        },
+        {
+          "year": 2023,
+          "id": "S2B_T38TMQ_20230827T075822_L2A",
+          "datetime": "2023-08-27T08:07:35.794000Z",
+          "cloud_cover": 7e-05,
+          "mgrs_group": "MGRS-38TMQ"
+        },
+        {
+          "year": 2023,
+          "id": "S2A_T38TMQ_20230822T080616_L2A",
+          "datetime": "2023-08-22T08:07:37.559000Z",
+          "cloud_cover": 0.402593,
+          "mgrs_group": "MGRS-38TMQ"
+        },
+        {
+          "year": 2024,
+          "id": "S2A_T37TFH_20240819T081658_L2A",
+          "datetime": "2024-08-19T08:18:07.137000Z",
+          "cloud_cover": 0.001619,
+          "mgrs_group": "MGRS-37TFH"
+        },
+        {
+          "year": 2024,
+          "id": "S2A_T37TFH_20240928T081237_L2A",
+          "datetime": "2024-09-28T08:18:09.837000Z",
+          "cloud_cover": 0.010677,
+          "mgrs_group": "MGRS-37TFH"
+        },
+        {
+          "year": 2024,
+          "id": "S2A_T37TFJ_20240928T081237_L2A",
+          "datetime": "2024-09-28T08:17:55.364000Z",
+          "cloud_cover": 0.001752,
+          "mgrs_group": "MGRS-37TFJ"
+        },
+        {
+          "year": 2024,
+          "id": "S2A_T37TFJ_20240819T081658_L2A",
+          "datetime": "2024-08-19T08:17:52.681000Z",
+          "cloud_cover": 0.008835,
+          "mgrs_group": "MGRS-37TFJ"
+        },
+        {
+          "year": 2024,
+          "id": "S2B_T37TFK_20240817T081917_L2A",
+          "datetime": "2024-08-17T08:27:37.614000Z",
+          "cloud_cover": 0.000455,
+          "mgrs_group": "MGRS-37TFK"
+        },
+        {
+          "year": 2024,
+          "id": "S2A_T37TFK_20240928T081237_L2A",
+          "datetime": "2024-09-28T08:17:40.736000Z",
+          "cloud_cover": 0.000494,
+          "mgrs_group": "MGRS-37TFK"
+        },
+        {
+          "year": 2024,
+          "id": "S2A_T37TGH_20240819T081658_L2A",
+          "datetime": "2024-08-19T08:18:03.440000Z",
+          "cloud_cover": 0.001115,
+          "mgrs_group": "MGRS-37TGH"
+        },
+        {
+          "year": 2024,
+          "id": "S2B_T37TGH_20240930T080633_L2A",
+          "datetime": "2024-09-30T08:08:08.671000Z",
+          "cloud_cover": 0.432695,
+          "mgrs_group": "MGRS-37TGH"
+        },
+        {
+          "year": 2024,
+          "id": "S2A_T37TGJ_20240928T081237_L2A",
+          "datetime": "2024-09-28T08:17:51.875000Z",
+          "cloud_cover": 0.000338,
+          "mgrs_group": "MGRS-37TGJ"
+        },
+        {
+          "year": 2024,
+          "id": "S2B_T37TGJ_20240930T080633_L2A",
+          "datetime": "2024-09-30T08:07:53.945000Z",
+          "cloud_cover": 0.00298,
+          "mgrs_group": "MGRS-37TGJ"
+        },
+        {
+          "year": 2024,
+          "id": "S2B_T37TGK_20240821T080719_L2A",
+          "datetime": "2024-08-21T08:07:38.253000Z",
+          "cloud_cover": 0.000617,
+          "mgrs_group": "MGRS-37TGK"
+        },
+        {
+          "year": 2024,
+          "id": "S2A_T37TGK_20240928T081237_L2A",
+          "datetime": "2024-09-28T08:17:37.396000Z",
+          "cloud_cover": 0.080929,
+          "mgrs_group": "MGRS-37TGK"
+        },
+        {
+          "year": 2024,
+          "id": "S2B_T38TLN_20240930T080633_L2A",
+          "datetime": "2024-09-30T08:08:04.945000Z",
+          "cloud_cover": 0.001981,
+          "mgrs_group": "MGRS-38TLN"
+        },
+        {
+          "year": 2024,
+          "id": "S2A_T38TLN_20240819T081658_L2A",
+          "datetime": "2024-08-19T08:17:58.403000Z",
+          "cloud_cover": 0.004357,
+          "mgrs_group": "MGRS-38TLN"
+        },
+        {
+          "year": 2024,
+          "id": "S2B_T38TLP_20240930T080633_L2A",
+          "datetime": "2024-09-30T08:07:50.570000Z",
+          "cloud_cover": 0.002777,
+          "mgrs_group": "MGRS-38TLP"
+        },
+        {
+          "year": 2024,
+          "id": "S2A_T38TLP_20240819T081658_L2A",
+          "datetime": "2024-08-19T08:17:45.265000Z",
+          "cloud_cover": 0.099345,
+          "mgrs_group": "MGRS-38TLP"
+        },
+        {
+          "year": 2024,
+          "id": "S2B_T38TLQ_20240821T080719_L2A",
+          "datetime": "2024-08-21T08:07:35.384000Z",
+          "cloud_cover": 0.003155,
+          "mgrs_group": "MGRS-38TLQ"
+        },
+        {
+          "year": 2024,
+          "id": "S2A_T38TLQ_20240928T081237_L2A",
+          "datetime": "2024-09-28T08:17:33.470000Z",
+          "cloud_cover": 0.106021,
+          "mgrs_group": "MGRS-38TLQ"
+        },
+        {
+          "year": 2024,
+          "id": "S2B_T38TMN_20240930T080633_L2A",
+          "datetime": "2024-09-30T08:08:00.829000Z",
+          "cloud_cover": 0.074197,
+          "mgrs_group": "MGRS-38TMN"
+        },
+        {
+          "year": 2024,
+          "id": "S2A_T38TMN_20240902T075345_L2A",
+          "datetime": "2024-09-02T07:58:03.117000Z",
+          "cloud_cover": 0.328492,
+          "mgrs_group": "MGRS-38TMN"
+        },
+        {
+          "year": 2024,
+          "id": "S2B_T38TMP_20240821T080719_L2A",
+          "datetime": "2024-08-21T08:07:45.866000Z",
+          "cloud_cover": 0.000448,
+          "mgrs_group": "MGRS-38TMP"
+        },
+        {
+          "year": 2024,
+          "id": "S2B_T38TMP_20240930T080633_L2A",
+          "datetime": "2024-09-30T08:07:46.577000Z",
+          "cloud_cover": 2.587015,
+          "mgrs_group": "MGRS-38TMP"
+        },
+        {
+          "year": 2024,
+          "id": "S2B_T38TMQ_20240821T080719_L2A",
+          "datetime": "2024-08-21T08:07:31.831000Z",
+          "cloud_cover": 8.9e-05,
+          "mgrs_group": "MGRS-38TMQ"
+        },
+        {
+          "year": 2024,
+          "id": "S2A_T38TMQ_20240915T075824_L2A",
+          "datetime": "2024-09-15T08:07:30.544000Z",
+          "cloud_cover": 0.013577,
+          "mgrs_group": "MGRS-38TMQ"
+        },
+        {
+          "year": 2025,
+          "id": "S2C_T37TFH_20250923T081607_L2A",
+          "datetime": "2025-09-23T08:18:22.174000Z",
+          "cloud_cover": 0.001549,
+          "mgrs_group": "MGRS-37TFH"
+        },
+        {
+          "year": 2025,
+          "id": "S2A_T37TFH_20250915T081634_L2A",
+          "datetime": "2025-09-15T08:18:21.144000Z",
+          "cloud_cover": 1.694961,
+          "mgrs_group": "MGRS-37TFH"
+        },
+        {
+          "year": 2025,
+          "id": "S2C_T37TFJ_20250923T081607_L2A",
+          "datetime": "2025-09-23T08:18:07.708000Z",
+          "cloud_cover": 0.000136,
+          "mgrs_group": "MGRS-37TFJ"
+        },
+        {
+          "year": 2025,
+          "id": "S2B_T37TFJ_20250901T082111_L2A",
+          "datetime": "2025-09-01T08:27:49.142000Z",
+          "cloud_cover": 0.010686,
+          "mgrs_group": "MGRS-37TFJ"
+        },
+        {
+          "year": 2025,
+          "id": "S2A_T37TFK_20250925T081603_L2A",
+          "datetime": "2025-09-25T08:17:54.172000Z",
+          "cloud_cover": 0.000192,
+          "mgrs_group": "MGRS-37TFK"
+        },
+        {
+          "year": 2025,
+          "id": "S2C_T37TFK_20250923T081607_L2A",
+          "datetime": "2025-09-23T08:17:53.074000Z",
+          "cloud_cover": 0.000464,
+          "mgrs_group": "MGRS-37TFK"
+        },
+        {
+          "year": 2025,
+          "id": "S2C_T37TGH_20250923T081607_L2A",
+          "datetime": "2025-09-23T08:18:18.443000Z",
+          "cloud_cover": 0.000985,
+          "mgrs_group": "MGRS-37TGH"
+        },
+        {
+          "year": 2025,
+          "id": "S2A_T37TGH_20250915T081634_L2A",
+          "datetime": "2025-09-15T08:18:17.435000Z",
+          "cloud_cover": 0.39503,
+          "mgrs_group": "MGRS-37TGH"
+        },
+        {
+          "year": 2025,
+          "id": "S2C_T37TGJ_20250923T081607_L2A",
+          "datetime": "2025-09-23T08:18:04.218000Z",
+          "cloud_cover": 0.000169,
+          "mgrs_group": "MGRS-37TGJ"
+        },
+        {
+          "year": 2025,
+          "id": "S2A_T37TGJ_20250922T080723_L2A",
+          "datetime": "2025-09-22T08:08:08.296000Z",
+          "cloud_cover": 0.087937,
+          "mgrs_group": "MGRS-37TGJ"
+        },
+        {
+          "year": 2025,
+          "id": "S2A_T37TGK_20250925T081603_L2A",
+          "datetime": "2025-09-25T08:17:50.831000Z",
+          "cloud_cover": 0.000212,
+          "mgrs_group": "MGRS-37TGK"
+        },
+        {
+          "year": 2025,
+          "id": "S2C_T37TGK_20250923T081607_L2A",
+          "datetime": "2025-09-23T08:17:49.729000Z",
+          "cloud_cover": 0.000265,
+          "mgrs_group": "MGRS-37TGK"
+        },
+        {
+          "year": 2025,
+          "id": "S2C_T38TLN_20250923T081607_L2A",
+          "datetime": "2025-09-23T08:18:13.312000Z",
+          "cloud_cover": 0.02193,
+          "mgrs_group": "MGRS-38TLN"
+        },
+        {
+          "year": 2025,
+          "id": "S2C_T38TLN_20250831T080415_L2A",
+          "datetime": "2025-08-31T08:08:22.625000Z",
+          "cloud_cover": 0.305115,
+          "mgrs_group": "MGRS-38TLN"
+        },
+        {
+          "year": 2025,
+          "id": "S2C_T38TLP_20250923T081607_L2A",
+          "datetime": "2025-09-23T08:18:00.291000Z",
+          "cloud_cover": 0.004359,
+          "mgrs_group": "MGRS-38TLP"
+        },
+        {
+          "year": 2025,
+          "id": "S2A_T38TLP_20250922T080723_L2A",
+          "datetime": "2025-09-22T08:08:04.917000Z",
+          "cloud_cover": 0.843995,
+          "mgrs_group": "MGRS-38TLP"
+        },
+        {
+          "year": 2025,
+          "id": "S2A_T38TLQ_20250925T081603_L2A",
+          "datetime": "2025-09-25T08:17:46.904000Z",
+          "cloud_cover": 1.3e-05,
+          "mgrs_group": "MGRS-38TLQ"
+        },
+        {
+          "year": 2025,
+          "id": "S2C_T38TLQ_20250923T081607_L2A",
+          "datetime": "2025-09-23T08:17:45.797000Z",
+          "cloud_cover": 3.9e-05,
+          "mgrs_group": "MGRS-38TLQ"
+        },
+        {
+          "year": 2025,
+          "id": "S2C_T38TMN_20250831T080415_L2A",
+          "datetime": "2025-08-31T08:08:18.496000Z",
+          "cloud_cover": 4.6e-05,
+          "mgrs_group": "MGRS-38TMN"
+        },
+        {
+          "year": 2025,
+          "id": "S2B_T38TMN_20250925T080020_L2A",
+          "datetime": "2025-09-25T08:07:59.757000Z",
+          "cloud_cover": 0.633956,
+          "mgrs_group": "MGRS-38TMN"
+        },
+        {
+          "year": 2025,
+          "id": "S2B_T38TMP_20250925T080020_L2A",
+          "datetime": "2025-09-25T08:07:45.507000Z",
+          "cloud_cover": 0.00062,
+          "mgrs_group": "MGRS-38TMP"
+        },
+        {
+          "year": 2025,
+          "id": "S2B_T38TMP_20250905T075607_L2A",
+          "datetime": "2025-09-05T08:07:43.671000Z",
+          "cloud_cover": 0.02123,
+          "mgrs_group": "MGRS-38TMP"
+        },
+        {
+          "year": 2025,
+          "id": "S2B_T38TMQ_20250925T080020_L2A",
+          "datetime": "2025-09-25T08:07:31.204000Z",
+          "cloud_cover": 0.000123,
+          "mgrs_group": "MGRS-38TMQ"
+        },
+        {
+          "year": 2025,
+          "id": "S2B_T38TMQ_20250915T080243_L2A",
+          "datetime": "2025-09-15T08:07:29.539000Z",
+          "cloud_cover": 0.000265,
+          "mgrs_group": "MGRS-38TMQ"
+        }
+      ]
+    }
+  },
+  "algorithm": {
+    "ndsi": "(B03-B11)/(B03+B11)",
+    "ndsi_threshold": 0.4,
+    "minimum_green_reflectance": 0.08,
+    "invalid_scl": [
+      0,
+      1,
+      2,
+      3,
+      6,
+      7,
+      8,
+      9,
+      10
+    ],
+    "worldcover_ndsi_excluded_classes": [
+      10,
+      20,
+      30,
+      40,
+      50,
+      80,
+      90,
+      95,
+      100
+    ],
+    "max_scene_cloud_percent": 45,
+    "max_scenes_per_mgrs_year": 2,
+    "permanent_consensus": 0.6,
+    "seasonal_consensus_min": 0.25,
+    "minimum_valid_years_permanent": 3,
+    "minimum_valid_years_seasonal": 2,
+    "permanent_definition": "WorldCover class 70 OR multi-year late-summer NDSI consensus",
+    "seasonal_definition": "late-summer multi-year NDSI residual outside permanent mask"
+  },
+  "yearly": [
+    {
+      "year": 2020,
+      "catalog_items": 157,
+      "selected_scenes": 24,
+      "valid_pixels": 2861779,
+      "snow_pixels": 608950
+    },
+    {
+      "year": 2021,
+      "catalog_items": 99,
+      "selected_scenes": 24,
+      "valid_pixels": 3825186,
+      "snow_pixels": 2239674
+    },
+    {
+      "year": 2023,
+      "catalog_items": 142,
+      "selected_scenes": 24,
+      "valid_pixels": 3751950,
+      "snow_pixels": 973659
+    },
+    {
+      "year": 2024,
+      "catalog_items": 109,
+      "selected_scenes": 24,
+      "valid_pixels": 5643613,
+      "snow_pixels": 1621217
+    },
+    {
+      "year": 2025,
+      "catalog_items": 105,
+      "selected_scenes": 24,
+      "valid_pixels": 5567903,
+      "snow_pixels": 3187728
+    }
+  ],
+  "coverage": {
+    "worldcover_permanent_pixels": 2193245,
+    "consensus_permanent_pixels": 1148622,
+    "permanent_pixels": 2432604,
+    "seasonal_pixels": 1083273,
+    "permanent_area_km2": 2189.344,
+    "seasonal_area_km2": 974.946,
+    "elbrus_permanent_pixels_within_8km": 202764,
+    "elbrus_seasonal_pixels_within_8km": 12796
+  },
+  "outputs": [
+    "build/snow-permanent-7.2.5.tif",
+    "build/snow-seasonal-7.2.5.tif"
+  ]
+}

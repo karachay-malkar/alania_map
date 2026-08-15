@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '7.2';
+  const VERSION = '7.2.5';
   const RANGE_CACHE_BYTES = (() => {
     const memory = Number(navigator.deviceMemory || 0);
     if (memory > 0 && memory <= 2) return 12 * 1024 * 1024;
@@ -510,7 +510,9 @@
     const configurations = [
       {path:data.regionalDem.archivePath,sourceId:'terrain-dem',config:data.regionalDem,prefetch:true,maxConcurrent:mobileTransport?6:10,retryDelays:RANGE_RETRY_DELAYS_MS},
       {path:data.regionalVector.archivePath,sourceId:'openmaptiles',config:data.regionalVector,prefetch:true,maxConcurrent:mobileTransport?3:8,retryDelays:VECTOR_RANGE_RETRY_DELAYS_MS,allowFullFileFallback:true,fullFileFallbackMaxBytes:VECTOR_FULL_FILE_FALLBACK_MAX_BYTES},
-      ...(data.regionalLandcover?.archivePath ? [{path:data.regionalLandcover.archivePath,sourceId:'copernicus-landcover',config:data.regionalLandcover,prefetch:false,maxConcurrent:mobileTransport?3:6,retryDelays:RANGE_RETRY_DELAYS_MS}] : [])
+      ...(data.regionalLandcover?.archivePath ? [{path:data.regionalLandcover.archivePath,sourceId:'copernicus-landcover',config:data.regionalLandcover,prefetch:false,maxConcurrent:mobileTransport?3:6,retryDelays:RANGE_RETRY_DELAYS_MS}] : []),
+      ...(data.regionalSnow?.available && data.regionalSnow?.permanent?.archivePath ? [{path:data.regionalSnow.permanent.archivePath,sourceId:'snow-permanent',config:data.regionalSnow.permanent,prefetch:false,maxConcurrent:mobileTransport?3:6,retryDelays:RANGE_RETRY_DELAYS_MS}] : []),
+      ...(data.regionalSnow?.available && data.regionalSnow?.seasonal?.archivePath ? [{path:data.regionalSnow.seasonal.archivePath,sourceId:'snow-seasonal',config:data.regionalSnow.seasonal,prefetch:false,maxConcurrent:mobileTransport?3:6,retryDelays:RANGE_RETRY_DELAYS_MS}] : [])
     ];
 
     for (const entry of configurations) {

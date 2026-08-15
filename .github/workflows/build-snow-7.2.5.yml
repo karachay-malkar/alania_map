@@ -1,0 +1,241 @@
+name: Build Alan Map 7.2.5 satellite snow
+
+on:
+  push:
+    branches: ['7.2.5']
+    paths:
+      - 'assets/bootstrap.js'
+      - 'assets/map-ui.js'
+      - 'assets/map-page.js'
+      - 'assets/map-data.part-000.js'
+      - 'assets/map-data.part-001.js'
+      - 'index.html'
+      - 'README.md'
+      - 'DATA-SOURCES-AND-LICENSES.md'
+      - 'tests/**'
+      - 'tools/build_snow_layer_7_2_5.py'
+      - 'tools/release_7_2_5.py'
+      - '.github/workflows/build-snow-7.2.5.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: alan-map-7-2-5-snow
+  cancel-in-progress: true
+
+env:
+  PYTHONUNBUFFERED: '1'
+  GDAL_HTTP_MULTIRANGE: 'YES'
+  GDAL_HTTP_MERGE_CONSECUTIVE_RANGES: 'YES'
+  GDAL_DISABLE_READDIR_ON_OPEN: 'EMPTY_DIR'
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 20
+
+      - name: Materialize approved 7.2.5 patch
+        run: |
+          set -euxo pipefail
+          test -f .bootstrap-7.2.5.b64.part-00
+          cat .bootstrap-7.2.5.b64.part-* > /tmp/bootstrap-7.2.5.b64
+          base64 -d /tmp/bootstrap-7.2.5.b64 > /tmp/bootstrap-7.2.5.tar.gz
+          echo 'b4e4081b4a2e125fee1a81f9a4587827f05a686b67b65ec95a4b198d1ac0c4e4  /tmp/bootstrap-7.2.5.tar.gz' | sha256sum -c -
+          tar -xzf /tmp/bootstrap-7.2.5.tar.gz
+          test -f .hotfix-snow-7.2.5.patch
+          git apply --check .hotfix-snow-7.2.5.patch
+          git apply .hotfix-snow-7.2.5.patch
+          python - <<'PY'
+          from pathlib import Path
+          path=Path('tools/build_snow_layer_7_2_5.py')
+          source=path.read_text(encoding='utf-8')
+          replacements={
+              "elbrus_pixels(permanent),": "elbrus_pixels(permanent, transform),",
+              "elbrus_pixels(seasonal),": "elbrus_pixels(seasonal, transform),",
+              "str(permanent_path.relative_to(ROOT))": "str(permanent_path.resolve().relative_to(ROOT))",
+              "str(seasonal_path.relative_to(ROOT))": "str(seasonal_path.resolve().relative_to(ROOT))",
+          }
+          fixed=source
+          for old,new in replacements.items():
+              if old not in fixed:
+                  raise SystemExit(f'7.2.5 materialization fix did not match source: {old}')
+              fixed=fixed.replace(old,new)
+          path.write_text(fixed, encoding='utf-8')
+          PY
+          rm -f .hotfix-snow-7.2.5.patch .bootstrap-7.2.5.b64.part-* /tmp/bootstrap-7.2.5.b64 /tmp/bootstrap-7.2.5.tar.gz
+          python -m py_compile tools/build_snow_layer_7_2_5.py
+          test -f tools/build_snow_layer_7_2_5.py
+          test -f tools/release_7_2_5.py
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.x'
+
+      - name: Install geospatial build tools
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install -y gdal-bin zip
+          python -m pip install --upgrade pip
+          python -m pip install -r tools/requirements-dem.txt
+          python -m pip install rasterio==1.4.3 requests==2.32.4
+          go install github.com/protomaps/go-pmtiles@v1.30.1
+          GO_BIN="$(go env GOPATH)/bin"
+          if [ -x "$GO_BIN/go-pmtiles" ]; then
+            ln -sf "$GO_BIN/go-pmtiles" "$GO_BIN/pmtiles"
+          fi
+          test -x "$GO_BIN/pmtiles"
+          echo "$GO_BIN" >> "$GITHUB_PATH"
+          "$GO_BIN/pmtiles" version || true
+          gdal_translate --version
+          gdaladdo --version
+
+      - name: Verify exact inherited 7.2.4 base and prepare frame
+        run: |
+          set -euxo pipefail
+          test -f data/alan-dem-7.2.pmtiles
+          test -f data/alan-vector-7.2.pmtiles
+          python tools/release_7_2_4.py validate
+          python tools/release_7_2_5.py prepare
+          python - <<'PY'
+          import json
+          expected=[40.51784,42.734095,44.184003,44.534975]
+          expected_ring=[[40.51784,43.41265],[43.731622,42.734095],[44.184003,43.85642],[40.970221,44.534975],[40.51784,43.41265]]
+          assert json.load(open('build/rectangular-bounds.json'))['bounds'] == expected
+          assert json.load(open('build/map-frame.geojson'))['features'][0]['geometry']['coordinates'][0] == expected_ring
+          PY
+
+      - name: Build WorldCover plus multi-year Sentinel-2 NDSI masks
+        run: |
+          set -euxo pipefail
+          python tools/build_snow_layer_7_2_5.py \
+            --frame build/map-frame.geojson \
+            --resolution 20 \
+            --output-dir build \
+            --report build/snow-report-7.2.5.json 2>&1 | tee build/snow-build-7.2.5.log
+          gdalinfo -json build/snow-permanent-7.2.5.tif > build/snow-permanent-7.2.5.info.json
+          gdalinfo -json build/snow-seasonal-7.2.5.tif > build/snow-seasonal-7.2.5.info.json
+
+      - name: Preserve completed snow rasters
+        uses: actions/upload-artifact@v4
+        with:
+          name: alan-map-7.2.5-snow-stage
+          path: |
+            build/snow-permanent-7.2.5.tif
+            build/snow-seasonal-7.2.5.tif
+            build/snow-report-7.2.5.json
+            build/snow-build-7.2.5.log
+          retention-days: 3
+          compression-level: 1
+
+      - name: Upload snow build diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: alan-map-7.2.5-snow-debug
+          path: |
+            build/snow-build-7.2.5.log
+            build/snow-report-7.2.5.json
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Package transparent snow rasters as direct PMTiles
+        run: |
+          set -euxo pipefail
+          for kind in permanent seasonal; do
+            src="build/snow-${kind}-7.2.5.tif"
+            mbtiles="build/alan-snow-${kind}-7.2.5.mbtiles"
+            pmtiles_file="build/alan-snow-${kind}-7.2.5.pmtiles"
+            gdal_translate "$src" "$mbtiles" \
+              -of MBTILES \
+              -co TILE_FORMAT=PNG \
+              -co TYPE=overlay \
+              -co ZOOM_LEVEL_STRATEGY=UPPER \
+              -co RESAMPLING=BILINEAR
+            gdaladdo -r bilinear "$mbtiles" 2 4 8 16 32 64
+            python -c 'import sqlite3,sys; p=sys.argv[1]; c=sqlite3.connect(p); m=dict(c.execute("SELECT name,value FROM metadata")); c.close(); assert m.get("format","").lower()=="png", (p,m); assert m.get("minzoom")=="7" and m.get("maxzoom")=="13", (p,m)' "$mbtiles"
+            pmtiles convert "$mbtiles" "$pmtiles_file"
+            pmtiles verify "$pmtiles_file"
+          done
+          ls -lh build/alan-snow-*.pmtiles
+          python - <<'PY'
+          from pathlib import Path
+          files=sorted(Path('build').glob('alan-snow-*.pmtiles'))
+          if len(files) != 2:
+              raise SystemExit(f'expected two snow PMTiles, got {files}')
+          for path in files:
+              if path.stat().st_size >= 100_000_000:
+                  raise SystemExit(f'{path} exceeds direct Git limit: {path.stat().st_size}')
+          PY
+
+      - name: Integrate 7.2.5 without changing inherited map architecture
+        run: |
+          set -euxo pipefail
+          python tools/release_7_2_5.py finalize \
+            --permanent build/alan-snow-permanent-7.2.5.pmtiles \
+            --seasonal build/alan-snow-seasonal-7.2.5.pmtiles \
+            --report build/snow-report-7.2.5.json
+          python tools/release_7_2_5.py validate
+          pmtiles verify data/alan-snow-permanent-7.2.5.pmtiles
+          pmtiles verify data/alan-snow-seasonal-7.2.5.pmtiles
+
+      - name: Validate runtime and snow contract
+        run: |
+          set -euxo pipefail
+          node tests/runtime-contract.mjs
+          python tests/snow-layer-7.2.5.py
+          python tests/dem-edge-profile.py
+          node tests/presentation-world-space.mjs
+
+      - name: Browser Range and rendering smoke test
+        run: |
+          set -euxo pipefail
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+          node tests/map-smoke.mjs
+
+      - name: Collapse 7.2.5 to one commit above exact 7.2.4
+        run: |
+          set -euxo pipefail
+          git config user.name 'Alan Map Builder'
+          git config user.email 'actions@users.noreply.github.com'
+          BASE_SHA='574a15cbaf6d9db680b50201c57eeb46c173a124'
+          git cat-file -e "$BASE_SHA^{commit}"
+          git reset --soft "$BASE_SHA"
+          git add -A
+          git commit -m 'Build Alan Map 7.2.5 satellite snow layer [skip ci]'
+          git push --force-with-lease origin HEAD:7.2.5
+
+      - name: Package complete 7.2.5 project and file sizes
+        run: |
+          set -euxo pipefail
+          mkdir -p /tmp/alan-map-7-2-5
+          find . -type f \
+            -not -path './.git/*' -not -path './build/*' -not -path './node_modules/*' -not -path '*/__pycache__/*' \
+            -printf '%P\t%s\n' | sort > /tmp/alan-map-7-2-5/file-sizes-7.2.5.tsv
+          cp data/snow-report-7.2.5.json /tmp/alan-map-7-2-5/snow-report-7.2.5.json
+          zip -qr /tmp/alan-map-7-2-5/alan-map-7.2.5.zip . \
+            -x '.git/*' 'build/*' 'node_modules/*' '*/__pycache__/*'
+          unzip -tq /tmp/alan-map-7-2-5/alan-map-7.2.5.zip
+          ls -lh /tmp/alan-map-7-2-5/alan-map-7.2.5.zip
+          wc -l /tmp/alan-map-7-2-5/file-sizes-7.2.5.tsv
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: alan-map-7.2.5-full
+          path: /tmp/alan-map-7-2-5/
+          retention-days: 30
