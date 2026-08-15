@@ -1,0 +1,582 @@
+{
+  "version": "7.2.3",
+  "purpose": "Accepted Alan Latin settlement names carried into 7.2.4",
+  "settlements": [
+    {
+      "object_id": "verkhniaia_balkariia",
+      "name_ru": "Верхняя Балкария",
+      "name_alan_latin": "OĞARI MALQAR",
+      "coordinates": [
+        43.45687,
+        43.12545
+      ]
+    },
+    {
+      "object_id": "babugent",
+      "name_ru": "Бабугент",
+      "name_alan_latin": "BABUGENT",
+      "coordinates": [
+        43.54735,
+        43.27841
+      ]
+    },
+    {
+      "object_id": "kashkhatau",
+      "name_ru": "Кашхатау",
+      "name_alan_latin": "KAŞXATAU",
+      "coordinates": [
+        43.60912,
+        43.31919
+      ]
+    },
+    {
+      "object_id": "bezengi",
+      "name_ru": "Безенги",
+      "name_alan_latin": "BIZIÑGI",
+      "coordinates": [
+        43.28536,
+        43.21852
+      ]
+    },
+    {
+      "object_id": "el_tiubiu",
+      "name_ru": "Эль-Тюбю",
+      "name_alan_latin": "EL-TÜBÜ",
+      "coordinates": [
+        43.15135,
+        43.26874
+      ]
+    },
+    {
+      "object_id": "bulungu",
+      "name_ru": "Булунгу",
+      "name_alan_latin": "BULUÑU",
+      "coordinates": [
+        43.1352,
+        43.2393
+      ]
+    },
+    {
+      "object_id": "tyrnyauz",
+      "name_ru": "Тырныауз",
+      "name_alan_latin": "TIRNI AWUZ",
+      "coordinates": [
+        42.92744,
+        43.40578
+      ]
+    },
+    {
+      "object_id": "tegenekli",
+      "name_ru": "Тегенекли",
+      "name_alan_latin": "TEGENEKLI",
+      "coordinates": [
+        42.55,
+        43.242
+      ]
+    },
+    {
+      "object_id": "posiolok_elbrus",
+      "name_ru": "Эльбрус",
+      "name_alan_latin": "ELBRUS",
+      "coordinates": [
+        42.788685,
+        43.315374
+      ]
+    },
+    {
+      "object_id": "terskol",
+      "name_ru": "Терскол",
+      "name_alan_latin": "TERSKOL",
+      "coordinates": [
+        42.51481,
+        43.2568
+      ]
+    },
+    {
+      "object_id": "kiondelen",
+      "name_ru": "Кёнделен",
+      "name_alan_latin": "KÖNDELEN",
+      "coordinates": [
+        43.17194,
+        43.5975
+      ]
+    },
+    {
+      "object_id": "nalchik",
+      "name_ru": "Нальчик",
+      "name_alan_latin": "NALÇIQ",
+      "coordinates": [
+        43.61889,
+        43.49806
+      ]
+    },
+    {
+      "object_id": "khasania",
+      "name_ru": "Хасанья",
+      "name_alan_latin": "XASANYA",
+      "coordinates": [
+        43.576,
+        43.434
+      ]
+    },
+    {
+      "object_id": "belaia_rechka",
+      "name_ru": "Белая Речка",
+      "name_alan_latin": "AQ SUW",
+      "coordinates": [
+        43.535,
+        43.43806
+      ]
+    },
+    {
+      "object_id": "kart_dzhurt",
+      "name_ru": "Карт-Джурт",
+      "name_alan_latin": "QART-CURT",
+      "coordinates": [
+        42.115,
+        43.508611
+      ]
+    },
+    {
+      "object_id": "uchkulan",
+      "name_ru": "Учкулан",
+      "name_alan_latin": "ÜÇKULAN",
+      "coordinates": [
+        42.09617,
+        43.45399
+      ]
+    },
+    {
+      "object_id": "khurzuk",
+      "name_ru": "Хурзук",
+      "name_alan_latin": "XURZUQ",
+      "coordinates": [
+        42.15235,
+        43.42717
+      ]
+    },
+    {
+      "object_id": "karachaevsk",
+      "name_ru": "Карачаевск",
+      "name_alan_latin": "KARAÇAEVSK",
+      "coordinates": [
+        41.91366,
+        43.77233
+      ]
+    },
+    {
+      "object_id": "teberda",
+      "name_ru": "Теберда",
+      "name_alan_latin": "TEBERDİ",
+      "coordinates": [
+        41.7448,
+        43.44565
+      ]
+    },
+    {
+      "object_id": "dombai",
+      "name_ru": "Домбай",
+      "name_alan_latin": "DOMMAY",
+      "coordinates": [
+        41.62692,
+        43.2905
+      ]
+    },
+    {
+      "object_id": "arkhyz",
+      "name_ru": "Архыз",
+      "name_alan_latin": "IRXIZ",
+      "coordinates": [
+        41.28039,
+        43.56306
+      ]
+    },
+    {
+      "object_id": "nizhnii_arkhyz",
+      "name_ru": "Нижний Архыз",
+      "name_alan_latin": "TÖBEN ARXIZ",
+      "coordinates": [
+        41.45977,
+        43.67817
+      ]
+    },
+    {
+      "object_id": "kislovodsk_narsana",
+      "name_ru": "Кисловодск / Нарсана",
+      "name_alan_latin": "NARSANA",
+      "coordinates": [
+        42.72083,
+        43.91333
+      ]
+    },
+    {
+      "object_id": "uchkeken",
+      "name_ru": "Учкекен",
+      "name_alan_latin": "UÇKEKEN",
+      "coordinates": [
+        42.5124,
+        43.9368
+      ]
+    },
+    {
+      "object_id": "kichi_balyk",
+      "name_ru": "Кичи-Балык",
+      "name_alan_latin": "KIÇI-BALIK",
+      "coordinates": [
+        42.561,
+        43.934
+      ]
+    },
+    {
+      "object_id": "krasnyi_kurgan",
+      "name_ru": "Красный Курган",
+      "name_alan_latin": "KRASNIY KURGAN",
+      "coordinates": [
+        42.673,
+        43.949
+      ]
+    },
+    {
+      "object_id": "pervomaiskoe_maly_karachay",
+      "name_ru": "Первомайское",
+      "name_alan_latin": "PERVOMAYSKOE",
+      "coordinates": [
+        42.77,
+        43.979
+      ]
+    },
+    {
+      "object_id": "upper_zhemtala",
+      "name_ru": "Верхняя Жемтала",
+      "name_alan_latin": "OĞARI JEMTALA",
+      "coordinates": [
+        43.66839,
+        43.23335
+      ]
+    },
+    {
+      "object_id": "tashly_tala",
+      "name_ru": "Ташлы-Тала",
+      "name_alan_latin": "TAŞLI TALA",
+      "coordinates": [
+        43.684722,
+        43.145556
+      ]
+    },
+    {
+      "object_id": "karasu_cherek",
+      "name_ru": "Карасу",
+      "name_alan_latin": "QARA SUW",
+      "coordinates": [
+        43.41046,
+        43.29657
+      ]
+    },
+    {
+      "object_id": "bylym",
+      "name_ru": "Былым",
+      "name_alan_latin": "BILLIM",
+      "coordinates": [
+        43.0379,
+        43.46271
+      ]
+    },
+    {
+      "object_id": "bedyk",
+      "name_ru": "Бедык",
+      "name_alan_latin": "BEDİK",
+      "coordinates": [
+        43.15488,
+        43.51221
+      ]
+    },
+    {
+      "object_id": "upper_baksan",
+      "name_ru": "Верхний Баксан",
+      "name_alan_latin": "OĞARI BASXAN",
+      "coordinates": [
+        42.75364,
+        43.31131
+      ]
+    },
+    {
+      "object_id": "neitrino",
+      "name_ru": "Нейтрино",
+      "name_alan_latin": "NEYTRİNO",
+      "coordinates": [
+        42.68775,
+        43.2777
+      ]
+    },
+    {
+      "object_id": "upper_teberda",
+      "name_ru": "Верхняя Теберда",
+      "name_alan_latin": "TEBERDİ",
+      "coordinates": [
+        41.78157,
+        43.54101
+      ]
+    },
+    {
+      "object_id": "lower_teberda",
+      "name_ru": "Нижняя Теберда",
+      "name_alan_latin": "TÖBEN TEBERDİ",
+      "coordinates": [
+        41.87898,
+        43.6409
+      ]
+    },
+    {
+      "object_id": "new_teberda",
+      "name_ru": "Новая Теберда",
+      "name_alan_latin": "CAÑGI TEBERDİ",
+      "coordinates": [
+        41.89479,
+        43.67332
+      ]
+    },
+    {
+      "object_id": "dzhingirik",
+      "name_ru": "Джингирик",
+      "name_alan_latin": "CİNGİRİK",
+      "coordinates": [
+        41.88974,
+        43.73402
+      ]
+    },
+    {
+      "object_id": "kamennomostskiy_kcr",
+      "name_ru": "Каменномост",
+      "name_alan_latin": "TAŞKÖPÜR",
+      "coordinates": [
+        41.91152,
+        43.75017
+      ]
+    },
+    {
+      "object_id": "kumysh",
+      "name_ru": "Кумыш",
+      "name_alan_latin": "QUMUŞ",
+      "coordinates": [
+        41.89736,
+        43.88075
+      ]
+    },
+    {
+      "object_id": "khumara",
+      "name_ru": "Хумара",
+      "name_alan_latin": "XUMARA",
+      "coordinates": [
+        41.91484,
+        43.85916
+      ]
+    },
+    {
+      "object_id": "upper_uchkulan",
+      "name_ru": "Верхний Учкулан",
+      "name_alan_latin": "OĞARI ÜÇKULAN",
+      "coordinates": [
+        42.04433,
+        43.43552
+      ]
+    },
+    {
+      "object_id": "elbrusskiy_kcr",
+      "name_ru": "Эльбрусский",
+      "name_alan_latin": "ELBRUSSKİY",
+      "coordinates": [
+        42.134,
+        43.55556
+      ]
+    },
+    {
+      "object_id": "gerpegezh",
+      "name_ru": "Герпегеж",
+      "name_alan_latin": "GERPEGEJ",
+      "coordinates": [
+        43.65449,
+        43.37171
+      ]
+    },
+    {
+      "object_id": "khushto_syrt",
+      "name_ru": "Хушто-Сырт",
+      "name_alan_latin": "XUŞTO-SIRT",
+      "coordinates": [
+        43.23555,
+        43.43483
+      ]
+    },
+    {
+      "object_id": "lashkuta",
+      "name_ru": "Лашкута",
+      "name_alan_latin": "LAŞKUTA",
+      "coordinates": [
+        43.20999,
+        43.55236
+      ]
+    },
+    {
+      "object_id": "novy_karachay",
+      "name_ru": "Новый Карачай",
+      "name_alan_latin": "CAÑGI QARAÇAY",
+      "coordinates": [
+        41.90405,
+        43.82023
+      ]
+    },
+    {
+      "object_id": "pravokubansky",
+      "name_ru": "Правокубанский",
+      "name_alan_latin": "PRAVOKUBANSKIY",
+      "coordinates": [
+        41.88484,
+        43.90695
+      ]
+    },
+    {
+      "object_id": "sary_tyuz",
+      "name_ru": "Сары-Тюз",
+      "name_alan_latin": "SARI TÜZ",
+      "coordinates": [
+        41.89523,
+        43.90181
+      ]
+    },
+    {
+      "object_id": "ordzhonikidzevsky",
+      "name_ru": "Орджоникидзевский",
+      "name_alan_latin": "ORCONİKİDZEVSKİY",
+      "coordinates": [
+        41.89716,
+        43.84584
+      ]
+    },
+    {
+      "object_id": "upper_mara",
+      "name_ru": "Верхняя Мара",
+      "name_alan_latin": "OĞARI MARA",
+      "coordinates": [
+        42.139161,
+        43.771058
+      ]
+    },
+    {
+      "object_id": "lower_mara",
+      "name_ru": "Нижняя Мара",
+      "name_alan_latin": "TÖBEN MARA",
+      "coordinates": [
+        42.086269,
+        43.763161
+      ]
+    },
+    {
+      "object_id": "kenzhe",
+      "name_ru": "Кенже",
+      "name_alan_latin": "Кенже",
+      "coordinates": [
+        43.55303,
+        43.49737
+      ]
+    },
+    {
+      "object_id": "baydaevo",
+      "name_ru": "Байдаево",
+      "name_alan_latin": "BAYDAY",
+      "coordinates": [
+        42.576251,
+        43.248705
+      ]
+    },
+    {
+      "object_id": "nizhny_chegem",
+      "name_ru": "Нижний Чегем",
+      "name_alan_latin": "TÖBEN ÇEGEM",
+      "coordinates": [
+        43.29107,
+        43.49099
+      ]
+    },
+    {
+      "object_id": "yanikoy",
+      "name_ru": "Яникой",
+      "name_alan_latin": "JANGIQOY",
+      "coordinates": [
+        43.50522,
+        43.54393
+      ]
+    },
+    {
+      "object_id": "lechinkay",
+      "name_ru": "Лечинкай",
+      "name_alan_latin": "Лечинкай",
+      "coordinates": [
+        43.43025,
+        43.56133
+      ]
+    },
+    {
+      "object_id": "dzhaga",
+      "name_ru": "Джага",
+      "name_alan_latin": "CAĞA",
+      "coordinates": [
+        42.554167,
+        43.953889
+      ]
+    },
+    {
+      "object_id": "kyzyl_pokun",
+      "name_ru": "Кызыл-Покун",
+      "name_alan_latin": "QIZIL-POKUN",
+      "coordinates": [
+        42.32229,
+        43.93003
+      ]
+    },
+    {
+      "object_id": "rimgorskoe",
+      "name_ru": "Римгорское",
+      "name_alan_latin": "RIMGORKA",
+      "coordinates": [
+        42.52153,
+        43.95547
+      ]
+    },
+    {
+      "object_id": "tereze",
+      "name_ru": "Терезе",
+      "name_alan_latin": "TEREZE",
+      "coordinates": [
+        42.437757,
+        43.932964
+      ]
+    },
+    {
+      "object_id": "elkush",
+      "name_ru": "Элькуш",
+      "name_alan_latin": "ELKUŞ",
+      "coordinates": [
+        42.645278,
+        43.860833
+      ]
+    },
+    {
+      "object_id": "khasaut_mkr",
+      "name_ru": "Хасаут",
+      "name_alan_latin": "SXAWAT",
+      "coordinates": [
+        42.51528,
+        43.70576
+      ]
+    },
+    {
+      "object_id": "cherkessk",
+      "name_ru": "Черкесск",
+      "name_alan_latin": "ÇERKESSK",
+      "coordinates": [
+        42.0578,
+        44.2233
+      ]
+    }
+  ]
+}

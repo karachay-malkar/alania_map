@@ -8,7 +8,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  const RELEASE = '7.2.3-r1';
+  const RELEASE = '7.2.4-r1';
   const SOURCE = 'alan-native-presentation';
   const FRAME_WIDTH_M = 2000;
   const ORNAMENT_REPEAT_M = 4800;

@@ -1,7 +1,7 @@
 (function(root){
   'use strict';
 
-  const RELEASE='7.2.3-r1';
+  const RELEASE='7.2.4-r1';
   const LAYER_ID='alan-granite-frame-3d';
   const TOP_M=4000;
   const BOTTOM_M=-4000;

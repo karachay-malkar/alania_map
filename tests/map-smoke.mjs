@@ -88,7 +88,7 @@ try {
   assert.equal(diagnostics.layers.settlementBeamHalo,null);
   assert.equal(diagnostics.layers.settlementBeamCore,null);
   assert.equal(diagnostics.presentation.beamLayersRemoved,true);
-  assert.equal(diagnostics.presentation.version,'7.2.3-r1');
+  assert.equal(diagnostics.presentation.version,'7.2.4-r1');
   assert.equal(diagnostics.presentation.presentationSpace,'native-map-scene');
   assert.equal(diagnostics.presentation.nativeMapScene,true);
   assert.equal(diagnostics.presentation.usesMapProject,false);
@@ -100,7 +100,7 @@ try {
   assert.equal(diagnostics.presentation.nativeLayersReady,true);
   assert.equal(diagnostics.presentation.legacySvgCount,0);
   assert.ok(diagnostics.sourceIds.includes(diagnostics.presentation.sourceId));
-  assert.equal(diagnostics.granite.version,'7.2.3-r1');
+  assert.equal(diagnostics.granite.version,'7.2.4-r1');
   assert.equal(diagnostics.granite.renderer,'custom-webgl-static-world-mesh');
   assert.equal(diagnostics.granite.topM,4000);
   assert.equal(diagnostics.granite.bottomM,-4000);
@@ -132,11 +132,12 @@ try {
   assert.equal(regional.fixedScreenScale,false);
   assert.equal(regional.sizingModel,'fixed-world-shared-chegem-font-scale');
   assert.equal(regional.sharedSizeReferenceId,'region_chegem');
+  assert.equal(regional.preparedLabels,16);
   assert.ok(regional.sharedLabelMetersPerPixel > 0);
 
   const presentation = await page.evaluate(() => window.ALAN_MAP_INSTANCE.getPresentationDiagnostics());
   assert.equal(presentation.regionalLabelAltitudeM,10000);
-  assert.equal(presentation.regionalLabelScale,0.666667);
+  assert.equal(presentation.regionalLabelScale,0.533334);
   assert.equal(presentation.historicalEthnographicBoundaryVisible,false);
   assert.deepEqual(presentation.parchmentAnchors.edgeA,[43.959202,43.298704]);
   assert.deepEqual(presentation.parchmentAnchors.corner,[44.184003,43.85642]);

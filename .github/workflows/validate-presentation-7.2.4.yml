@@ -1,8 +1,8 @@
-name: Validate Alan Map 7.2.3 frame-safe presentation
+name: Validate Alan Map 7.2.4 labels and settlements
 
 on:
   push:
-    branches: ['7.2.3']
+    branches: ['7.2.4']
     paths:
       - 'assets/bootstrap.js'
       - 'assets/map-presentation.js'
@@ -11,14 +11,19 @@ on:
       - 'assets/map-core.js'
       - 'assets/map-ui.js'
       - 'assets/map-page.js'
+      - 'assets/map-data.part-000.js'
+      - 'assets/map-data.part-001.js'
       - 'index.html'
       - 'README.md'
       - 'tests/**'
+      - 'tools/release_7_2_4.py'
       - 'tools/patch_dem_edge_collar.py'
       - 'tools/requirements-dem.txt'
       - 'data/alan-dem-7.2.pmtiles'
       - 'data/dem-edge-collar-report.json'
-      - '.github/workflows/validate-presentation-7.2.3.yml'
+      - 'data/settlement-catalog-7.2.4.json'
+      - 'data/settlement-names-accepted-7.2.3.json'
+      - '.github/workflows/validate-presentation-7.2.4.yml'
   workflow_dispatch:
 
 permissions:
@@ -54,10 +59,13 @@ jobs:
             test "$(stat -c%s /tmp/range.bin)" = "127"
           done
 
-      - name: Validate 7.2.3 DEM frame profile
+      - name: Validate inherited DEM frame profile
         run: python tests/dem-edge-profile.py
 
-      - name: Validate 7.2.3 runtime contract
+      - name: Validate 7.2.4 generated data
+        run: python tools/release_7_2_4.py validate
+
+      - name: Validate 7.2.4 runtime contract
         run: node tests/runtime-contract.mjs
 
       - name: Validate native world-space presentation geometry
@@ -71,20 +79,20 @@ jobs:
       - name: Validate browser rendering, Range transport and presentation
         run: node tests/map-smoke.mjs
 
-      - name: Package complete 7.2.3 project and file sizes
+      - name: Package complete 7.2.4 project and file sizes
         run: |
           set -euxo pipefail
-          mkdir -p /tmp/alan-map-7-2-3
+          mkdir -p /tmp/alan-map-7-2-4
           find . -type f \
             -not -path './.git/*' -not -path './node_modules/*' -not -path '*/__pycache__/*' \
-            -printf '%P\t%s\n' | sort > /tmp/alan-map-7-2-3/file-sizes-7.2.3.tsv
-          zip -qr /tmp/alan-map-7-2-3/alan-map-7.2.3.zip . \
+            -printf '%P\t%s\n' | sort > /tmp/alan-map-7-2-4/file-sizes-7.2.4.tsv
+          zip -qr /tmp/alan-map-7-2-4/alan-map-7.2.4.zip . \
             -x '.git/*' 'node_modules/*' '*/__pycache__/*'
-          unzip -tq /tmp/alan-map-7-2-3/alan-map-7.2.3.zip
-          ls -lh /tmp/alan-map-7-2-3/alan-map-7.2.3.zip
+          unzip -tq /tmp/alan-map-7-2-4/alan-map-7.2.4.zip
+          ls -lh /tmp/alan-map-7-2-4/alan-map-7.2.4.zip
 
       - uses: actions/upload-artifact@v4
         with:
-          name: alan-map-7.2.3-full
-          path: /tmp/alan-map-7-2-3/
+          name: alan-map-7.2.4-full
+          path: /tmp/alan-map-7-2-4/
           retention-days: 30

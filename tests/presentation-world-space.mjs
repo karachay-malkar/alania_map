@@ -12,7 +12,7 @@ let payload = dataSource.slice(dataSource.indexOf(marker) + marker.length).trim(
 if (payload.endsWith(';')) payload = payload.slice(0,-1);
 const data = JSON.parse(payload);
 
-assert.equal(presentation.version,'7.2.3-r1');
+assert.equal(presentation.version,'7.2.4-r1');
 assert.equal(presentation.config.presentationSpace,'native-map-scene');
 assert.equal(presentation.config.frameWidthM,2000);
 assert.equal(presentation.config.ornamentRepeatM,4800);

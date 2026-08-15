@@ -10,7 +10,7 @@ const page = fs.readFileSync('assets/map-page.js','utf8');
 const dataSource = fs.readFileSync('assets/map-data.part-000.js','utf8') + fs.readFileSync('assets/map-data.part-001.js','utf8');
 const indexSource = fs.readFileSync('index.html','utf8');
 
-assert.match(uiSource, /const VERSION = '7\.2\.3'/);
+assert.match(uiSource, /const VERSION = '7\.2\.4'/);
 assert.ok(!bootstrap.includes('fantasy-relief.js'));
 assert.ok(!bootstrap.includes('fantasy-style.js'));
 assert.ok(!fs.existsSync('assets/fantasy-relief.js'));
@@ -33,7 +33,7 @@ assert.match(page, /installPrefetch/);
 assert.match(page, /RANGE_RETRY_DELAYS_MS/);
 assert.match(page, /navigator\.maxTouchPoints/);
 assert.match(page, /prefetchEnabled/);
-assert.match(indexSource, /map-presentation-r2\.js\?v=7\.2\.3-r1/);
+assert.match(indexSource, /map-presentation-r2\.js\?v=7\.2\.4-r1/);
 assert.ok(!indexSource.includes('map-presentation.js?v='));
 assert.ok(!uiSource.includes('updateParchmentOverlay'));
 assert.ok(!uiSource.includes("map.on('render',updateParchmentOverlay)"));
@@ -120,7 +120,7 @@ const equalSizeLabels = [
     midpoint:[42.1,43.05],
     imageWidth:400,
     imageHeight:72,
-    worldScale:0.666667
+    worldScale:0.533334
   },
   {
     id:'region_basxan',
@@ -128,7 +128,7 @@ const equalSizeLabels = [
     midpoint:[42,43.5],
     imageWidth:650,
     imageHeight:100,
-    worldScale:0.666667
+    worldScale:0.533334
   }
 ];
 const sharedMetersPerPixel = regional.__test.resolveSharedLabelMetersPerPixel(equalSizeLabels,mockMapLibre,10000);
@@ -192,9 +192,17 @@ assert.ok(runtimeSources.polygons.features.some(feature => feature.properties?.a
 assert.match(uiSource, /id:'frame-mask'.*?sourceFilter\('frameMask'\)/s);
 assert.ok(!uiSource.includes('osm-river-halo'));
 assert.equal(ui.__test.regionalLabelAltitudeM, 10000);
-assert.equal(ui.__test.regionalLabelNarsanaScale, 0.666667);
+assert.equal(ui.__test.regionalLabelNarsanaScale, 0.533334);
 const regionalScales = new Set((data.regionalLabels?.features || []).map(feature => Number(feature.properties?.display_icon_scale)));
-assert.deepEqual([...regionalScales], [0.666667]);
+assert.deepEqual([...regionalScales], [0.533334]);
+assert.equal(data.regionalLabels.features.length,16);
+assert.equal(data.regionalLabelCatalog?.version,'7.2.4');
+assert.equal(data.regionalLabelCatalog?.uniform_scale,0.533334);
+assert.deepEqual(data.regionalLabelCatalog?.added_regions,[
+  'region_gitche_qarachay',
+  'region_cogetey',
+  'region_zelenchuk'
+]);
 const preparedRegionalLabels = data.regionalLabels.features.map(feature => {
   const properties=feature.properties || {};
   const line=regional.__test.resolveLine(feature);
@@ -215,6 +223,17 @@ const actualMetersPerPixel=preparedRegionalLabels.map(label => {
 });
 assert.equal(preparedRegionalLabels.find(label => label.id==='region_chegem')?.id,'region_chegem');
 assert.ok(Math.max(...actualMetersPerPixel)-Math.min(...actualMetersPerPixel) < .02);
+assert.equal(data.settlementCatalog?.version,'7.2.4');
+assert.equal(data.settlementCatalog?.active_settlements,532);
+assert.equal(data.settlementCatalog?.name_review_required,446);
+const activeSettlements=(data.objects?.features || []).filter(feature =>
+  feature.properties?.object_type === 'settlement' && feature.properties?.object_subtype !== 'historic_settlement'
+);
+assert.equal(activeSettlements.length,532);
+assert.ok(activeSettlements.every(feature => feature.properties?.active === 1));
+assert.ok(activeSettlements.every(feature => feature.properties?.source_catalog === 'osm-overpass-2026-08-15'));
+assert.ok(activeSettlements.every(feature => !/[А-Яа-яЁё]/.test(feature.properties?.name_alan_latin || '')));
+assert.ok(activeSettlements.every(feature => feature.properties?.ethnographic_profile_status === 'pending'));
 assert.ok(!(data.boundaries?.features || []).some(feature => feature.properties?.boundary_id === 'karachay_balkaria_historical_ethnographic_divide'));
 assert.ok(!(data.boundaries?.features || []).some(feature => feature.properties?.boundary_type === 'historical_ethnographic'));
 assert.equal(runtimeSources.presentation.beamCount, 0);
