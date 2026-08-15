@@ -22,6 +22,7 @@ on:
       - 'data/alan-dem-7.2.pmtiles'
       - 'data/dem-edge-collar-report.json'
       - 'data/settlement-catalog-7.2.4.json'
+      - 'data/settlement-name-review-7.2.4.json'
       - 'data/settlement-names-accepted-7.2.3.json'
       - '.github/workflows/validate-presentation-7.2.4.yml'
   workflow_dispatch:

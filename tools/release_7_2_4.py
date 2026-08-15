@@ -10,6 +10,7 @@ import struct
 import unicodedata
 from collections import Counter
 from pathlib import Path
+from urllib.parse import quote
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -18,8 +19,10 @@ ROOT = Path(__file__).resolve().parents[1]
 PARTS = [ROOT / 'assets/map-data.part-000.js', ROOT / 'assets/map-data.part-001.js']
 MARKER = 'window.ALAN_MAP_DATA = '
 VERSION = '7.2.4'
+REVIEW_REVISION = '7.2.4-r2'
 SOURCE_CATALOG = 'osm-overpass-2026-08-15'
 SOURCE_TIMESTAMP = '2026-08-15T06:05:02Z'
+REVIEW_REGISTRY = ROOT / 'data/settlement-name-review-7.2.4.json'
 LABEL_SCALE = 0.533334
 ACTIVE_PLACE_TYPES = {'city', 'town', 'village', 'hamlet'}
 FRAME_RING = [
@@ -72,12 +75,60 @@ ADDITIONAL_REGIONS = [
     },
 ]
 
-# Local endonyms confirmed independently of the automated Russian fallback.
-# Keep this list deliberately small: every other unreviewed spelling remains
-# visibly marked as provisional in the exported catalogue.
+# Local names confirmed independently of the automated Russian fallback. The
+# full post-build provenance and spelling audit lives in REVIEW_REGISTRY.
 MANUAL_SETTLEMENT_NAMES = {
     'Джегута': 'CÖGETEY',
     'Новая Джегута': 'CAÑGI CÖGETEY',
+}
+
+# The seven records below are the only settlements from the former provisional
+# group that did not already carry a Wikidata or Wikipedia entity link in the
+# OSM snapshot. The references establish the spelling. A separate flag is kept
+# where the current administrative/inhabited status still needs a registry
+# check; that question must not be conflated with the spelling audit.
+MANUAL_NAME_REVIEW = {
+    690672699: {
+        'references': [
+            'https://www.openstreetmap.org/node/690672699',
+            'https://elgkbr.ru/node/7819',
+        ],
+        'review_note': 'ZOLSKAYA follows the agreed Alan Latin profile; the locality is absent from the published 19-settlement Zolsky district list.',
+        'active_status_review_required': 1,
+    },
+    3498809120: {
+        'references': ['https://etokavkaz.ru/kbr/baksanskij_rajon/kuba_tuba'],
+        'review_note': 'The independent settlement reference confirms the Russian spelling Куба-Таба.',
+        'active_status_review_required': 0,
+    },
+    2027441519: {
+        'references': ['https://ru.wikipedia.org/wiki/%D0%9F%D1%81%D1%85%D1%83'],
+        'review_note': 'The locality name Агурапста is independently attested; current inhabited/administrative status remains to be checked.',
+        'active_status_review_required': 1,
+    },
+    2861493680: {
+        'references': ['https://sias.ru/upload/ds-dzlieva/Prilojenia_Dzlieva.pdf'],
+        'review_note': 'The institutional fieldwork appendix records сел. Къелди; current inhabited/administrative status remains to be checked.',
+        'active_status_review_required': 1,
+    },
+    5194184627: {
+        'references': ['https://ru.wikipedia.org/wiki/%D0%9A%D0%BE%D1%80%D0%B0%D1%81%D0%B8'],
+        'review_note': 'The settlement reference gives Кораси or Куараш and confirms the map spelling Куараш.',
+        'active_status_review_required': 0,
+    },
+    684370629: {
+        'references': ['https://pobeda26.ru/news/obshhestvo/2026-01-16/p-mnogodetnye-semi-v-zheleznovodske-poluchat-bolee-200-zemelnyh-uchastkov-p-348834'],
+        'review_note': 'A current municipal report confirms the хутор Розы Люксембург spelling and inhabited status.',
+        'active_status_review_required': 0,
+    },
+    893841025: {
+        'references': [
+            'https://www.pochta.ru/indexes/5a2d8ffa-23d8-4dba-b389-77020a826470',
+            'https://ru.wikipedia.org/wiki/%D0%A1%D1%82%D0%BE%D1%80%D0%BE%D0%B6%D0%B5%D0%B2%D0%B0%D1%8F_(%D0%9A%D0%B0%D1%80%D0%B0%D1%87%D0%B0%D0%B5%D0%B2%D0%BE-%D0%A7%D0%B5%D1%80%D0%BA%D0%B5%D1%81%D0%B8%D1%8F)',
+        ],
+        'review_note': 'Postal and settlement references confirm the closed military town Сторожевая-2.',
+        'active_status_review_required': 0,
+    },
 }
 BASELINE_HISTORIC_DUPLICATES = {
     'Аксу',
@@ -170,6 +221,220 @@ def transliterate_alan(value: str) -> str:
     return output
 
 
+def wikipedia_reference(value: str) -> str:
+    language, title = str(value).split(':', 1)
+    encoded = quote(title.replace(' ', '_'), safe='()_-')
+    return f'https://{language}.wikipedia.org/wiki/{encoded}'
+
+
+def load_name_review_registry(required: bool = False) -> dict[int, dict]:
+    if not REVIEW_REGISTRY.exists():
+        if required:
+            raise RuntimeError(f'name review registry not found: {REVIEW_REGISTRY}')
+        return {}
+    payload = json.loads(REVIEW_REGISTRY.read_text(encoding='utf-8'))
+    if payload.get('version') != VERSION or payload.get('revision') != REVIEW_REVISION:
+        raise RuntimeError('name review registry version mismatch')
+    records = payload.get('settlements') or []
+    by_id = {int(record['osm_id']): record for record in records}
+    if len(by_id) != len(records):
+        raise RuntimeError('duplicate OSM ids in name review registry')
+    return by_id
+
+
+def review_references(row: dict, original_source: str) -> tuple[list[str], str, str, int, str | None]:
+    osm_id = int(row['osm_id'])
+    if original_source == 'provisional-alan-transliteration':
+        if transliterate_alan(row['name_ru']) != row['name_alan_latin']:
+            raise RuntimeError(f'deterministic spelling mismatch for OSM node {osm_id}')
+        manual = MANUAL_NAME_REVIEW.get(osm_id)
+        if manual:
+            return (
+                list(manual['references']),
+                'independent-reference+deterministic-transliteration',
+                'audited-alan-transliteration',
+                int(manual['active_status_review_required']),
+                str(manual['review_note']),
+            )
+        references = []
+        if row.get('wikipedia'):
+            references.append(wikipedia_reference(row['wikipedia']))
+        if row.get('wikidata'):
+            references.append(f"https://www.wikidata.org/wiki/{row['wikidata']}")
+        if not references:
+            raise RuntimeError(f'provisional settlement has no audit reference: OSM node {osm_id}')
+        return (
+            references,
+            'linked-entity+deterministic-transliteration',
+            'audited-alan-transliteration',
+            0,
+            None,
+        )
+    if original_source == 'accepted-map-name':
+        return (
+            ['data/settlement-names-accepted-7.2.3.json'],
+            'accepted-project-baseline',
+            original_source,
+            0,
+            None,
+        )
+    if original_source == 'accepted-local-name':
+        return (
+            [f'https://www.openstreetmap.org/node/{osm_id}', 'project-decision:7.2.4-local-name'],
+            'accepted-local-name',
+            original_source,
+            0,
+            None,
+        )
+    if original_source == 'osm-name:krc':
+        return (
+            [f'https://www.openstreetmap.org/node/{osm_id}'],
+            'osm-language-tag:name:krc',
+            original_source,
+            0,
+            None,
+        )
+    raise RuntimeError(f'unsupported original name source for OSM node {osm_id}: {original_source}')
+
+
+def make_name_review_record(row: dict, previous: dict | None = None) -> dict:
+    original_source = str((previous or {}).get('original_name_source') or row.get('name_source') or '')
+    references, method, final_source, activity_review, note = review_references(row, original_source)
+    record = {
+        'osm_id': int(row['osm_id']),
+        'object_id': row['object_id'],
+        'place': row['place'],
+        'name_ru': row['name_ru'],
+        'name_alan_latin': row['name_alan_latin'],
+        'coordinates': row['coordinates'],
+        'original_name_source': original_source,
+        'name_source': final_source,
+        'name_review_status': 'completed',
+        'name_review_required': 0,
+        'name_review_method': method,
+        'name_references': references,
+        'active_status_review_required': activity_review,
+    }
+    if note:
+        record['review_note'] = note
+    for optional in ('wikidata', 'wikipedia'):
+        if row.get(optional):
+            record[optional] = row[optional]
+    return record
+
+
+def apply_review_properties(properties: dict, record: dict) -> None:
+    if 'name_map' in properties or properties.get('object_type') == 'settlement':
+        properties['name_map'] = record['name_alan_latin']
+    properties['name_alan_latin'] = record['name_alan_latin']
+    properties['name_source'] = record['name_source']
+    properties['name_review_status'] = record['name_review_status']
+    properties['name_review_required'] = 0
+    properties['name_review_method'] = record['name_review_method']
+    properties['name_references'] = list(record['name_references'])
+    properties['active_status_review_required'] = int(record['active_status_review_required'])
+    if 'description_ru' in properties or properties.get('object_type') == 'settlement':
+        name_ru = str(properties.get('name_ru') or record['name_ru'])
+        status_note = (
+            'Актуальный населённый и административный статус требует отдельной сверки с профильным реестром.'
+            if record['active_status_review_required']
+            else 'Этнографическое описание и состав населения будут добавлены после отдельной проверки источников.'
+        )
+        properties['description_ru'] = (
+            f'{name_ru} — населённый пункт по снимку OpenStreetMap от 15.08.2026. {status_note}'
+        )
+    if record.get('review_note'):
+        properties['name_review_note'] = record['review_note']
+    else:
+        properties.pop('name_review_note', None)
+
+
+def review_summary(records: list[dict]) -> dict:
+    return {
+        'settlements': len(records),
+        'completed': sum(record['name_review_status'] == 'completed' for record in records),
+        'former_provisional': sum(record['original_name_source'] == 'provisional-alan-transliteration' for record in records),
+        'linked_entity_audits': sum(record['name_review_method'] == 'linked-entity+deterministic-transliteration' for record in records),
+        'independent_reference_audits': sum(record['name_review_method'] == 'independent-reference+deterministic-transliteration' for record in records),
+        'active_status_review_required': sum(int(record['active_status_review_required']) for record in records),
+        'methods': dict(sorted(Counter(record['name_review_method'] for record in records).items())),
+        'name_sources': dict(sorted(Counter(record['name_source'] for record in records).items())),
+    }
+
+
+def apply_name_review(data: dict, catalog: dict, records: list[dict]) -> None:
+    by_id = {int(record['osm_id']): record for record in records}
+    catalog_rows = catalog.get('settlements') or []
+    if {int(row['osm_id']) for row in catalog_rows} != set(by_id):
+        raise RuntimeError('name review registry does not match exported settlement catalogue')
+    for row in catalog_rows:
+        record = by_id[int(row['osm_id'])]
+        if row['name_ru'] != record['name_ru']:
+            raise RuntimeError(f'name review Russian source mismatch for OSM node {row["osm_id"]}')
+        row.pop('name_map', None)
+        row.pop('description_ru', None)
+        apply_review_properties(row, record)
+
+    active = [
+        feature for feature in (data.get('objects') or {}).get('features') or []
+        if (feature.get('properties') or {}).get('object_type') == 'settlement'
+        and (feature.get('properties') or {}).get('object_subtype') != 'historic_settlement'
+    ]
+    if {int(feature['properties']['osm_id']) for feature in active} != set(by_id):
+        raise RuntimeError('name review registry does not match map settlement data')
+    for feature in active:
+        record = by_id[int(feature['properties']['osm_id'])]
+        apply_review_properties(feature['properties'], record)
+
+    summary = review_summary(records)
+    catalog['name_sources'] = summary['name_sources']
+    catalog['name_review_required'] = 0
+    catalog['name_review_revision'] = REVIEW_REVISION
+    catalog['name_review_scope'] = 'spelling and provenance; not an ethnographic endonym or official active-status assertion'
+    catalog['name_review_methods'] = summary['methods']
+    catalog['active_status_review_required'] = summary['active_status_review_required']
+    embedded = data.setdefault('settlementCatalog', {})
+    for key in (
+        'name_sources', 'name_review_required', 'name_review_revision', 'name_review_scope',
+        'name_review_methods', 'active_status_review_required',
+    ):
+        embedded[key] = catalog[key]
+
+
+def generate_name_review() -> None:
+    data = read_data()
+    catalog_path = ROOT / 'data/settlement-catalog-7.2.4.json'
+    catalog = json.loads(catalog_path.read_text(encoding='utf-8'))
+    previous = load_name_review_registry() if REVIEW_REGISTRY.exists() else {}
+    records = [
+        make_name_review_record(row, previous.get(int(row['osm_id'])))
+        for row in catalog.get('settlements') or []
+    ]
+    importance = {'city': 5, 'town': 4, 'village': 3, 'hamlet': 2}
+    records.sort(key=lambda record: (-importance[record['place']], record['name_ru'], record['osm_id']))
+    summary = review_summary(records)
+    if summary['settlements'] != 532 or summary['former_provisional'] != 446:
+        raise RuntimeError(f'unexpected name review coverage: {summary}')
+    if summary['linked_entity_audits'] != 439 or summary['independent_reference_audits'] != 7:
+        raise RuntimeError(f'unexpected former-provisional reference coverage: {summary}')
+    registry = {
+        'version': VERSION,
+        'revision': REVIEW_REVISION,
+        'source_catalog': SOURCE_CATALOG,
+        'source_snapshot': SOURCE_TIMESTAMP,
+        'completed_at': '2026-08-15',
+        'scope': 'Every displayed settlement spelling and its provenance. This is not an ethnographic endonym certification or an official active-settlement registry.',
+        'transliteration_profile': 'deterministic-alan-latin-v1 in tools/release_7_2_4.py',
+        'summary': summary,
+        'settlements': records,
+    }
+    REVIEW_REGISTRY.write_text(json.dumps(registry, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+    apply_name_review(data, catalog, records)
+    catalog_path.write_text(json.dumps(catalog, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+    write_data(data)
+    print(json.dumps(summary, ensure_ascii=False))
+
+
 def accepted_baseline_settlements() -> list[dict]:
     source = ROOT / 'data/settlement-names-accepted-7.2.3.json'
     payload = json.loads(source.read_text(encoding='utf-8'))
@@ -211,7 +476,7 @@ def match_existing(name_ru: str, coordinates: list[float], existing: list[dict])
     return feature if distance <= 30000 else None
 
 
-def feature_from_osm(element: dict, existing: list[dict]) -> dict:
+def feature_from_osm(element: dict, existing: list[dict], reviews: dict[int, dict]) -> dict:
     tags = element.get('tags') or {}
     coordinates = [round(float(element['lon']), 7), round(float(element['lat']), 7)]
     name_ru = str(tags.get('name:ru') or tags.get('name') or '').strip()
@@ -222,7 +487,14 @@ def feature_from_osm(element: dict, existing: list[dict]) -> dict:
         str(matched_properties.get('name_alan_latin') or matched_properties.get('name_map') or '').strip().upper(),
     )
     manual_name = MANUAL_SETTLEMENT_NAMES.get(name_ru)
-    if manual_name:
+    review = reviews.get(int(element['id']))
+    if review:
+        if review['name_ru'] != name_ru or review['coordinates'] != coordinates:
+            raise RuntimeError(f'name review source mismatch for OSM node {element["id"]}')
+        name_alan = review['name_alan_latin']
+        name_source = review['name_source']
+        review_required = 0
+    elif manual_name:
         name_alan = manual_name
         name_source = 'accepted-local-name'
         review_required = 0
@@ -251,7 +523,7 @@ def feature_from_osm(element: dict, existing: list[dict]) -> dict:
         'name_ru': name_ru,
         'name_map': name_alan,
         'name_alan_latin': name_alan,
-        'description_ru': f'{name_ru} — действующий населённый пункт по снимку OpenStreetMap от 15.08.2026. Этнографическое описание и состав населения будут добавлены после отдельной проверки источников.',
+        'description_ru': f'{name_ru} — населённый пункт по снимку OpenStreetMap от 15.08.2026. Этнографическое описание и состав населения будут добавлены после отдельной проверки источников.',
         'visible': 1,
         'active': 1,
         'label_tier': 'settlement_major' if place in {'city', 'town'} else 'settlement_minor',
@@ -265,6 +537,8 @@ def feature_from_osm(element: dict, existing: list[dict]) -> dict:
         'name_review_required': review_required,
         'ethnographic_profile_status': 'pending',
     }
+    if review:
+        apply_review_properties(properties, review)
     for source_key, target_key in (
         ('population', 'population'),
         ('population:date', 'population_date'),
@@ -279,6 +553,7 @@ def feature_from_osm(element: dict, existing: list[dict]) -> dict:
 def active_settlements(raw: dict, data: dict) -> tuple[list[dict], dict]:
     del data
     existing = accepted_baseline_settlements()
+    reviews = load_name_review_registry()
     bbox_count = len(raw.get('elements') or [])
     exact_frame = []
     population_zero = []
@@ -294,7 +569,7 @@ def active_settlements(raw: dict, data: dict) -> tuple[list[dict], dict]:
         if str(tags.get('population') or '').strip() == '0':
             population_zero.append(element)
 
-    active = [feature_from_osm(element, existing) for element in exact_frame if element not in population_zero]
+    active = [feature_from_osm(element, existing, reviews) for element in exact_frame if element not in population_zero]
     active.sort(key=lambda feature: (
         -int((feature.get('properties') or {}).get('importance') or 0),
         str((feature.get('properties') or {}).get('name_ru') or ''),
@@ -321,6 +596,13 @@ def active_settlements(raw: dict, data: dict) -> tuple[list[dict], dict]:
         'active_by_place': dict(sorted(counts.items())),
         'name_sources': dict(sorted(sources.items())),
         'name_review_required': sum(feature['properties']['name_review_required'] for feature in active),
+        'name_review_revision': REVIEW_REVISION if reviews else None,
+        'name_review_methods': dict(sorted(Counter(
+            feature['properties'].get('name_review_method', 'not-reviewed') for feature in active
+        ).items())),
+        'active_status_review_required': sum(
+            int(feature['properties'].get('active_status_review_required') or 0) for feature in active
+        ),
         'excluded_population_zero': [
             {
                 'osm_id': int(element['id']),
@@ -481,7 +763,10 @@ def build(source: Path) -> None:
             'name_review_required': properties['name_review_required'],
             'ethnographic_profile_status': properties['ethnographic_profile_status'],
         }
-        for optional in ('population', 'population_date', 'wikidata', 'wikipedia'):
+        for optional in (
+            'population', 'population_date', 'wikidata', 'wikipedia', 'name_review_status',
+            'name_review_method', 'name_references', 'active_status_review_required', 'name_review_note',
+        ):
             if optional in properties:
                 row[optional] = properties[optional]
         catalog_rows.append(row)
@@ -501,6 +786,8 @@ def build(source: Path) -> None:
 def validate() -> None:
     data = read_data()
     catalog = json.loads((ROOT / 'data/settlement-catalog-7.2.4.json').read_text(encoding='utf-8'))
+    registry_payload = json.loads(REVIEW_REGISTRY.read_text(encoding='utf-8'))
+    registry = load_name_review_registry(required=True)
     if catalog.get('version') != VERSION or catalog.get('active_settlements') != 532:
         raise RuntimeError('settlement manifest version/count mismatch')
 
@@ -514,6 +801,8 @@ def validate() -> None:
     catalog_rows = catalog.get('settlements') or []
     if len(catalog_rows) != 532:
         raise RuntimeError(f'exported settlement catalogue count mismatch: {len(catalog_rows)}')
+    if len(registry) != 532 or registry_payload.get('summary', {}).get('completed') != 532:
+        raise RuntimeError('name review registry coverage mismatch')
     ids = set()
     for feature in active:
         properties = feature.get('properties') or {}
@@ -526,11 +815,50 @@ def validate() -> None:
         name = unicodedata.normalize('NFC', str(properties.get('name_alan_latin') or ''))
         if not ALLOWED_NAME.fullmatch(name) or re.search(r'[А-Яа-яЁё]', name):
             raise RuntimeError(f'invalid Alan Latin settlement name: {name!r}')
+        record = registry.get(int(osm_id))
+        if not record:
+            raise RuntimeError(f'missing name review record: {osm_id}')
+        if properties.get('name_review_required') != 0 or properties.get('name_review_status') != 'completed':
+            raise RuntimeError(f'incomplete name review: {osm_id}')
+        if properties.get('name_alan_latin') != record.get('name_alan_latin'):
+            raise RuntimeError(f'name review value mismatch: {osm_id}')
+        if properties.get('name_source') != record.get('name_source'):
+            raise RuntimeError(f'name review source mismatch: {osm_id}')
+        if not record.get('name_references'):
+            raise RuntimeError(f'name review references missing: {osm_id}')
         coordinates = (feature.get('geometry') or {}).get('coordinates') or []
         if len(coordinates) < 2 or not point_in_frame(float(coordinates[0]), float(coordinates[1])):
             raise RuntimeError(f'settlement outside exact map frame: {properties.get("name_ru")}')
     if {row.get('osm_id') for row in catalog_rows} != ids:
         raise RuntimeError('exported settlement catalogue ids do not match map data')
+    if set(registry) != ids:
+        raise RuntimeError('name review registry ids do not match map data')
+    for row in catalog_rows:
+        record = registry[int(row['osm_id'])]
+        for key in (
+            'name_ru', 'name_alan_latin', 'name_source', 'name_review_status',
+            'name_review_required', 'name_review_method', 'name_references',
+            'active_status_review_required',
+        ):
+            if row.get(key) != record.get(key):
+                raise RuntimeError(f'catalogue/name-review mismatch for OSM node {row["osm_id"]}: {key}')
+        if record.get('original_name_source') == 'provisional-alan-transliteration':
+            if transliterate_alan(record['name_ru']) != record['name_alan_latin']:
+                raise RuntimeError(f'audited transliteration is not reproducible: OSM node {row["osm_id"]}')
+    summary = registry_payload.get('summary') or {}
+    expected_review_summary = {
+        'settlements': 532,
+        'completed': 532,
+        'former_provisional': 446,
+        'linked_entity_audits': 439,
+        'independent_reference_audits': 7,
+        'active_status_review_required': 3,
+    }
+    for key, expected in expected_review_summary.items():
+        if summary.get(key) != expected:
+            raise RuntimeError(f'name review summary mismatch for {key}: {summary.get(key)}')
+    if catalog.get('name_review_required') != 0 or catalog.get('name_review_revision') != REVIEW_REVISION:
+        raise RuntimeError('settlement catalogue name review summary mismatch')
 
     regional = (data.get('regionalLabels') or {}).get('features') or []
     if len(regional) != 16:
@@ -562,9 +890,12 @@ def main() -> None:
     build_parser = subparsers.add_parser('build')
     build_parser.add_argument('--settlements', type=Path, required=True)
     subparsers.add_parser('validate')
+    subparsers.add_parser('review-names')
     args = parser.parse_args()
     if args.command == 'build':
         build(args.settlements)
+    elif args.command == 'review-names':
+        generate_name_review()
     else:
         validate()
 

@@ -88,7 +88,7 @@ try {
   assert.equal(diagnostics.layers.settlementBeamHalo,null);
   assert.equal(diagnostics.layers.settlementBeamCore,null);
   assert.equal(diagnostics.presentation.beamLayersRemoved,true);
-  assert.equal(diagnostics.presentation.version,'7.2.4-r1');
+  assert.equal(diagnostics.presentation.version,'7.2.4-r2');
   assert.equal(diagnostics.presentation.presentationSpace,'native-map-scene');
   assert.equal(diagnostics.presentation.nativeMapScene,true);
   assert.equal(diagnostics.presentation.usesMapProject,false);
@@ -100,7 +100,7 @@ try {
   assert.equal(diagnostics.presentation.nativeLayersReady,true);
   assert.equal(diagnostics.presentation.legacySvgCount,0);
   assert.ok(diagnostics.sourceIds.includes(diagnostics.presentation.sourceId));
-  assert.equal(diagnostics.granite.version,'7.2.4-r1');
+  assert.equal(diagnostics.granite.version,'7.2.4-r2');
   assert.equal(diagnostics.granite.renderer,'custom-webgl-static-world-mesh');
   assert.equal(diagnostics.granite.topM,4000);
   assert.equal(diagnostics.granite.bottomM,-4000);
