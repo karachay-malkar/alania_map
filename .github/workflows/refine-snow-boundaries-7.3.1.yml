@@ -1,0 +1,173 @@
+name: Refine Alan Map 7.3.1 snow boundaries
+
+on:
+  push:
+    branches: [7.3.1]
+    paths:
+      - 'tools/refine_snow_boundaries_7_3_1.py'
+      - '.github/workflows/refine-snow-boundaries-7.3.1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: alan-map-7-3-1-snow-refine
+  cancel-in-progress: true
+
+jobs:
+  refine:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.x'
+
+      - name: Install snow refinement tools
+        run: |
+          set -euxo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install numpy==2.1.3 scipy==1.14.1 pillow==11.0.0 shapely==2.0.6 pyproj==3.7.0 rasterio==1.4.3 affine==2.4.0
+          go install github.com/protomaps/go-pmtiles@v1.30.1
+          GO_BIN="$(go env GOPATH)/bin"
+          if [ -x "$GO_BIN/go-pmtiles" ]; then ln -sf "$GO_BIN/go-pmtiles" "$GO_BIN/pmtiles"; fi
+          echo "$GO_BIN" >> "$GITHUB_PATH"
+          test -x "$GO_BIN/pmtiles"
+          python -m py_compile tools/refine_snow_boundaries_7_3_1.py
+
+      - name: Verify exact current 7.3.1 baseline
+        run: |
+          set -euxo pipefail
+          test "$(stat -c %s data/alan-dem-7.3.pmtiles)" = "18247328"
+          test "$(stat -c %s data/alan-vector-7.2.pmtiles)" = "16913027"
+          test "$(stat -c %s data/alan-snow-permanent-7.2.5.pmtiles)" = "2399106"
+          test "$(stat -c %s data/alan-snow-seasonal-7.2.5.pmtiles)" = "2384959"
+          sha256sum data/alan-dem-7.3.pmtiles data/alan-vector-7.2.pmtiles data/alan-snow-permanent-7.2.5.pmtiles data/alan-snow-seasonal-7.2.5.pmtiles > /tmp/payload-before.sha256
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          marker='window.ALAN_MAP_DATA = '
+          source=Path('assets/map-data.part-000.js').read_text(encoding='utf-8')+Path('assets/map-data.part-001.js').read_text(encoding='utf-8')
+          payload=source[source.index(marker)+len(marker):].strip()
+          if payload.endswith(';'): payload=payload[:-1]
+          data=json.loads(payload)
+          assert data['version']=='7.3.1'
+          assert data['dataVersion']=='7.3.1-snow-stable-vector-z7.2'
+          assert data['regionalSnow']['displayStrategy']=='stable-vector-far-contour'
+          assert data['regionalSnow']['displaySourceZoom']==7
+          assert len(data['snowDisplayPermanent']['features'])==21
+          assert len(data['snowDisplaySeasonal']['features'])==72
+          PY
+
+      - name: Convert source snow PMTiles to MBTiles
+        run: |
+          set -euxo pipefail
+          mkdir -p build
+          pmtiles convert data/alan-snow-permanent-7.2.5.pmtiles build/snow-permanent.mbtiles
+          pmtiles convert data/alan-snow-seasonal-7.2.5.pmtiles build/snow-seasonal.mbtiles
+          python - <<'PY'
+          import sqlite3
+          for path in ['build/snow-permanent.mbtiles','build/snow-seasonal.mbtiles']:
+              db=sqlite3.connect(path)
+              rows=dict(db.execute('select name,value from metadata'))
+              count=db.execute('select count(*) from tiles where zoom_level=12').fetchone()[0]
+              db.close()
+              assert count>0,(path,count,rows)
+              print(path,'z12 tiles',count,'metadata',rows.get('minzoom'),rows.get('maxzoom'))
+          PY
+
+      - name: Build detailed area-matched snow geometry
+        run: |
+          set -euxo pipefail
+          python tools/refine_snow_boundaries_7_3_1.py \
+            --permanent-mbtiles build/snow-permanent.mbtiles \
+            --seasonal-mbtiles build/snow-seasonal.mbtiles \
+            --report data/snow-boundary-refinement-7.3.1.json
+          cat data/snow-boundary-refinement-7.3.1.json
+
+      - name: Validate snow geometry contract
+        run: |
+          set -euxo pipefail
+          node --check assets/map-ui.js
+          node --check tests/runtime-contract.mjs
+          node tests/runtime-contract.mjs
+          sha256sum -c /tmp/payload-before.sha256
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          marker='window.ALAN_MAP_DATA = '
+          source=Path('assets/map-data.part-000.js').read_text(encoding='utf-8')+Path('assets/map-data.part-001.js').read_text(encoding='utf-8')
+          payload=source[source.index(marker)+len(marker):].strip()
+          if payload.endswith(';'): payload=payload[:-1]
+          data=json.loads(payload)
+          report=json.load(open('data/snow-boundary-refinement-7.3.1.json'))
+          assert data['version']=='7.3.1'
+          assert data['dataVersion']=='7.3.1-snow-refined-z12-area-match.3'
+          assert data['regionalSnow']['displayStrategy']=='stable-vector-detailed-area-match'
+          assert data['regionalSnow']['displaySourceZoom']==12
+          assert data['regionalSnow']['displayAreaReferenceZoom']==7
+          assert data['regionalSnow']['boundaryModel']=='z12-detailed-area-matched'
+          assert data['snowDisplayPermanent']['features']
+          assert data['snowDisplaySeasonal']['features']
+          assert report['permanent']['area_error_fraction'] <= 0.025
+          assert report['seasonal']['area_error_fraction'] <= 0.025
+          assert report['permanent']['vertex_count'] > 100
+          assert report['seasonal']['vertex_count'] > 100
+          ui=Path('assets/map-ui.js').read_text(encoding='utf-8')
+          assert "stable-snow-permanent-edge" in ui and "stable-snow-seasonal-edge" in ui
+          assert "line-blur" in ui
+          PY
+
+      - name: Browser rendering smoke test
+        run: |
+          set -euxo pipefail
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+          node tests/map-smoke.mjs
+
+      - name: Publish refined snow to the same 7.3.1 branch
+        run: |
+          set -euxo pipefail
+          rm -f .github/workflows/refine-snow-boundaries-7.3.1.yml
+          git config user.name 'Alan Map Builder'
+          git config user.email 'actions@users.noreply.github.com'
+          git add -A
+          git status --short
+          git commit -m 'Refine Alan Map 7.3.1 snow boundaries from z12 [skip ci]'
+          git push origin HEAD:7.3.1
+
+      - name: Package full current 7.3.1 project
+        run: |
+          set -euxo pipefail
+          mkdir -p /tmp/alan-map-7-3-1-refined
+          find . -type f \
+            -not -path './.git/*' \
+            -not -path './build/*' \
+            -not -path './node_modules/*' \
+            -not -path '*/__pycache__/*' \
+            -printf '%P\t%s\n' | sort > /tmp/alan-map-7-3-1-refined/file-sizes-7.3.1.tsv
+          cp data/snow-boundary-refinement-7.3.1.json /tmp/alan-map-7-3-1-refined/snow-boundary-refinement-7.3.1.json
+          zip -qr /tmp/alan-map-7-3-1-refined/alan-map-7.3.1.zip . \
+            -x '.git/*' 'build/*' 'node_modules/*' '*/__pycache__/*'
+          unzip -tq /tmp/alan-map-7-3-1-refined/alan-map-7.3.1.zip
+          ls -lh /tmp/alan-map-7-3-1-refined/alan-map-7.3.1.zip
+          wc -l /tmp/alan-map-7-3-1-refined/file-sizes-7.3.1.tsv
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: alan-map-7.3.1-refined-snow
+          path: /tmp/alan-map-7-3-1-refined/
+          retention-days: 30
