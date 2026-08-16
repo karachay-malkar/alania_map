@@ -5,6 +5,7 @@ on:
     branches: [7.3.1]
     paths:
       - 'tools/refine_snow_boundaries_7_3_1.py'
+      - 'tools/patch_snow_runtime_7_3_1.py'
       - '.github/workflows/refine-snow-boundaries-7.3.1.yml'
   workflow_dispatch:
 
@@ -38,7 +39,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install numpy==2.1.3 scipy==1.14.1 pillow==11.0.0 shapely==2.0.6 pyproj==3.7.0 rasterio==1.4.3 affine==2.4.0 pmtiles
           command -v pmtiles-convert
-          python -m py_compile tools/refine_snow_boundaries_7_3_1.py
+          python -m py_compile tools/refine_snow_boundaries_7_3_1.py tools/patch_snow_runtime_7_3_1.py
 
       - name: Verify exact current 7.3.1 baseline
         run: |
@@ -87,12 +88,14 @@ jobs:
             --permanent-mbtiles build/snow-permanent.mbtiles \
             --seasonal-mbtiles build/snow-seasonal.mbtiles \
             --report data/snow-boundary-refinement-7.3.1.json
+          python tools/patch_snow_runtime_7_3_1.py
           cat data/snow-boundary-refinement-7.3.1.json
 
       - name: Validate snow geometry contract
         run: |
           set -euxo pipefail
           node --check assets/map-ui.js
+          node --check assets/map-page.js
           node --check tests/runtime-contract.mjs
           node tests/runtime-contract.mjs
           sha256sum -c /tmp/payload-before.sha256
@@ -118,9 +121,13 @@ jobs:
           assert report['permanent']['vertex_count'] > 100
           assert report['seasonal']['vertex_count'] > 100
           ui=Path('assets/map-ui.js').read_text(encoding='utf-8')
+          page=Path('assets/map-page.js').read_text(encoding='utf-8')
+          index=Path('index.html').read_text(encoding='utf-8')
           assert 'stable-snow-permanent-edge' in ui
           assert 'stable-snow-seasonal-edge' in ui
           assert 'line-blur' in ui
+          assert "['stable-vector-far-contour','stable-vector-detailed-area-match'].includes(data.regionalSnow?.displayStrategy)" in page
+          assert '?v=7.3.1-snow4' in index
           PY
 
       - name: Browser rendering smoke test
