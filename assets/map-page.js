@@ -507,7 +507,7 @@
     const protocol = new window.pmtiles.Protocol();
     const archiveRecords = [];
     const mobileTransport = isMobileTransportProfile();
-    const stableSnowVector = data.regionalSnow?.displayStrategy === 'stable-vector-far-contour' &&
+    const stableSnowVector = ['stable-vector-far-contour','stable-vector-detailed-area-match'].includes(data.regionalSnow?.displayStrategy) &&
       ((data.snowDisplayPermanent?.features?.length || 0) > 0 || (data.snowDisplaySeasonal?.features?.length || 0) > 0);
     const configurations = [
       {path:data.regionalDem.archivePath,sourceId:'terrain-dem',config:data.regionalDem,prefetch:true,maxConcurrent:mobileTransport?6:10,retryDelays:RANGE_RETRY_DELAYS_MS},

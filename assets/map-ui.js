@@ -644,7 +644,7 @@
       const demTemplate = localArchiveUrl(data.regionalDem.archivePath);
       const vectorTemplate = localArchiveUrl(data.regionalVector.archivePath);
       const landcoverTemplate = data.regionalLandcover?.archivePath ? localArchiveUrl(data.regionalLandcover.archivePath) : null;
-      const stableSnowVector = data.regionalSnow?.displayStrategy === 'stable-vector-far-contour' &&
+      const stableSnowVector = ['stable-vector-far-contour','stable-vector-detailed-area-match'].includes(data.regionalSnow?.displayStrategy) &&
         ((data.snowDisplayPermanent?.features?.length || 0) > 0 || (data.snowDisplaySeasonal?.features?.length || 0) > 0);
       const snowPermanentTemplate = !stableSnowVector && data.regionalSnow?.available && data.regionalSnow?.permanent?.archivePath ? localArchiveUrl(data.regionalSnow.permanent.archivePath) : null;
       const snowSeasonalTemplate = !stableSnowVector && data.regionalSnow?.available && data.regionalSnow?.seasonal?.archivePath ? localArchiveUrl(data.regionalSnow.seasonal.archivePath) : null;
@@ -673,8 +673,14 @@
         {id:'ridge-lines',type:'line',source:'lines',filter:['all',sourceFilter('ridges'),['==',['get','visible'],1]],paint:{'line-color':'#675f55','line-width':['interpolate',['linear'],['zoom'],6,0.48,10,1.12],'line-opacity':['interpolate',['linear'],['zoom'],6,0.24,10,0.40],'line-dasharray':[1.2,2.1]}}
       ];
       if (landcoverTemplate) baseLayers.splice(2,0,{id:'copernicus-landcover',type:'raster',source:'copernicus-landcover',minzoom:Number(data.regionalLandcover.minzoom),maxzoom:Number(data.regionalLandcover.maxzoom),paint:{'raster-opacity':['interpolate',['linear'],['zoom'],7,0.54,10,0.62,13,0.68],'raster-fade-duration':100}});
-      if (stableSnowVector && data.snowDisplaySeasonal?.features?.length) baseLayers.splice(-1,0,{id:'stable-snow-seasonal',type:'fill',source:'polygons',filter:sourceFilter('snowSeasonalStable'),paint:{'fill-color':'#f5fafb','fill-opacity':snowSeasonalOpacity,'fill-antialias':true}});
-      if (stableSnowVector && data.snowDisplayPermanent?.features?.length) baseLayers.splice(-1,0,{id:'stable-snow-permanent',type:'fill',source:'polygons',filter:sourceFilter('snowPermanentStable'),paint:{'fill-color':'#fafdfd','fill-opacity':snowPermanentOpacity,'fill-antialias':true}});
+      if (stableSnowVector && data.snowDisplaySeasonal?.features?.length) {
+        baseLayers.splice(-1,0,{id:'stable-snow-seasonal',type:'fill',source:'polygons',filter:sourceFilter('snowSeasonalStable'),paint:{'fill-color':'#f5fafb','fill-opacity':snowSeasonalOpacity,'fill-antialias':true}});
+        baseLayers.splice(-1,0,{id:'stable-snow-seasonal-edge',type:'line',source:'polygons',filter:sourceFilter('snowSeasonalStable'),paint:{'line-color':'#f5fafb','line-width':['interpolate',['linear'],['zoom'],7,0.7,11,1.1,14.3,1.7],'line-opacity':0.24,'line-blur':1.15}});
+      }
+      if (stableSnowVector && data.snowDisplayPermanent?.features?.length) {
+        baseLayers.splice(-1,0,{id:'stable-snow-permanent',type:'fill',source:'polygons',filter:sourceFilter('snowPermanentStable'),paint:{'fill-color':'#fafdfd','fill-opacity':snowPermanentOpacity,'fill-antialias':true}});
+        baseLayers.splice(-1,0,{id:'stable-snow-permanent-edge',type:'line',source:'polygons',filter:sourceFilter('snowPermanentStable'),paint:{'line-color':'#fafdfd','line-width':['interpolate',['linear'],['zoom'],7,0.8,11,1.25,14.3,1.9],'line-opacity':0.30,'line-blur':1.25}});
+      }
       if (snowSeasonalTemplate) baseLayers.splice(-1,0,{id:'satellite-snow-seasonal',type:'raster',source:'snow-seasonal',minzoom:Number(data.regionalSnow.seasonal.minzoom),paint:{'raster-opacity':snowSeasonalOpacity,'raster-fade-duration':0,'raster-resampling':'linear'}});
       if (snowPermanentTemplate) baseLayers.splice(-1,0,{id:'satellite-snow-permanent',type:'raster',source:'snow-permanent',minzoom:Number(data.regionalSnow.permanent.minzoom),paint:{'raster-opacity':snowPermanentOpacity,'raster-fade-duration':0,'raster-resampling':'linear'}});
 

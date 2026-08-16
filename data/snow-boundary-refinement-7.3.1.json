@@ -1,0 +1,48 @@
+{
+  "version": "7.3.1",
+  "data_version": "7.3.1-snow-refined-z12-area-match.3",
+  "display_strategy": "stable-vector-detailed-area-match",
+  "detail_zoom": 12,
+  "area_reference_zoom": 7,
+  "parameters": {
+    "alpha_threshold": 96,
+    "smooth_sigma_px": 1.35,
+    "boundary_round_m": 65.0,
+    "simplify_m": 28.0,
+    "min_component_m2": 20000.0
+  },
+  "permanent": {
+    "detail_zoom": 12,
+    "alpha_threshold": 96,
+    "target_area_m2": 16236966251.27394,
+    "pixel_area_m2": 1460.6548232672087,
+    "target_pixels": 11116224,
+    "core_pixels": 2300271,
+    "dilation_radius_px": 57.87060546875,
+    "dilation_radius_m_mercator": 2211.72855354756,
+    "result_pixels": 11117123,
+    "result_area_m2_raster": 16238279330.804821,
+    "target_feature_count": 21,
+    "result_feature_count": 25,
+    "result_area_m2_vector": 16236725906.559134,
+    "area_error_fraction": 1.48023165834163e-05,
+    "vertex_count": 5693
+  },
+  "seasonal": {
+    "detail_zoom": 12,
+    "alpha_threshold": 96,
+    "target_area_m2": 17013838014.849848,
+    "pixel_area_m2": 1460.6548232672087,
+    "target_pixels": 11648089,
+    "core_pixels": 1454253,
+    "dilation_radius_px": 56.43603515625,
+    "dilation_radius_m_mercator": 2156.9014077707416,
+    "result_pixels": 11647382,
+    "result_area_m2_raster": 17012804696.735668,
+    "target_feature_count": 72,
+    "result_feature_count": 70,
+    "result_area_m2_vector": 17013513056.758373,
+    "area_error_fraction": 1.9099634732087282e-05,
+    "vertex_count": 9538
+  }
+}
