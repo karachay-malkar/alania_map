@@ -1,0 +1,350 @@
+name: Restore raster snow and build micro gap patches 7.3.1
+
+on:
+  push:
+    branches: ['7.3.1']
+    paths: ['.github/workflows/restore-raster-snow-gap-patches-7.3.1.yml']
+
+permissions:
+  contents: write
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install build dependencies
+        run: |
+          set -euxo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install numpy==2.1.3 scipy==1.14.1 pillow==11.0.0 shapely==2.0.6 pyproj==3.7.0 rasterio==1.4.3 affine==2.4.0 pmtiles
+          command -v pmtiles-convert
+
+      - name: Restore original raster snow runtime baseline
+        run: |
+          set -euxo pipefail
+          BASE=d02e26a09e1f87ba24d46d50ae175f7c1db5659a
+          git checkout "$BASE" -- \
+            assets/map-ui.js \
+            assets/map-page.js \
+            assets/map-data.part-000.js \
+            assets/map-data.part-001.js \
+            index.html \
+            README.md \
+            tests/runtime-contract.mjs \
+            tests/map-smoke.mjs
+
+      - name: Convert snow PMTiles for analysis
+        run: |
+          set -euxo pipefail
+          mkdir -p build
+          pmtiles-convert data/alan-snow-permanent-7.2.5.pmtiles build/snow-permanent.mbtiles
+          pmtiles-convert data/alan-snow-seasonal-7.2.5.pmtiles build/snow-seasonal.mbtiles
+
+      - name: Build conservative z12 micro gap patches
+        run: |
+          set -euxo pipefail
+          python - <<'PY'
+          from __future__ import annotations
+          import io, json, math, sqlite3
+          from pathlib import Path
+          import numpy as np
+          from PIL import Image
+          from scipy import ndimage
+          from affine import Affine
+          from rasterio.features import shapes, rasterize
+          from rasterio.warp import reproject, Resampling
+          from shapely.geometry import shape, mapping
+          from shapely.ops import transform as shp_transform
+          from pyproj import Transformer
+
+          ROOT=Path('.')
+          PARTS=[ROOT/'assets/map-data.part-000.js',ROOT/'assets/map-data.part-001.js']
+          MARKER='window.ALAN_MAP_DATA = '
+          HALF=20037508.342789244
+          WORLD=HALF*2
+          DETAIL_Z=12
+          REF_Z=11
+          THRESHOLD=96
+          MAX_DISTANCE_PX=2.25
+          MAX_COMPONENT_PX=64
+          MAX_PATCH_RATIO=0.035
+          MINZOOM=10.75
+          TO_3857=Transformer.from_crs('EPSG:4326','EPSG:3857',always_xy=True).transform
+          TO_4326=Transformer.from_crs('EPSG:3857','EPSG:4326',always_xy=True).transform
+
+          def read_data():
+              s=''.join(p.read_text(encoding='utf-8') for p in PARTS)
+              payload=s[s.index(MARKER)+len(MARKER):].strip()
+              if payload.endswith(';'): payload=payload[:-1]
+              return json.loads(payload)
+
+          def write_data(data):
+              payload=json.dumps(data,ensure_ascii=False,separators=(',',':'))
+              mid=len(payload)//2
+              left=payload.rfind('},"',0,mid); right=payload.find('},"',mid)
+              cand=[p+1 for p in (left,right) if p>=0]
+              cut=min(cand,key=lambda p:abs(p-mid)) if cand else mid
+              PARTS[0].write_text('\n'+MARKER+payload[:cut],encoding='utf-8')
+              PARTS[1].write_text(payload[cut:]+';\n',encoding='utf-8')
+
+          def xyz_y(z,tms_y): return (1<<z)-1-int(tms_y)
+
+          def load_mosaic(path,z):
+              db=sqlite3.connect(path)
+              rows=list(db.execute('select tile_column,tile_row,tile_data from tiles where zoom_level=? order by tile_column,tile_row',(z,)))
+              db.close()
+              if not rows: raise RuntimeError(f'no z{z}: {path}')
+              xs=[int(r[0]) for r in rows]; ys=[xyz_y(z,r[1]) for r in rows]
+              minx,maxx=min(xs),max(xs); miny,maxy=min(ys),max(ys)
+              arr=np.zeros(((maxy-miny+1)*256,(maxx-minx+1)*256),dtype=np.uint8)
+              for x,tms_y,blob in rows:
+                  y=xyz_y(z,tms_y)
+                  alpha=np.asarray(Image.open(io.BytesIO(blob)).convert('RGBA'),dtype=np.uint8)[:,:,3]
+                  r0=(y-miny)*256; c0=(int(x)-minx)*256
+                  arr[r0:r0+256,c0:c0+256]=alpha
+              tile_span=WORLD/(1<<z); px=tile_span/256
+              west=-HALF+minx*tile_span; north=HALF-miny*tile_span
+              return arr,Affine(px,0,west,0,-px,north)
+
+          def frame_geom(data):
+              feature=(data.get('mapFrame') or {}).get('features',[None])[0]
+              if not feature: raise RuntimeError('mapFrame missing')
+              return shp_transform(TO_3857,shape(feature['geometry'])).buffer(0)
+
+          def frame_mask(data,shape_,transform):
+              return rasterize([(mapping(frame_geom(data)),1)],out_shape=shape_,transform=transform,fill=0,dtype='uint8').astype(bool)
+
+          def align_reference(ref_alpha,ref_transform,detail_shape,detail_transform):
+              dst=np.zeros(detail_shape,dtype=np.uint8)
+              reproject(ref_alpha,dst,src_transform=ref_transform,src_crs='EPSG:3857',dst_transform=detail_transform,dst_crs='EPSG:3857',resampling=Resampling.nearest,src_nodata=0,dst_nodata=0)
+              return dst
+
+          def component_filter(mask,core_count):
+              labels,n=ndimage.label(mask,structure=np.ones((3,3),dtype=np.uint8))
+              if not n: return np.zeros_like(mask,dtype=bool),[]
+              sizes=np.bincount(labels.ravel())
+              comps=[(i,int(sizes[i])) for i in range(1,len(sizes)) if 1<=sizes[i]<=MAX_COMPONENT_PX]
+              comps.sort(key=lambda v:(v[1],v[0]))
+              cap=max(1,int(core_count*MAX_PATCH_RATIO))
+              keep=[]; total=0
+              for i,size in comps:
+                  if total+size>cap: break
+                  keep.append(i); total+=size
+              if not keep: return np.zeros_like(mask,dtype=bool),[]
+              return np.isin(labels,np.asarray(keep)),[sizes[i] for i in keep]
+
+          def patch_for_kind(data,mbtiles,kind):
+              detail,dt=load_mosaic(mbtiles,DETAIL_Z)
+              ref,rt=load_mosaic(mbtiles,REF_Z)
+              fm=frame_mask(data,detail.shape,dt)
+              core=(detail>=THRESHOLD)&fm
+              parent=(align_reference(ref,rt,detail.shape,dt)>=THRESHOLD)&fm
+
+              dist=ndimage.distance_transform_edt(~core)
+              neighbors=ndimage.convolve(core.astype(np.uint8),np.ones((3,3),dtype=np.uint8),mode='constant',cval=0)-core.astype(np.uint8)
+              parent_missing=parent & ~core
+              narrow=parent_missing & (dist<=MAX_DISTANCE_PX) & (neighbors>=2)
+
+              enclosed=ndimage.binary_fill_holes(core)&~core&fm
+              enclosed_labels,en=ndimage.label(enclosed,structure=np.ones((3,3),dtype=np.uint8))
+              enclosed_sizes=np.bincount(enclosed_labels.ravel()) if en else np.array([0])
+              small_holes=np.zeros_like(core,dtype=bool)
+              if en:
+                  ids=[i for i in range(1,len(enclosed_sizes)) if enclosed_sizes[i]<=MAX_COMPONENT_PX]
+                  if ids: small_holes=np.isin(enclosed_labels,np.asarray(ids))
+
+              raw=(narrow|small_holes)&~core&fm
+              final,sizes=component_filter(raw,int(core.sum()))
+
+              features=[]
+              for geom_map,val in shapes(final.astype(np.uint8),mask=final,transform=dt):
+                  if int(val)!=1: continue
+                  g=shape(geom_map)
+                  if g.is_empty: continue
+                  gg=shp_transform(TO_4326,g)
+                  coords=mapping(gg)
+                  def rnd(v):
+                      if isinstance(v,(list,tuple)): return [rnd(x) for x in v]
+                      if isinstance(v,float): return round(v,6)
+                      return v
+                  coords=rnd(coords)
+                  features.append({'type':'Feature','properties':{'snow_kind':kind,'patch_model':'z11-parent-z12-micro-gap','detail_zoom':DETAIL_Z},'geometry':coords})
+
+              px_area=abs(dt.a*dt.e)
+              metrics={
+                  'detail_zoom':DETAIL_Z,'reference_zoom':REF_Z,'alpha_threshold':THRESHOLD,
+                  'max_distance_px':MAX_DISTANCE_PX,'max_component_px':MAX_COMPONENT_PX,
+                  'max_patch_ratio':MAX_PATCH_RATIO,'core_pixels':int(core.sum()),
+                  'parent_missing_pixels':int(parent_missing.sum()),'raw_candidate_pixels':int(raw.sum()),
+                  'patch_pixels':int(final.sum()),'patch_ratio_to_core':float(final.sum()/max(1,core.sum())),
+                  'patch_area_m2_mercator':float(final.sum()*px_area),'feature_count':len(features),
+                  'largest_component_px':int(max(sizes) if sizes else 0)
+              }
+              return {'type':'FeatureCollection','features':features},metrics
+
+          data=read_data()
+          # d02 restored data; keep 7.3.1 application identity while restoring original raster snow behavior.
+          permanent,pm=patch_for_kind(data,Path('build/snow-permanent.mbtiles'),'permanent')
+          seasonal,sm=patch_for_kind(data,Path('build/snow-seasonal.mbtiles'),'seasonal')
+          data.pop('snowDisplayPermanent',None); data.pop('snowDisplaySeasonal',None)
+          data['snowGapPermanent']=permanent; data['snowGapSeasonal']=seasonal
+          data['version']='7.3.1'; data['applicationVersion']='7.3.1'; data['stage']='7.3.1'
+          data['dataVersion']='7.3.1-snow-raster-micro-gap-z12.1'
+          snow=data.get('regionalSnow',{})
+          snow.update({
+              'displayStrategy':'raster-original-plus-micro-gap-patches',
+              'gapPatchDetailZoom':DETAIL_Z,'gapPatchReferenceZoom':REF_Z,
+              'gapPatchMinzoom':MINZOOM,'gapPatchMaxDistancePx':MAX_DISTANCE_PX,
+              'gapPatchMaxComponentPx':MAX_COMPONENT_PX,'gapPatchMaxRatio':MAX_PATCH_RATIO,
+              'displayNotes':'Original 7.3 raster snow is primary. Conservative z12 GeoJSON micro-patches only fill small parent-supported gaps near existing detailed snow; no global dilation or replacement contour.'
+          })
+          data['regionalSnow']=snow
+          write_data(data)
+
+          report={'version':'7.3.1','data_version':data['dataVersion'],'strategy':snow['displayStrategy'],'permanent':pm,'seasonal':sm}
+          Path('data/snow-gap-patch-7.3.1.json').write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          print(json.dumps(report,ensure_ascii=False,indent=2))
+          PY
+
+      - name: Patch runtime for original raster + micro gaps
+        run: |
+          set -euxo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          ui=Path('assets/map-ui.js')
+          t=ui.read_text(encoding='utf-8')
+          t=t.replace("const VERSION = '7.3';","const VERSION = '7.3.1';",1)
+          t=t.replace("const DEFAULT_STORAGE_KEY = 'alan-map-stage7.3-view';","const DEFAULT_STORAGE_KEY = 'alan-map-stage7.3.1-view';",1)
+          anchor="  const LEGACY_STORAGE_KEYS = [\n"
+          if anchor in t and "'alan-map-stage7.3-view'," not in t:
+              t=t.replace(anchor,anchor+"    'alan-map-stage7.3-view',\n",1)
+
+          old="""        ['focus', data.focus],\n        ['frameMask', data.frameMask],\n        ['glaciers', data.glaciers],"""
+          new="""        ['focus', data.focus],\n        ['frameMask', data.frameMask],\n        ['snowGapSeasonal', data.snowGapSeasonal],\n        ['snowGapPermanent', data.snowGapPermanent],\n        ['glaciers', data.glaciers],"""
+          if old not in t: raise RuntimeError('runtime source anchor missing')
+          t=t.replace(old,new,1)
+
+          # Keep original raster source maxzoom=13, but remove render-layer maxzoom so z13 is overzoomed instead of disappearing.
+          old="""      if (snowSeasonalTemplate) baseLayers.splice(-1,0,{id:'satellite-snow-seasonal',type:'raster',source:'snow-seasonal',minzoom:Number(data.regionalSnow.seasonal.minzoom),maxzoom:Number(data.regionalSnow.seasonal.maxzoom),paint:{'raster-opacity':['interpolate',['linear'],['zoom'],7,0.26,9,0.36,12,0.52],'raster-fade-duration':100,'raster-resampling':'linear'}});\n      if (snowPermanentTemplate) baseLayers.splice(-1,0,{id:'satellite-snow-permanent',type:'raster',source:'snow-permanent',minzoom:Number(data.regionalSnow.permanent.minzoom),maxzoom:Number(data.regionalSnow.permanent.maxzoom),paint:{'raster-opacity':['interpolate',['linear'],['zoom'],7,0.74,9,0.86,12,0.94],'raster-fade-duration':100,'raster-resampling':'linear'}});"""
+          new="""      if (snowSeasonalTemplate) baseLayers.splice(-1,0,{id:'satellite-snow-seasonal',type:'raster',source:'snow-seasonal',minzoom:Number(data.regionalSnow.seasonal.minzoom),paint:{'raster-opacity':['interpolate',['linear'],['zoom'],7,0.26,9,0.36,12,0.52],'raster-fade-duration':100,'raster-resampling':'linear'}});\n      if (snowPermanentTemplate) baseLayers.splice(-1,0,{id:'satellite-snow-permanent',type:'raster',source:'snow-permanent',minzoom:Number(data.regionalSnow.permanent.minzoom),paint:{'raster-opacity':['interpolate',['linear'],['zoom'],7,0.74,9,0.86,12,0.94],'raster-fade-duration':100,'raster-resampling':'linear'}});\n      if (data.snowGapSeasonal?.features?.length) baseLayers.splice(-1,0,{id:'snow-gap-seasonal',type:'fill',source:'polygons',minzoom:Number(data.regionalSnow?.gapPatchMinzoom || 10.75),filter:sourceFilter('snowGapSeasonal'),paint:{'fill-color':'#f5fafb','fill-opacity':0.44,'fill-antialias':true}});\n      if (data.snowGapPermanent?.features?.length) baseLayers.splice(-1,0,{id:'snow-gap-permanent',type:'fill',source:'polygons',minzoom:Number(data.regionalSnow?.gapPatchMinzoom || 10.75),filter:sourceFilter('snowGapPermanent'),paint:{'fill-color':'#fafdfd','fill-opacity':0.92,'fill-antialias':true}});"""
+          if old not in t: raise RuntimeError('original snow layers anchor missing')
+          t=t.replace(old,new,1)
+          t=t.replace('Alan Map · 7.3','Alan Map · 7.3.1')
+          ui.write_text(t,encoding='utf-8')
+
+          page=Path('assets/map-page.js')
+          p=page.read_text(encoding='utf-8').replace("const VERSION = '7.3';","const VERSION = '7.3.1';",1)
+          page.write_text(p,encoding='utf-8')
+
+          idx=Path('index.html')
+          s=idx.read_text(encoding='utf-8')
+          s=s.replace('Alan Map 7.3','Alan Map 7.3.1')
+          s=s.replace('?v=7.3','?v=7.3.1-snow5')
+          s=s.replace('<!-- Alan Map 7.3: generalized z7-z11 DEM; 7.2.5 vector/snow preserved -->','<!-- Alan Map 7.3.1: original raster snow restored; conservative z12 micro-gap patches -->')
+          idx.write_text(s,encoding='utf-8')
+
+          readme=Path('README.md')
+          readme.write_text(
+              '# Alan Map 7.3.1\n\n'
+              'Снежные слои возвращены к исходной raster-отрисовке версии 7.3. Основной permanent/seasonal snow снова читается напрямую из неизменённых PMTiles 7.2.5 и сохраняет исходную детальную форму на близком масштабе.\n\n'
+              'Поверх исходного снега добавлены только небольшие GeoJSON gap-patches, построенные по расхождениям родительского z11 и детального z12. Патч допускается только рядом с уже существующим z12-снегом, отдельный компонент ограничен 64 пикселями, а суммарное добавление ограничено 3.5% детальной маски. Глобального расширения, нового большого контура и сглаживания всей снежной площади нет.\n',
+              encoding='utf-8')
+          PY
+
+      - name: Update contracts and validate
+        run: |
+          set -euxo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('tests/runtime-contract.mjs')
+          t=p.read_text(encoding='utf-8')
+          t=t.replace("assert.equal(data.version, '7.3');","assert.equal(data.version, '7.3.1');")
+          t=t.replace("assert.equal(data.applicationVersion, '7.3');","assert.equal(data.applicationVersion, '7.3.1');")
+          t=t.replace("assert.equal(data.dataVersion, '7.3-dem-generalized-z11.1');","assert.equal(data.dataVersion, '7.3.1-snow-raster-micro-gap-z12.1');")
+          t=t.replace("assert.match(uiSource, /const VERSION = '7\\.3'/);","assert.match(uiSource, /const VERSION = '7\\.3\\.1'/);")
+          t=t.replace("assert.match(indexSource, /map-presentation-r2\\.js\\?v=7\\.3/);","assert.match(indexSource, /map-presentation-r2\\.js\\?v=7\\.3\\.1-snow5/);")
+          anchor="  assert.equal(data.regionalSnow.seasonal.archivePath, 'data/alan-snow-seasonal-7.2.5.pmtiles');\n"
+          extra=(anchor+"  assert.equal(data.regionalSnow.displayStrategy, 'raster-original-plus-micro-gap-patches');\n"
+                 "  assert.equal(data.regionalSnow.gapPatchDetailZoom, 12);\n"
+                 "  assert.equal(data.regionalSnow.gapPatchReferenceZoom, 11);\n"
+                 "  assert.ok(data.snowGapPermanent.features.length > 0);\n"
+                 "  assert.ok(data.snowGapSeasonal.features.length > 0);\n")
+          if anchor not in t: raise RuntimeError('runtime snow anchor missing')
+          t=t.replace(anchor,extra,1)
+          p.write_text(t,encoding='utf-8')
+
+          p=Path('tests/map-smoke.mjs')
+          t=p.read_text(encoding='utf-8').replace("assert.equal(performanceMetrics.version,'7.3');","assert.equal(performanceMetrics.version,'7.3.1');")
+          p.write_text(t,encoding='utf-8')
+          PY
+          node --check assets/map-ui.js
+          node --check assets/map-page.js
+          node --check tests/runtime-contract.mjs
+          node tests/runtime-contract.mjs
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          expected={
+            'data/alan-dem-7.3.pmtiles':18247328,
+            'data/alan-vector-7.2.pmtiles':16913027,
+            'data/alan-snow-permanent-7.2.5.pmtiles':2399106,
+            'data/alan-snow-seasonal-7.2.5.pmtiles':2384959,
+          }
+          for f,size in expected.items():
+              assert Path(f).stat().st_size==size,(f,Path(f).stat().st_size,size)
+          report=json.load(open('data/snow-gap-patch-7.3.1.json'))
+          for k in ['permanent','seasonal']:
+              assert report[k]['feature_count']>0,report[k]
+              assert report[k]['patch_ratio_to_core']<=0.0351,report[k]
+              assert report[k]['largest_component_px']<=64,report[k]
+          print('snow-gap-contract: ok')
+          PY
+
+      - name: Browser smoke test
+        run: |
+          set -euxo pipefail
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+          node tests/map-smoke.mjs
+
+      - name: Commit final state to same branch
+        run: |
+          set -euxo pipefail
+          rm -f .github/workflows/restore-raster-snow-gap-patches-7.3.1.yml
+          git config user.name 'Alan Map Builder'
+          git config user.email 'actions@users.noreply.github.com'
+          git add -A
+          git status --short
+          git commit -m 'Restore original snow with z12 micro gap patches [skip ci]'
+          git push origin HEAD:7.3.1
+
+      - name: Package full project
+        run: |
+          set -euxo pipefail
+          mkdir -p /tmp/alan-map-7-3-1-micro-gap
+          find . -type f -not -path './.git/*' -not -path './build/*' -not -path './node_modules/*' -not -path '*/__pycache__/*' -printf '%P\t%s\n' | sort > /tmp/alan-map-7-3-1-micro-gap/file-sizes-7.3.1.tsv
+          cp data/snow-gap-patch-7.3.1.json /tmp/alan-map-7-3-1-micro-gap/snow-gap-patch-7.3.1.json
+          zip -qr /tmp/alan-map-7-3-1-micro-gap/alan-map-7.3.1.zip . -x '.git/*' 'build/*' 'node_modules/*' '*/__pycache__/*'
+          unzip -tq /tmp/alan-map-7-3-1-micro-gap/alan-map-7.3.1.zip
+          sha256sum /tmp/alan-map-7-3-1-micro-gap/alan-map-7.3.1.zip > /tmp/alan-map-7-3-1-micro-gap/sha256.txt
+          ls -lh /tmp/alan-map-7-3-1-micro-gap/alan-map-7.3.1.zip
+          wc -l /tmp/alan-map-7-3-1-micro-gap/file-sizes-7.3.1.tsv
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: alan-map-7.3.1-original-snow-micro-gap
+          path: /tmp/alan-map-7-3-1-micro-gap/
+          retention-days: 30
