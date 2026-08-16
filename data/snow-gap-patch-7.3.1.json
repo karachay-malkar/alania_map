@@ -1,0 +1,37 @@
+{
+  "version": "7.3.1",
+  "data_version": "7.3.1-snow-raster-micro-gap-z12.1",
+  "strategy": "raster-original-plus-micro-gap-patches",
+  "permanent": {
+    "detail_zoom": 12,
+    "reference_zoom": 11,
+    "alpha_threshold": 96,
+    "max_distance_px": 2.25,
+    "max_component_px": 64,
+    "max_patch_ratio": 0.035,
+    "core_pixels": 2172960,
+    "parent_missing_pixels": 1150108,
+    "raw_candidate_pixels": 470339,
+    "patch_pixels": 76047,
+    "patch_ratio_to_core": 0.03499696266843384,
+    "patch_area_m2_mercator": 111078417.34500141,
+    "feature_count": 33998,
+    "largest_component_px": 10
+  },
+  "seasonal": {
+    "detail_zoom": 12,
+    "reference_zoom": 11,
+    "alpha_threshold": 96,
+    "max_distance_px": 2.25,
+    "max_component_px": 64,
+    "max_patch_ratio": 0.035,
+    "core_pixels": 1332471,
+    "parent_missing_pixels": 965063,
+    "raw_candidate_pixels": 406368,
+    "patch_pixels": 46633,
+    "patch_ratio_to_core": 0.034997384558463185,
+    "patch_area_m2_mercator": 68114716.37341975,
+    "feature_count": 21821,
+    "largest_component_px": 7
+  }
+}
