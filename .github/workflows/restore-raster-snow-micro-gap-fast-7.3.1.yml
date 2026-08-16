@@ -1,0 +1,108 @@
+name: Restore raster snow micro-gap fast 7.3.1
+
+on:
+  push:
+    branches: ['7.3.1']
+    paths: ['.github/workflows/restore-raster-snow-micro-gap-fast-7.3.1.yml']
+
+permissions:
+  contents: write
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install build dependencies
+        run: |
+          set -euxo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install numpy==2.1.3 scipy==1.14.1 pillow==11.0.0 shapely==2.0.6 pyproj==3.7.0 rasterio==1.4.3 affine==2.4.0 pmtiles
+          command -v pmtiles-convert
+
+      - name: Convert snow PMTiles
+        run: |
+          set -euxo pipefail
+          mkdir -p build
+          pmtiles-convert data/alan-snow-permanent-7.2.5.pmtiles build/snow-permanent.mbtiles
+          pmtiles-convert data/alan-snow-seasonal-7.2.5.pmtiles build/snow-seasonal.mbtiles
+
+      - name: Restore original raster snow and add micro gaps
+        run: |
+          set -euxo pipefail
+          python tools/restore_raster_snow_micro_gap_7_3_1.py
+          cat data/snow-gap-patch-7.3.1.json
+
+      - name: Validate contracts
+        run: |
+          set -euxo pipefail
+          node --check assets/map-ui.js
+          node --check assets/map-page.js
+          node --check tests/runtime-contract.mjs
+          node tests/runtime-contract.mjs
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          expected={
+            'data/alan-dem-7.3.pmtiles':18247328,
+            'data/alan-vector-7.2.pmtiles':16913027,
+            'data/alan-snow-permanent-7.2.5.pmtiles':2399106,
+            'data/alan-snow-seasonal-7.2.5.pmtiles':2384959,
+          }
+          for path,size in expected.items(): assert Path(path).stat().st_size==size,(path,Path(path).stat().st_size,size)
+          report=json.load(open('data/snow-gap-patch-7.3.1.json'))
+          for kind in ['permanent','seasonal']:
+              item=report[kind]
+              assert item['feature_count']>0,item
+              assert item['patch_ratio_to_core']<=0.0351,item
+              assert item['largest_component_px']<=64,item
+          print('snow-gap-contract: ok')
+          PY
+
+      - name: Browser smoke test
+        run: |
+          set -euxo pipefail
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+          node tests/map-smoke.mjs
+
+      - name: Commit to same branch
+        run: |
+          set -euxo pipefail
+          rm -f .github/workflows/restore-raster-snow-gap-patches-7.3.1.yml
+          rm -f .github/workflows/restore-raster-snow-micro-gap-fast-7.3.1.yml
+          git config user.name 'Alan Map Builder'
+          git config user.email 'actions@users.noreply.github.com'
+          git add -A
+          git status --short
+          git commit -m 'Restore original raster snow with micro gap patches [skip ci]'
+          git push origin HEAD:7.3.1
+
+      - name: Package full project
+        run: |
+          set -euxo pipefail
+          mkdir -p /tmp/alan-map-7-3-1-micro-gap
+          find . -type f -not -path './.git/*' -not -path './build/*' -not -path './node_modules/*' -not -path '*/__pycache__/*' -printf '%P\t%s\n' | sort > /tmp/alan-map-7-3-1-micro-gap/file-sizes-7.3.1.tsv
+          cp data/snow-gap-patch-7.3.1.json /tmp/alan-map-7-3-1-micro-gap/snow-gap-patch-7.3.1.json
+          zip -qr /tmp/alan-map-7-3-1-micro-gap/alan-map-7.3.1.zip . -x '.git/*' 'build/*' 'node_modules/*' '*/__pycache__/*'
+          unzip -tq /tmp/alan-map-7-3-1-micro-gap/alan-map-7.3.1.zip
+          sha256sum /tmp/alan-map-7-3-1-micro-gap/alan-map-7.3.1.zip > /tmp/alan-map-7-3-1-micro-gap/sha256.txt
+          ls -lh /tmp/alan-map-7-3-1-micro-gap/alan-map-7.3.1.zip
+          wc -l /tmp/alan-map-7-3-1-micro-gap/file-sizes-7.3.1.tsv
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: alan-map-7.3.1-original-raster-micro-gap
+          path: /tmp/alan-map-7-3-1-micro-gap/
+          retention-days: 30
