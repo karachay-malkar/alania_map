@@ -29,7 +29,7 @@ CANONICAL_ARCHIVE = 'data/alan-snow-7.3.1.pmtiles'
 CANONICAL_TIF = ROOT / 'build/alan-snow-7.3.1.tif'
 REPORT_PATH = ROOT / 'data/snow-canonical-report-7.3.1.json'
 TO_3857 = Transformer.from_crs('EPSG:4326', 'EPSG:3857', always_xy=True).transform
-REFERENCE_RULES = [(11,96,12.0),(10,88,18.0),(9,80,24.0),(8,72,28.0),(7,64,32.0)]
+REFERENCE_RULES = [(11,96,6.0),(10,88,9.0),(9,80,12.0),(8,72,14.0),(7,64,16.0)]
 
 
 def read_data() -> dict:

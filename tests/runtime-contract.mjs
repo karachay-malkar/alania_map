@@ -20,9 +20,10 @@ assert.match(uiSource, /data\.regionalDem\.encoding \|\| 'terrarium'/);
 assert.match(uiSource, /copernicus-landcover/);
 assert.match(page, /regionalLandcover\?\.archivePath/);
 assert.match(page, /regionalSnow\?\.available/);
-assert.match(uiSource, /satellite-snow-permanent/);
-assert.match(uiSource, /satellite-snow-seasonal/);
-assert.match(uiSource, /if \(!snowPermanentTemplate\) natureLayers\.push/);
+assert.match(uiSource, /satellite-snow/);
+assert.ok(!uiSource.includes('satellite-snow-permanent'));
+assert.ok(!uiSource.includes('satellite-snow-seasonal'));
+assert.match(uiSource, /if \(!snowTemplate\) natureLayers\.push/);
 
 assert.ok(!page.includes('ShardedPmtilesSource'));
 assert.ok(!page.includes('ShardLruCache'));
@@ -38,7 +39,7 @@ assert.match(page, /installPrefetch/);
 assert.match(page, /RANGE_RETRY_DELAYS_MS/);
 assert.match(page, /navigator\.maxTouchPoints/);
 assert.match(page, /prefetchEnabled/);
-assert.match(indexSource, /map-presentation-r2\.js\?v=7\.3\.1-snow5/);
+assert.match(indexSource, /map-presentation-r2\.js\?v=7\.3\.1-snow6/);
 assert.ok(!indexSource.includes('map-presentation.js?v='));
 assert.ok(!uiSource.includes('updateParchmentOverlay'));
 assert.ok(!uiSource.includes("map.on('render',updateParchmentOverlay)"));
@@ -277,20 +278,19 @@ assert.ok(!uiSource.includes("id:'settlement-beam-halo'"));
 assert.ok(!uiSource.includes("id:'settlement-beam-core'"));
 
 if (data.regionalSnow?.available) {
-  assert.equal(data.regionalSnow.version, '7.2.5');
-  assert.equal(data.dataVersion, '7.3.1-snow-raster-micro-gap-z12.1');
+  assert.equal(data.regionalSnow.version, '7.3.1');
+  assert.equal(data.dataVersion, '7.3.1-snow-canonical-unified-z12.1');
   assert.equal(data.regionalSnow.method, 'worldcover-class-70-plus-multiyear-late-summer-ndsi');
   assert.deepEqual(data.regionalSnow.bounds, data.bounds);
-  assert.equal(data.regionalSnow.permanent.archivePath, 'data/alan-snow-permanent-7.2.5.pmtiles');
-  assert.equal(data.regionalSnow.seasonal.archivePath, 'data/alan-snow-seasonal-7.2.5.pmtiles');
-  assert.equal(data.regionalSnow.displayStrategy, 'raster-original-plus-micro-gap-patches');
-  assert.equal(data.regionalSnow.gapPatchDetailZoom, 12);
-  assert.equal(data.regionalSnow.gapPatchReferenceZoom, 11);
-  assert.ok(data.snowGapPermanent.features.length > 0);
-  assert.ok(data.snowGapSeasonal.features.length > 0);
-  assert.ok(fs.existsSync(data.regionalSnow.permanent.archivePath));
-  assert.ok(fs.existsSync(data.regionalSnow.seasonal.archivePath));
-  assert.ok(fs.existsSync(data.regionalSnow.reportPath));
+  assert.equal(data.regionalSnow.archivePath, 'data/alan-snow-7.3.1.pmtiles');
+  assert.equal(data.regionalSnow.displayStrategy, 'canonical-unified-z12-with-multiscale-restoration');
+  assert.equal(data.regionalSnow.canonicalDetailZoom, 12);
+  assert.equal(data.regionalSnow.sourceArchives.permanent, 'data/alan-snow-permanent-7.2.5.pmtiles');
+  assert.equal(data.regionalSnow.sourceArchives.seasonal, 'data/alan-snow-seasonal-7.2.5.pmtiles');
+  assert.ok(!('snowGapPermanent' in data));
+  assert.ok(!('snowGapSeasonal' in data));
+  assert.ok(fs.existsSync(data.regionalSnow.archivePath));
+  assert.ok(fs.existsSync(data.regionalSnow.canonicalReportPath));
 }
 
 if (data.regionalLandcover?.available) {

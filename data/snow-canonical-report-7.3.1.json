@@ -1,0 +1,61 @@
+{
+  "version": "7.3.1",
+  "data_version": "7.3.1-snow-canonical-unified-z12.1",
+  "strategy": "canonical-unified-z12-with-multiscale-restoration",
+  "detail_zoom": 12,
+  "source_layers": [
+    "permanent",
+    "seasonal"
+  ],
+  "source_archives": [
+    "data/alan-snow-permanent-7.2.5.pmtiles",
+    "data/alan-snow-seasonal-7.2.5.pmtiles"
+  ],
+  "alpha_threshold": 96,
+  "reference_rules": [
+    {
+      "zoom": 11,
+      "alpha_threshold": 96,
+      "max_distance_px": 6.0,
+      "supported_pixels": 4104566,
+      "new_pixels": 1168565
+    },
+    {
+      "zoom": 10,
+      "alpha_threshold": 88,
+      "max_distance_px": 9.0,
+      "supported_pixels": 5503069,
+      "new_pixels": 1348584
+    },
+    {
+      "zoom": 9,
+      "alpha_threshold": 80,
+      "max_distance_px": 12.0,
+      "supported_pixels": 7203394,
+      "new_pixels": 1342121
+    },
+    {
+      "zoom": 8,
+      "alpha_threshold": 72,
+      "max_distance_px": 14.0,
+      "supported_pixels": 9488109,
+      "new_pixels": 647113
+    },
+    {
+      "zoom": 7,
+      "alpha_threshold": 64,
+      "max_distance_px": 16.0,
+      "supported_pixels": 12930067,
+      "new_pixels": 367736
+    }
+  ],
+  "core_pixels": 2985568,
+  "restored_pixels": 4882520,
+  "restored_ratio_to_core": 1.6353739054009153,
+  "final_pixels": 7868088,
+  "final_area_km2_mercator": 11492.560687090845,
+  "hole_pixels_added": 151771,
+  "antialias_sigma_px": 0.7,
+  "output_tif": "build/alan-snow-7.3.1.tif",
+  "output_archive": "data/alan-snow-7.3.1.pmtiles"
+}

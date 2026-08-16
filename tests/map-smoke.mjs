@@ -49,8 +49,7 @@ try {
         waterFill:byId['osm-water-fill'] || null,
         glacierFill:byId['osm-glacier-fill'] || null,
         snowFill:byId['osm-snow-fill'] || null,
-        satelliteSnowPermanent:byId['satellite-snow-permanent'] || null,
-        satelliteSnowSeasonal:byId['satellite-snow-seasonal'] || null
+        satelliteSnow:byId['satellite-snow'] || null
       },
       presentation:{
         version:window.ALAN_MAP_PRESENTATION_723?.version,
@@ -80,10 +79,8 @@ try {
   assert.ok(diagnostics.sourceIds.includes('terrain-dem'));
   assert.ok(diagnostics.sourceIds.includes('openmaptiles'));
   for (const layer of [diagnostics.layers.roadMain,diagnostics.layers.riverLine,diagnostics.layers.waterFill,diagnostics.layers.forestPattern]) assert.ok(layer);
-  if (diagnostics.sourceIds.includes('snow-permanent')) {
-    assert.ok(diagnostics.sourceIds.includes('snow-seasonal'));
-    assert.ok(diagnostics.layers.satelliteSnowPermanent);
-    assert.ok(diagnostics.layers.satelliteSnowSeasonal);
+  if (diagnostics.sourceIds.includes('snow')) {
+    assert.ok(diagnostics.layers.satelliteSnow);
     assert.equal(diagnostics.layers.glacierFill,null);
     assert.equal(diagnostics.layers.snowFill,null);
   } else {
@@ -133,9 +130,8 @@ try {
   assert.ok(diagnostics.transport.archives.every(item => Number.isInteger(item.retries) && Number.isInteger(item.failures)));
   assert.ok(diagnostics.transport.archives.some(item => item.archivePath === 'data/alan-dem-7.3.pmtiles'));
   assert.ok(diagnostics.transport.archives.some(item => item.archivePath === 'data/alan-vector-7.2.pmtiles'));
-  if (diagnostics.sourceIds.includes('snow-permanent')) {
-    assert.ok(diagnostics.transport.archives.some(item => item.archivePath === 'data/alan-snow-permanent-7.2.5.pmtiles'));
-    assert.ok(diagnostics.transport.archives.some(item => item.archivePath === 'data/alan-snow-seasonal-7.2.5.pmtiles'));
+  if (diagnostics.sourceIds.includes('snow')) {
+    assert.ok(diagnostics.transport.archives.some(item => item.archivePath === 'data/alan-snow-7.3.1.pmtiles'));
   }
   assert.ok(diagnostics.transport.archives.reduce((sum,item) => sum + item.networkBytes,0) > 0);
 
