@@ -6,11 +6,12 @@
 })(typeof self !== 'undefined' ? self : this, function (root) {
   'use strict';
 
-  const VERSION = '7.3';
-  const DEFAULT_STORAGE_KEY = 'alan-map-stage7.3-view';
+  const VERSION = '7.3.1';
+  const DEFAULT_STORAGE_KEY = 'alan-map-stage7.3.1-view';
   const STATE_SCHEMA_VERSION = 1;
   const STATE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
   const LEGACY_STORAGE_KEYS = [
+    'alan-map-stage7.3-view',
     'alan-map-stage7.2-view',
     'alan-map-stage7.1-view',
     'alan-map-stage7.0.22-view',
@@ -643,6 +644,9 @@
       const landcoverTemplate = data.regionalLandcover?.archivePath ? localArchiveUrl(data.regionalLandcover.archivePath) : null;
       const snowPermanentTemplate = data.regionalSnow?.available && data.regionalSnow?.permanent?.archivePath ? localArchiveUrl(data.regionalSnow.permanent.archivePath) : null;
       const snowSeasonalTemplate = data.regionalSnow?.available && data.regionalSnow?.seasonal?.archivePath ? localArchiveUrl(data.regionalSnow.seasonal.archivePath) : null;
+      const snowDisplayMaxzoom = Math.max(7, Number(data.regionalSnow?.displayMaxzoom ?? 10));
+      const snowPermanentOpacity = Number(data.regionalSnow?.displayOpacity?.permanent ?? 0.82);
+      const snowSeasonalOpacity = Number(data.regionalSnow?.displayOpacity?.seasonal ?? 0.34);
       const glyphsTemplate = new URL('data/fonts/', document.baseURI).href + '{fontstack}/{range}.pbf';
       activeDemTemplate = demTemplate;
       activeDemMode = 'local-pmtiles';
@@ -655,8 +659,8 @@
       };
       if (natureEnabled) sources.openmaptiles = {type:'vector',url:vectorTemplate,minzoom:Number(data.regionalVector.minzoom),maxzoom:Number(data.regionalVector.maxzoom),bounds:data.regionalVector.bounds,attribution:data.regionalVector.attribution};
       if (landcoverTemplate) sources['copernicus-landcover'] = {type:'raster',url:landcoverTemplate,tileSize:Number(data.regionalLandcover.tileSize || 256),minzoom:Number(data.regionalLandcover.minzoom),maxzoom:Number(data.regionalLandcover.maxzoom),bounds:data.regionalLandcover.bounds,attribution:data.regionalLandcover.attribution};
-      if (snowPermanentTemplate) sources['snow-permanent'] = {type:'raster',url:snowPermanentTemplate,tileSize:Number(data.regionalSnow.permanent.tileSize || 256),minzoom:Number(data.regionalSnow.permanent.minzoom),maxzoom:Number(data.regionalSnow.permanent.maxzoom),bounds:data.regionalSnow.permanent.bounds,attribution:data.regionalSnow.attribution};
-      if (snowSeasonalTemplate) sources['snow-seasonal'] = {type:'raster',url:snowSeasonalTemplate,tileSize:Number(data.regionalSnow.seasonal.tileSize || 256),minzoom:Number(data.regionalSnow.seasonal.minzoom),maxzoom:Number(data.regionalSnow.seasonal.maxzoom),bounds:data.regionalSnow.seasonal.bounds,attribution:data.regionalSnow.attribution};
+      if (snowPermanentTemplate) sources['snow-permanent'] = {type:'raster',url:snowPermanentTemplate,tileSize:Number(data.regionalSnow.permanent.tileSize || 256),minzoom:Number(data.regionalSnow.permanent.minzoom),maxzoom:Math.min(Number(data.regionalSnow.permanent.maxzoom), snowDisplayMaxzoom),bounds:data.regionalSnow.permanent.bounds,attribution:data.regionalSnow.attribution};
+      if (snowSeasonalTemplate) sources['snow-seasonal'] = {type:'raster',url:snowSeasonalTemplate,tileSize:Number(data.regionalSnow.seasonal.tileSize || 256),minzoom:Number(data.regionalSnow.seasonal.minzoom),maxzoom:Math.min(Number(data.regionalSnow.seasonal.maxzoom), snowDisplayMaxzoom),bounds:data.regionalSnow.seasonal.bounds,attribution:data.regionalSnow.attribution};
 
       const baseLayers = [
         {id:'background',type:'background',paint:{'background-color':'#25282a'}},
@@ -665,8 +669,8 @@
         {id:'ridge-lines',type:'line',source:'lines',filter:['all',sourceFilter('ridges'),['==',['get','visible'],1]],paint:{'line-color':'#675f55','line-width':['interpolate',['linear'],['zoom'],6,0.48,10,1.12],'line-opacity':['interpolate',['linear'],['zoom'],6,0.24,10,0.40],'line-dasharray':[1.2,2.1]}}
       ];
       if (landcoverTemplate) baseLayers.splice(2,0,{id:'copernicus-landcover',type:'raster',source:'copernicus-landcover',minzoom:Number(data.regionalLandcover.minzoom),maxzoom:Number(data.regionalLandcover.maxzoom),paint:{'raster-opacity':['interpolate',['linear'],['zoom'],7,0.54,10,0.62,13,0.68],'raster-fade-duration':100}});
-      if (snowSeasonalTemplate) baseLayers.splice(-1,0,{id:'satellite-snow-seasonal',type:'raster',source:'snow-seasonal',minzoom:Number(data.regionalSnow.seasonal.minzoom),maxzoom:Number(data.regionalSnow.seasonal.maxzoom),paint:{'raster-opacity':['interpolate',['linear'],['zoom'],7,0.26,9,0.36,12,0.52],'raster-fade-duration':100,'raster-resampling':'linear'}});
-      if (snowPermanentTemplate) baseLayers.splice(-1,0,{id:'satellite-snow-permanent',type:'raster',source:'snow-permanent',minzoom:Number(data.regionalSnow.permanent.minzoom),maxzoom:Number(data.regionalSnow.permanent.maxzoom),paint:{'raster-opacity':['interpolate',['linear'],['zoom'],7,0.74,9,0.86,12,0.94],'raster-fade-duration':100,'raster-resampling':'linear'}});
+      if (snowSeasonalTemplate) baseLayers.splice(-1,0,{id:'satellite-snow-seasonal',type:'raster',source:'snow-seasonal',minzoom:Number(data.regionalSnow.seasonal.minzoom),paint:{'raster-opacity':snowSeasonalOpacity,'raster-fade-duration':0,'raster-resampling':'linear'}});
+      if (snowPermanentTemplate) baseLayers.splice(-1,0,{id:'satellite-snow-permanent',type:'raster',source:'snow-permanent',minzoom:Number(data.regionalSnow.permanent.minzoom),paint:{'raster-opacity':snowPermanentOpacity,'raster-fade-duration':0,'raster-resampling':'linear'}});
 
       const natureLayers = [];
       const roadLayers = [];

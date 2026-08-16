@@ -11,7 +11,7 @@ const dataSource = fs.readFileSync('assets/map-data.part-000.js','utf8') + fs.re
 const indexSource = fs.readFileSync('index.html','utf8');
 const nameReview = JSON.parse(fs.readFileSync('data/settlement-name-review-7.2.4.json','utf8'));
 
-assert.match(uiSource, /const VERSION = '7\.3'/);
+assert.match(uiSource, /const VERSION = '7\.3\.1'/);
 assert.ok(!bootstrap.includes('fantasy-relief.js'));
 assert.ok(!bootstrap.includes('fantasy-style.js'));
 assert.ok(!fs.existsSync('assets/fantasy-relief.js'));
@@ -38,7 +38,7 @@ assert.match(page, /installPrefetch/);
 assert.match(page, /RANGE_RETRY_DELAYS_MS/);
 assert.match(page, /navigator\.maxTouchPoints/);
 assert.match(page, /prefetchEnabled/);
-assert.match(indexSource, /map-presentation-r2\.js\?v=7\.3/);
+assert.match(indexSource, /map-presentation-r2\.js\?v=7\.3\.1/);
 assert.ok(!indexSource.includes('map-presentation.js?v='));
 assert.ok(!uiSource.includes('updateParchmentOverlay'));
 assert.ok(!uiSource.includes("map.on('render',updateParchmentOverlay)"));
@@ -147,8 +147,8 @@ const marker = 'window.ALAN_MAP_DATA = ';
 let payload = dataSource.slice(dataSource.indexOf(marker) + marker.length).trim();
 if (payload.endsWith(';')) payload = payload.slice(0,-1);
 const data = JSON.parse(payload);
-assert.equal(data.version, '7.3');
-assert.equal(data.applicationVersion, '7.3');
+assert.equal(data.version, '7.3.1');
+assert.equal(data.applicationVersion, '7.3.1');
 assert.equal(data.regionalDem.source, 'Copernicus DEM GLO-30');
 assert.equal(data.regionalDem.encoding, 'mapbox');
 
@@ -278,11 +278,14 @@ assert.ok(!uiSource.includes("id:'settlement-beam-core'"));
 
 if (data.regionalSnow?.available) {
   assert.equal(data.regionalSnow.version, '7.2.5');
-  assert.equal(data.dataVersion, '7.3-dem-generalized-z11.1');
+  assert.equal(data.dataVersion, '7.3.1-snow-stable-overzoom.1');
   assert.equal(data.regionalSnow.method, 'worldcover-class-70-plus-multiyear-late-summer-ndsi');
   assert.deepEqual(data.regionalSnow.bounds, data.bounds);
   assert.equal(data.regionalSnow.permanent.archivePath, 'data/alan-snow-permanent-7.2.5.pmtiles');
   assert.equal(data.regionalSnow.seasonal.archivePath, 'data/alan-snow-seasonal-7.2.5.pmtiles');
+  assert.equal(data.regionalSnow.displayStrategy, 'stable-smoothed-overzoom');
+  assert.equal(data.regionalSnow.displayMaxzoom, 10);
+  assert.deepEqual(data.regionalSnow.displayOpacity, {permanent:0.82, seasonal:0.34});
   assert.ok(fs.existsSync(data.regionalSnow.permanent.archivePath));
   assert.ok(fs.existsSync(data.regionalSnow.seasonal.archivePath));
   assert.ok(fs.existsSync(data.regionalSnow.reportPath));

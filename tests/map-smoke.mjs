@@ -215,7 +215,7 @@ try {
     return metrics && metrics.totalNetworkRequests > 0 && metrics.renderFrames > 0;
   },undefined,{timeout:30000});
   const performanceMetrics = await page.evaluate(() => window.ALAN_MAP_PERFORMANCE_DIAGNOSTICS());
-  assert.equal(performanceMetrics.version,'7.3');
+  assert.equal(performanceMetrics.version,'7.3.1');
   assert.ok(performanceMetrics.totalNetworkBytes > 0);
   assert.ok(performanceMetrics.totalNetworkRequests > 0);
   assert.ok(performanceMetrics.renderFrames > 0);

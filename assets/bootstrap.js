@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  const RELEASE = '7.3';
+  const RELEASE = '7.3.1';
   const baseUrl = new URL('.', document.currentScript.src);
   const assetUrl = (name) => {
     const url = new URL(name, baseUrl);
