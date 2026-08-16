@@ -1,11 +1,31 @@
 {
   "mode": "validate",
-  "tiles": 307,
-  "partial_tiles": 133,
-  "rgb_tiles": 174,
-  "rgba_tiles": 133,
-  "transparent_pixels_checked": 4840710,
-  "boundary_inside_pixels_checked": 3874415,
+  "tiles": 95,
+  "zooms": [
+    7,
+    8,
+    9,
+    10
+  ],
+  "per_zoom_tiles": {
+    "7": 4,
+    "8": 9,
+    "9": 20,
+    "10": 62
+  },
+  "tile_size": 512,
+  "partial_tiles": 63,
+  "rgb_tiles": 32,
+  "rgba_tiles": 63,
+  "transparent_pixels_checked": 9669075,
+  "boundary_inside_pixels_checked": 6832760,
   "height_quantization_m": 1.0,
-  "quantization_errors": 0
+  "quantization_errors": 0,
+  "hierarchical_contract": true,
+  "effective_ground_m_per_information_pixel_at_center": {
+    "7": 442.574,
+    "8": 442.574,
+    "9": 221.287,
+    "10": 110.644
+  }
 }

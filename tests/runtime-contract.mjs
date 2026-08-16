@@ -154,11 +154,15 @@ assert.equal(data.regionalDem.source, 'Copernicus DEM GLO-30');
 assert.equal(data.regionalDem.encoding, 'mapbox');
 
 assert.equal(data.regionalDem.streamingMode, 'http-range');
-assert.equal(data.regionalDem.lodModel, 'single-pyramid-z7-z11-overzoom');
+assert.equal(data.regionalDem.lodModel, 'hierarchical-z10-to-z8-z7-shared-512-overzoom');
 assert.equal(data.regionalDem.heightQuantizationM, 1);
 assert.equal(data.regionalDem.archivePath, 'data/alan-dem-7.3.pmtiles');
-assert.equal(data.regionalDem.maxzoom, 11);
-assert.equal(data.regionalDem.overzoomFrom, 11);
+assert.equal(data.regionalDem.maxzoom, 10);
+assert.equal(data.regionalDem.tileSize, 512);
+assert.equal(data.regionalDem.highestNativeZoom, 10);
+assert.equal(data.regionalDem.overzoomFrom, 10);
+assert.equal(data.regionalDem.geometryGeneralization, 'hierarchical-area-lowpass-z10-to-z8-z7-shared');
+assert.deepEqual(data.regionalDem.effectiveGroundMPerInformationPixelAtCenter, {'7':442.574,'8':442.574,'9':221.287,'10':110.644});
 assert.equal(ui.__test.demEdgeCollarM,4500);
 assert.equal(ui.__test.demEdgeSafeMaxM,1000);
 assert.equal(ui.__test.demEdgeInnerBandM,900);
@@ -176,7 +180,7 @@ assert.ok(!fs.existsSync('data/shards-manifest.json'));
 assert.ok(!fs.existsSync('data/shards'));
 assert.ok(fs.existsSync(data.regionalDem.archivePath));
 assert.ok(fs.existsSync(data.regionalVector.archivePath));
-assert.ok(fs.statSync(data.regionalDem.archivePath).size < 56681035);
+assert.ok(fs.statSync(data.regionalDem.archivePath).size < 18247328);
 assert.equal(fs.statSync(data.regionalVector.archivePath).size, 16913027);
 const ring = data.mapFrame.features[0].geometry.coordinates[0];
 const expectedRing = [
@@ -279,7 +283,7 @@ assert.ok(!uiSource.includes("id:'settlement-beam-core'"));
 
 if (data.regionalSnow?.available) {
   assert.equal(data.regionalSnow.version, '7.3.1');
-  assert.equal(data.dataVersion, '7.3.1-snow-canonical-unified-z12.1');
+  assert.equal(data.dataVersion, '7.3.1-dem-hierarchical-512-z10.1');
   assert.equal(data.regionalSnow.method, 'worldcover-class-70-plus-multiyear-late-summer-ndsi');
   assert.deepEqual(data.regionalSnow.bounds, data.bounds);
   assert.equal(data.regionalSnow.archivePath, 'data/alan-snow-7.3.1.pmtiles');
@@ -300,7 +304,8 @@ if (data.regionalLandcover?.available) {
 
 if (fs.existsSync('data/dem-edge-collar-report.json')) {
   const collar = JSON.parse(fs.readFileSync('data/dem-edge-collar-report.json','utf8'));
-  assert.equal(collar.version,'7.2.3-r1');
+  assert.equal(collar.version,'7.3.1-r1');
+  assert.equal(collar.tile_size,512);
   assert.equal(collar.mode,'hidden-tapered-dem-edge-collar');
   assert.equal(collar.collar_m,4500);
   assert.equal(collar.inner_taper_m,900);

@@ -1,6 +1,6 @@
 {
-  "version": "7.3",
-  "generated_at": "2026-08-15T21:54:10.473760+00:00",
+  "version": "7.3.1",
+  "generated_at": "2026-08-16T16:15:12.730696+00:00",
   "bounds": [
     40.51784,
     42.734095,
@@ -10,16 +10,23 @@
   "dem": {
     "source": "Copernicus DEM GLO-30",
     "archive": "data/alan-dem-7.3.pmtiles",
-    "bytes": 18247328,
-    "sha256": "623c17cf21d01d707f7eb38ff9d5b0a794623df0f792daa51116ba89ea555270",
+    "bytes": 16699494,
+    "sha256": "215c605fa132d9d2b757822c7888f182710590b914e786da1cd03f730f1a6e8f",
     "physical_clip": "rotated mapFrame polygon + hidden tapered edge collar",
     "height_quantization_m": 1,
-    "lod_model": "single-pyramid-z7-z11-overzoom",
-    "highest_native_zoom": 11,
-    "geometry_generalization": "drop-z12-bilinear-downsample",
+    "tile_size": 512,
+    "lod_model": "hierarchical-z10-to-z8-z7-shared-512-overzoom",
+    "native_zoom_range": "z7-z10",
+    "overzoom_from": 10,
+    "effective_ground_m_per_information_pixel_at_center": {
+      "7": 442.574,
+      "8": 442.574,
+      "9": 221.287,
+      "10": 110.644
+    },
     "streaming": "http-range",
-    "baseline_bytes_7_2_5": 56681035,
-    "reduction_fraction": 0.6780699576145708
+    "baseline_bytes_7_3_1": 18247328,
+    "reduction_fraction": 0.08482524126272073
   },
   "landcover": {
     "source": "Copernicus CLMS LCM-10",

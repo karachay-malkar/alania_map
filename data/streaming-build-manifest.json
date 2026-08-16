@@ -1,6 +1,6 @@
 {
-  "version": "7.3",
-  "generated_at": "2026-08-15T21:54:10.473760+00:00",
+  "version": "7.3.1",
+  "generated_at": "2026-08-16T16:15:12.730696+00:00",
   "transport": "direct PMTiles HTTP Range",
   "range_cache": {
     "max_entries": 256,
@@ -16,8 +16,16 @@
   "visual_layer_hiding_during_motion": false,
   "performance_diagnostics": "window.ALAN_MAP_PERFORMANCE_DIAGNOSTICS()",
   "dem_geometry": {
-    "native_zoom_range": "z7-z11",
-    "overzoom_after": 11,
-    "height_quantization_m": 1
+    "tile_size": 512,
+    "native_zoom_range": "z7-z10",
+    "overzoom_after": 10,
+    "height_quantization_m": 1,
+    "lod_model": "hierarchical-z10-to-z8-z7-shared-512-overzoom",
+    "effective_ground_m_per_information_pixel_at_center": {
+      "7": 442.574,
+      "8": 442.574,
+      "9": 221.287,
+      "10": 110.644
+    }
   }
 }
