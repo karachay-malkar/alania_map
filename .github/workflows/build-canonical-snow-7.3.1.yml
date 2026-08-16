@@ -1,0 +1,124 @@
+name: Build canonical unified snow 7.3.1
+
+on:
+  push:
+    branches: ["7.3.1"]
+    paths:
+      - ".github/workflows/build-canonical-snow-7.3.1.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install build dependencies
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install -y gdal-bin
+          python -m pip install --upgrade pip
+          python -m pip install numpy==2.1.3 scipy==1.14.1 pillow==11.0.0 shapely==2.0.6 pyproj==3.7.0 rasterio==1.4.3 affine==2.4.0 pmtiles
+          command -v pmtiles-convert
+          command -v gdal_translate
+          command -v gdaladdo
+
+      - name: Convert source snow PMTiles
+        run: |
+          set -euxo pipefail
+          mkdir -p build
+          pmtiles-convert data/alan-snow-permanent-7.2.5.pmtiles build/snow-permanent.mbtiles
+          pmtiles-convert data/alan-snow-seasonal-7.2.5.pmtiles build/snow-seasonal.mbtiles
+
+      - name: Build canonical z12 snow and patch runtime
+        run: |
+          set -euxo pipefail
+          python tools/build_canonical_snow_7_3_1.py
+          cat data/snow-canonical-report-7.3.1.json
+
+      - name: Package canonical raster as one PMTiles archive
+        run: |
+          set -euxo pipefail
+          rm -f build/alan-snow-7.3.1.mbtiles data/alan-snow-7.3.1.pmtiles
+          gdal_translate -of MBTILES build/alan-snow-7.3.1.tif build/alan-snow-7.3.1.mbtiles \
+            -co TILE_FORMAT=PNG -co TYPE=overlay -co ZOOM_LEVEL_STRATEGY=UPPER -co RESAMPLING=BILINEAR
+          gdaladdo -r bilinear build/alan-snow-7.3.1.mbtiles 2 4 8 16 32
+          pmtiles-convert build/alan-snow-7.3.1.mbtiles data/alan-snow-7.3.1.pmtiles
+          test -s data/alan-snow-7.3.1.pmtiles
+          ls -lh data/alan-snow-7.3.1.pmtiles
+
+      - name: Validate canonical snow contract
+        run: |
+          set -euxo pipefail
+          node --check assets/map-ui.js
+          node --check assets/map-page.js
+          node --check tests/runtime-contract.mjs
+          node --check tests/map-smoke.mjs
+          node tests/runtime-contract.mjs
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.load(open('data/snow-canonical-report-7.3.1.json'))
+          assert r['strategy']=='canonical-unified-z12-with-multiscale-restoration'
+          assert r['detail_zoom']==12
+          assert r['core_pixels']>0
+          assert r['restored_pixels']>0
+          assert 0 < r['restored_ratio_to_core'] <= 1.75
+          assert Path('data/alan-snow-7.3.1.pmtiles').stat().st_size > 100000
+          assert Path('data/alan-snow-permanent-7.2.5.pmtiles').stat().st_size == 2399106
+          assert Path('data/alan-snow-seasonal-7.2.5.pmtiles').stat().st_size == 2384959
+          assert Path('data/alan-dem-7.3.pmtiles').stat().st_size == 18247328
+          assert Path('data/alan-vector-7.2.pmtiles').stat().st_size == 16913027
+          print('canonical-snow-contract: ok')
+          PY
+
+      - name: Browser smoke test
+        run: |
+          set -euxo pipefail
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+          node tests/map-smoke.mjs
+
+      - name: Commit canonical snow to same branch
+        run: |
+          set -euxo pipefail
+          rm -f .github/workflows/build-canonical-snow-7.3.1.yml
+          git config user.name 'Alan Map Builder'
+          git config user.email 'actions@users.noreply.github.com'
+          git add -A
+          git status --short
+          git commit -m 'Use one canonical unified snow layer in 7.3.1 [skip ci]'
+          git push origin HEAD:7.3.1
+
+      - name: Package full project
+        run: |
+          set -euxo pipefail
+          OUT=/tmp/alan-map-7-3-1-canonical-snow
+          mkdir -p "$OUT"
+          find . -type f -not -path './.git/*' -not -path './build/*' -not -path './node_modules/*' -not -path '*/__pycache__/*' -printf '%P\t%s\n' | sort > "$OUT/file-sizes-7.3.1.tsv"
+          cp data/snow-canonical-report-7.3.1.json "$OUT/snow-canonical-report-7.3.1.json"
+          zip -qr "$OUT/alan-map-7.3.1.zip" . -x '.git/*' 'build/*' 'node_modules/*' '*/__pycache__/*'
+          unzip -tq "$OUT/alan-map-7.3.1.zip"
+          sha256sum "$OUT/alan-map-7.3.1.zip" > "$OUT/sha256.txt"
+          ls -lh "$OUT/alan-map-7.3.1.zip"
+          wc -l "$OUT/file-sizes-7.3.1.tsv"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: alan-map-7.3.1-canonical-unified-snow
+          path: /tmp/alan-map-7-3-1-canonical-snow/
+          retention-days: 30
