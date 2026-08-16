@@ -1,0 +1,286 @@
+name: Apply stable vector snow contours to 7.3.1
+
+on:
+  push:
+    branches: [7.3.1]
+    paths:
+      - '.github/workflows/apply-7.3.1-snow-vector.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: alan-map-7-3-1-snow-vector
+  cancel-in-progress: true
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install vectorization and browser tools
+        run: |
+          set -euxo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install numpy==2.2.6 rasterio==1.4.3 shapely==2.1.1 pyproj==3.7.1 pillow==11.3.0
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Verify exact current 7.3.1 baseline
+        run: |
+          set -euxo pipefail
+          test "$(stat -c %s data/alan-dem-7.3.pmtiles)" = "18247328"
+          test "$(stat -c %s data/alan-vector-7.2.pmtiles)" = "16913027"
+          test "$(stat -c %s data/alan-snow-permanent-7.2.5.pmtiles)" = "2399106"
+          test "$(stat -c %s data/alan-snow-seasonal-7.2.5.pmtiles)" = "2384959"
+          sha256sum data/alan-dem-7.3.pmtiles data/alan-vector-7.2.pmtiles data/alan-snow-permanent-7.2.5.pmtiles data/alan-snow-seasonal-7.2.5.pmtiles > /tmp/payload-before.sha256
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          marker='window.ALAN_MAP_DATA = '
+          source=Path('assets/map-data.part-000.js').read_text(encoding='utf-8')+Path('assets/map-data.part-001.js').read_text(encoding='utf-8')
+          payload=source[source.index(marker)+len(marker):].strip()
+          if payload.endswith(';'): payload=payload[:-1]
+          data=json.loads(payload)
+          assert data['version']=='7.3.1'
+          assert data['dataVersion']=='7.3.1-snow-stable-overzoom.1'
+          assert data['regionalSnow']['displayStrategy']=='stable-smoothed-overzoom'
+          assert data['regionalSnow']['displayMaxzoom']==10
+          PY
+
+      - name: Extract distant z7 snow masks from existing PMTiles
+        run: |
+          set -euxo pipefail
+          cat > /tmp/extract-snow-z7.cjs <<'NODE'
+          const fs=require('fs'),vm=require('vm'),path=require('path');
+          let source=fs.readFileSync('assets/pmtiles.js','utf8')+'\nmodule.exports=pmtiles;';
+          const sandbox={module:{exports:{}},exports:{},console,Uint8Array,Uint16Array,Int32Array,ArrayBuffer,TextDecoder,TextEncoder,Blob,URL,Headers,AbortController,DOMException,Response,Request,fetch};
+          vm.createContext(sandbox); vm.runInContext(source,sandbox);
+          const {PMTiles}=sandbox.module.exports;
+          class NodeSource {
+            constructor(file){this.file=file;this.fd=fs.openSync(file,'r');}
+            getKey(){return this.file;}
+            async getBytes(offset,length){const buffer=Buffer.alloc(length);const n=fs.readSync(this.fd,buffer,0,length,offset);const view=buffer.subarray(0,n);return{data:view.buffer.slice(view.byteOffset,view.byteOffset+view.byteLength)};}
+          }
+          const lon2x=(lon,z)=>Math.floor((lon+180)/360*2**z);
+          const lat2y=(lat,z)=>{const r=lat*Math.PI/180;return Math.floor((1-Math.asinh(Math.tan(r))/Math.PI)/2*2**z);};
+          async function extract(file,outdir){
+            const pm=new PMTiles(new NodeSource(file));
+            const h=await pm.getHeader();
+            if(h.minZoom!==7||h.maxZoom!==13||h.tileType!==2) throw new Error(`Unexpected snow PMTiles header ${JSON.stringify(h)}`);
+            const z=7,x0=lon2x(h.minLon,z),x1=lon2x(h.maxLon,z),y0=lat2y(h.maxLat,z),y1=lat2y(h.minLat,z);
+            fs.mkdirSync(outdir,{recursive:true});let count=0;
+            for(let x=x0;x<=x1;x++)for(let y=y0;y<=y1;y++){
+              const tile=await pm.getZxy(z,x,y);if(!tile)continue;
+              fs.writeFileSync(path.join(outdir,`${x}-${y}.png`),Buffer.from(new Uint8Array(tile.data)));count++;
+            }
+            if(count<1)throw new Error(`No z7 snow tiles in ${file}`);
+            console.log(file,'z7 tiles',count);
+          }
+          Promise.all([
+            extract('data/alan-snow-permanent-7.2.5.pmtiles','/tmp/snow-permanent-z7'),
+            extract('data/alan-snow-seasonal-7.2.5.pmtiles','/tmp/snow-seasonal-z7')
+          ]).catch(error=>{console.error(error);process.exit(1)});
+          NODE
+          node /tmp/extract-snow-z7.cjs
+
+      - name: Build smoothed constant snow geometry and patch runtime
+        run: |
+          set -euxo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          import json, math
+          import numpy as np
+          from rasterio.features import shapes
+          from rasterio.transform import from_origin
+          from shapely.geometry import shape, mapping
+          from shapely.ops import unary_union, transform as shp_transform
+          from pyproj import Transformer
+
+          ORIGIN=20037508.342789244
+          TILE=256
+          Z=7
+          RES=2*ORIGIN/(TILE*(2**Z))
+          TO_WGS=Transformer.from_crs('EPSG:3857','EPSG:4326',always_xy=True).transform
+
+          def rounded(value):
+              if isinstance(value,float): return round(value,6)
+              if isinstance(value,list): return [rounded(item) for item in value]
+              if isinstance(value,dict): return {key:rounded(item) for key,item in value.items()}
+              return value
+
+          def vectorize(directory,kind):
+              geometries=[]
+              source_pixels=0
+              for path in sorted(Path(directory).glob('*.png')):
+                  x,y=map(int,path.stem.split('-'))
+                  mask=np.asarray(Image.open(path).convert('RGBA').getchannel('A'))>0
+                  source_pixels += int(np.count_nonzero(mask))
+                  left=-ORIGIN+x*TILE*RES
+                  top=ORIGIN-y*TILE*RES
+                  transform=from_origin(left,top,RES,RES)
+                  for geom,value in shapes(mask.astype('uint8'),mask=mask,transform=transform):
+                      if value: geometries.append(shape(geom))
+              merged=unary_union(geometries)
+              # Symmetric round closing removes z7 staircase corners while retaining the broad distant footprint.
+              smooth=merged.buffer(RES*0.42,quad_segs=4,join_style=1).buffer(-RES*0.42,quad_segs=4,join_style=1)
+              smooth=smooth.simplify(RES*0.16,preserve_topology=True)
+              wgs=shp_transform(TO_WGS,smooth)
+              parts=list(wgs.geoms) if wgs.geom_type=='MultiPolygon' else [wgs]
+              features=[]
+              for index,geometry in enumerate(parts):
+                  if geometry.is_empty or geometry.area < 1e-7: continue
+                  features.append({'type':'Feature','properties':{'snow_kind':kind,'display_source_zoom':Z},'geometry':rounded(mapping(geometry))})
+              if not features: raise RuntimeError(f'empty stable {kind} snow geometry')
+              return {'type':'FeatureCollection','features':features},source_pixels
+
+          permanent,perm_pixels=vectorize('/tmp/snow-permanent-z7','permanent')
+          seasonal,season_pixels=vectorize('/tmp/snow-seasonal-z7','seasonal')
+          print('z7 pixels',perm_pixels,season_pixels,'features',len(permanent['features']),len(seasonal['features']))
+          if perm_pixels < 10000 or season_pixels < 10000:
+              raise RuntimeError('unexpectedly sparse z7 snow source')
+
+          p0=Path('assets/map-data.part-000.js');p1=Path('assets/map-data.part-001.js');marker='window.ALAN_MAP_DATA = '
+          source=p0.read_text(encoding='utf-8')+p1.read_text(encoding='utf-8')
+          payload=source[source.index(marker)+len(marker):].strip()
+          if payload.endswith(';'): payload=payload[:-1]
+          data=json.loads(payload)
+          data['snowDisplayPermanent']=permanent
+          data['snowDisplaySeasonal']=seasonal
+          snow=data['regionalSnow']
+          snow['displayStrategy']='stable-vector-far-contour'
+          snow['displaySourceZoom']=7
+          snow['displayMaxzoom']=7
+          snow['displayOpacity']={'permanent':0.82,'seasonal':0.34}
+          snow['displayNotes']='Stable vector contours derived from the broad z7 snow footprint. Snow PMTiles remain provenance assets but are not registered as runtime network sources.'
+          data['dataVersion']='7.3.1-snow-stable-vector-z7.2'
+          payload=json.dumps(data,ensure_ascii=False,separators=(',',':'))
+          midpoint=len(payload)//2
+          left=payload.rfind('},"',0,midpoint);right=payload.find('},"',midpoint)
+          candidates=[position+1 for position in (left,right) if position>=0]
+          cut=min(candidates,key=lambda position:abs(position-midpoint)) if candidates else midpoint
+          p0.write_text('\n'+marker+payload[:cut],encoding='utf-8')
+          p1.write_text(payload[cut:]+';\n',encoding='utf-8')
+
+          ui=Path('assets/map-ui.js');text=ui.read_text(encoding='utf-8')
+          old="""      polygons: taggedFeatureCollection([\n        ['focus', data.focus],\n        ['frameMask', data.frameMask],\n        ['glaciers', data.glaciers],\n        ['elbrusSnow', data.elbrusSnow],\n        ['peakSnow', data.peakSnow]\n      ]),\n"""
+          new="""      polygons: taggedFeatureCollection([\n        ['focus', data.focus],\n        ['frameMask', data.frameMask],\n        ['snowSeasonalStable', data.snowDisplaySeasonal],\n        ['snowPermanentStable', data.snowDisplayPermanent],\n        ['glaciers', data.glaciers],\n        ['elbrusSnow', data.elbrusSnow],\n        ['peakSnow', data.peakSnow]\n      ]),\n"""
+          if old not in text: raise RuntimeError('runtime polygons anchor missing')
+          text=text.replace(old,new,1)
+          old="""      const snowPermanentTemplate = data.regionalSnow?.available && data.regionalSnow?.permanent?.archivePath ? localArchiveUrl(data.regionalSnow.permanent.archivePath) : null;\n      const snowSeasonalTemplate = data.regionalSnow?.available && data.regionalSnow?.seasonal?.archivePath ? localArchiveUrl(data.regionalSnow.seasonal.archivePath) : null;\n      const snowDisplayMaxzoom = Math.max(7, Number(data.regionalSnow?.displayMaxzoom ?? 10));\n      const snowPermanentOpacity = Number(data.regionalSnow?.displayOpacity?.permanent ?? 0.82);\n      const snowSeasonalOpacity = Number(data.regionalSnow?.displayOpacity?.seasonal ?? 0.34);\n"""
+          new="""      const stableSnowVector = data.regionalSnow?.displayStrategy === 'stable-vector-far-contour' &&\n        ((data.snowDisplayPermanent?.features?.length || 0) > 0 || (data.snowDisplaySeasonal?.features?.length || 0) > 0);\n      const snowPermanentTemplate = !stableSnowVector && data.regionalSnow?.available && data.regionalSnow?.permanent?.archivePath ? localArchiveUrl(data.regionalSnow.permanent.archivePath) : null;\n      const snowSeasonalTemplate = !stableSnowVector && data.regionalSnow?.available && data.regionalSnow?.seasonal?.archivePath ? localArchiveUrl(data.regionalSnow.seasonal.archivePath) : null;\n      const snowDisplayMaxzoom = Math.max(7, Number(data.regionalSnow?.displayMaxzoom ?? 10));\n      const snowPermanentOpacity = Number(data.regionalSnow?.displayOpacity?.permanent ?? 0.82);\n      const snowSeasonalOpacity = Number(data.regionalSnow?.displayOpacity?.seasonal ?? 0.34);\n"""
+          if old not in text: raise RuntimeError('snow setup anchor missing')
+          text=text.replace(old,new,1)
+          old="""      if (snowSeasonalTemplate) baseLayers.splice(-1,0,{id:'satellite-snow-seasonal',type:'raster',source:'snow-seasonal',minzoom:Number(data.regionalSnow.seasonal.minzoom),paint:{'raster-opacity':snowSeasonalOpacity,'raster-fade-duration':0,'raster-resampling':'linear'}});\n      if (snowPermanentTemplate) baseLayers.splice(-1,0,{id:'satellite-snow-permanent',type:'raster',source:'snow-permanent',minzoom:Number(data.regionalSnow.permanent.minzoom),paint:{'raster-opacity':snowPermanentOpacity,'raster-fade-duration':0,'raster-resampling':'linear'}});\n"""
+          new="""      if (stableSnowVector && data.snowDisplaySeasonal?.features?.length) baseLayers.splice(-1,0,{id:'stable-snow-seasonal',type:'fill',source:'polygons',filter:sourceFilter('snowSeasonalStable'),paint:{'fill-color':'#f5fafb','fill-opacity':snowSeasonalOpacity,'fill-antialias':true}});\n      if (stableSnowVector && data.snowDisplayPermanent?.features?.length) baseLayers.splice(-1,0,{id:'stable-snow-permanent',type:'fill',source:'polygons',filter:sourceFilter('snowPermanentStable'),paint:{'fill-color':'#fafdfd','fill-opacity':snowPermanentOpacity,'fill-antialias':true}});\n      if (snowSeasonalTemplate) baseLayers.splice(-1,0,{id:'satellite-snow-seasonal',type:'raster',source:'snow-seasonal',minzoom:Number(data.regionalSnow.seasonal.minzoom),paint:{'raster-opacity':snowSeasonalOpacity,'raster-fade-duration':0,'raster-resampling':'linear'}});\n      if (snowPermanentTemplate) baseLayers.splice(-1,0,{id:'satellite-snow-permanent',type:'raster',source:'snow-permanent',minzoom:Number(data.regionalSnow.permanent.minzoom),paint:{'raster-opacity':snowPermanentOpacity,'raster-fade-duration':0,'raster-resampling':'linear'}});\n"""
+          if old not in text: raise RuntimeError('snow layer anchor missing')
+          text=text.replace(old,new,1)
+          old="        if (!snowPermanentTemplate) natureLayers.push(\n"
+          if old not in text: raise RuntimeError('OSM fallback anchor missing')
+          text=text.replace(old,"        if (!stableSnowVector && !snowPermanentTemplate) natureLayers.push(\n",1)
+          ui.write_text(text,encoding='utf-8')
+
+          page=Path('assets/map-page.js');text=page.read_text(encoding='utf-8')
+          old="""    const rangeCache = new RangeLruCache(RANGE_CACHE_ENTRIES,RANGE_CACHE_BYTES);\n    const protocol = new window.pmtiles.Protocol();\n    const archiveRecords = [];\n    const mobileTransport = isMobileTransportProfile();\n    const configurations = [\n"""
+          new="""    const rangeCache = new RangeLruCache(RANGE_CACHE_ENTRIES,RANGE_CACHE_BYTES);\n    const protocol = new window.pmtiles.Protocol();\n    const archiveRecords = [];\n    const mobileTransport = isMobileTransportProfile();\n    const stableSnowVector = data.regionalSnow?.displayStrategy === 'stable-vector-far-contour' &&\n      ((data.snowDisplayPermanent?.features?.length || 0) > 0 || (data.snowDisplaySeasonal?.features?.length || 0) > 0);\n    const configurations = [\n"""
+          if old not in text: raise RuntimeError('page config anchor missing')
+          text=text.replace(old,new,1)
+          old="""      ...(data.regionalSnow?.available && data.regionalSnow?.permanent?.archivePath ? [{path:data.regionalSnow.permanent.archivePath,sourceId:'snow-permanent',config:data.regionalSnow.permanent,prefetch:false,maxConcurrent:mobileTransport?3:6,retryDelays:RANGE_RETRY_DELAYS_MS}] : []),\n      ...(data.regionalSnow?.available && data.regionalSnow?.seasonal?.archivePath ? [{path:data.regionalSnow.seasonal.archivePath,sourceId:'snow-seasonal',config:data.regionalSnow.seasonal,prefetch:false,maxConcurrent:mobileTransport?3:6,retryDelays:RANGE_RETRY_DELAYS_MS}] : [])\n"""
+          new="""      ...(!stableSnowVector && data.regionalSnow?.available && data.regionalSnow?.permanent?.archivePath ? [{path:data.regionalSnow.permanent.archivePath,sourceId:'snow-permanent',config:data.regionalSnow.permanent,prefetch:false,maxConcurrent:mobileTransport?3:6,retryDelays:RANGE_RETRY_DELAYS_MS}] : []),\n      ...(!stableSnowVector && data.regionalSnow?.available && data.regionalSnow?.seasonal?.archivePath ? [{path:data.regionalSnow.seasonal.archivePath,sourceId:'snow-seasonal',config:data.regionalSnow.seasonal,prefetch:false,maxConcurrent:mobileTransport?3:6,retryDelays:RANGE_RETRY_DELAYS_MS}] : [])\n"""
+          if old not in text: raise RuntimeError('page snow config anchor missing')
+          page.write_text(text.replace(old,new,1),encoding='utf-8')
+
+          runtime=Path('tests/runtime-contract.mjs');text=runtime.read_text(encoding='utf-8')
+          text=text.replace("assert.match(uiSource, /const VERSION = '7\\.3\\.1'/);","assert.match(uiSource, /const VERSION = '7\\.3\\.1'/);")
+          text=text.replace("assert.match(indexSource, /map-presentation-r2\\.js\\?v=7\\.3\\.1/);","assert.match(indexSource, /map-presentation-r2\\.js\\?v=7\\.3\\.1/);")
+          text=text.replace("assert.equal(data.dataVersion, '7.3.1-snow-stable-overzoom.1');","assert.equal(data.dataVersion, '7.3.1-snow-stable-vector-z7.2');")
+          text=text.replace("assert.equal(data.regionalSnow.displayStrategy, 'stable-smoothed-overzoom');","assert.equal(data.regionalSnow.displayStrategy, 'stable-vector-far-contour');")
+          text=text.replace("assert.equal(data.regionalSnow.displayMaxzoom, 10);","assert.equal(data.regionalSnow.displayMaxzoom, 7);\n  assert.equal(data.regionalSnow.displaySourceZoom, 7);\n  assert.ok(data.snowDisplayPermanent.features.length > 0);\n  assert.ok(data.snowDisplaySeasonal.features.length > 0);")
+          text=text.replace("assert.match(uiSource, /if \\(!snowPermanentTemplate\\) natureLayers\\.push/);","assert.match(uiSource, /if \\(!stableSnowVector && !snowPermanentTemplate\\) natureLayers\\.push/);")
+          anchor="assert.match(uiSource, /satellite-snow-seasonal/);\n"
+          if "stable-snow-permanent" not in text:
+              text=text.replace(anchor,anchor+"assert.match(uiSource, /stable-snow-permanent/);\nassert.match(uiSource, /stable-snow-seasonal/);\nassert.match(page, /!stableSnowVector && data\\.regionalSnow/);\n",1)
+          runtime.write_text(text,encoding='utf-8')
+
+          smoke=Path('tests/map-smoke.mjs');text=smoke.read_text(encoding='utf-8')
+          text=text.replace("""        satelliteSnowPermanent:byId['satellite-snow-permanent'] || null,\n        satelliteSnowSeasonal:byId['satellite-snow-seasonal'] || null\n""","""        satelliteSnowPermanent:byId['satellite-snow-permanent'] || null,\n        satelliteSnowSeasonal:byId['satellite-snow-seasonal'] || null,\n        stableSnowPermanent:byId['stable-snow-permanent'] || null,\n        stableSnowSeasonal:byId['stable-snow-seasonal'] || null\n""",1)
+          old="""  if (diagnostics.sourceIds.includes('snow-permanent')) {\n    assert.ok(diagnostics.sourceIds.includes('snow-seasonal'));\n    assert.ok(diagnostics.layers.satelliteSnowPermanent);\n    assert.ok(diagnostics.layers.satelliteSnowSeasonal);\n    assert.equal(diagnostics.layers.glacierFill,null);\n    assert.equal(diagnostics.layers.snowFill,null);\n  } else {\n    assert.ok(diagnostics.layers.glacierFill);\n    assert.ok(diagnostics.layers.snowFill);\n  }\n"""
+          new="""  assert.ok(!diagnostics.sourceIds.includes('snow-permanent'));\n  assert.ok(!diagnostics.sourceIds.includes('snow-seasonal'));\n  assert.equal(diagnostics.layers.satelliteSnowPermanent,null);\n  assert.equal(diagnostics.layers.satelliteSnowSeasonal,null);\n  assert.ok(diagnostics.layers.stableSnowPermanent);\n  assert.ok(diagnostics.layers.stableSnowSeasonal);\n  assert.equal(diagnostics.layers.glacierFill,null);\n  assert.equal(diagnostics.layers.snowFill,null);\n"""
+          if old not in text: raise RuntimeError('smoke snow assertion anchor missing')
+          text=text.replace(old,new,1)
+          old="""  if (diagnostics.sourceIds.includes('snow-permanent')) {\n    assert.ok(diagnostics.transport.archives.some(item => item.archivePath === 'data/alan-snow-permanent-7.2.5.pmtiles'));\n    assert.ok(diagnostics.transport.archives.some(item => item.archivePath === 'data/alan-snow-seasonal-7.2.5.pmtiles'));\n  }\n"""
+          new="""  assert.ok(!diagnostics.transport.archives.some(item => item.sourceId === 'snow-permanent'));\n  assert.ok(!diagnostics.transport.archives.some(item => item.sourceId === 'snow-seasonal'));\n  assert.ok(!diagnostics.transport.archives.some(item => item.archivePath === 'data/alan-snow-permanent-7.2.5.pmtiles'));\n  assert.ok(!diagnostics.transport.archives.some(item => item.archivePath === 'data/alan-snow-seasonal-7.2.5.pmtiles'));\n"""
+          if old not in text: raise RuntimeError('smoke transport assertion anchor missing')
+          smoke.write_text(text.replace(old,new,1),encoding='utf-8')
+
+          Path('README.md').write_text(
+              '# Alan Map 7.3.1\n\n'
+              'Версия 7.3.1 остаётся в той же ветке и сохраняет рельеф 7.3. Снежное отображение переведено на постоянные векторные контуры, полученные из наиболее полного дальнего уровня z7 существующих snow PMTiles. Геометрия сглажена в метрических координатах и встроена непосредственно в map-data. Поэтому площадь и форма снега больше не меняются при переключении zoom-уровней, а края отрисовываются MapLibre как антиалиасинговые векторные границы.\n\n'
+              'Snow PMTiles 7.2.5 сохранены как исходные данные и для воспроизводимости, но больше не регистрируются как runtime network sources. Это также устраняет ошибки snow-permanent/snow-seasonal в сетевой диагностике. DEM 7.3 и vector 7.2 не изменялись.\n',
+              encoding='utf-8'
+          )
+          PY
+
+      - name: Validate runtime and real browser rendering
+        run: |
+          set -euxo pipefail
+          node --check assets/map-ui.js
+          node --check assets/map-page.js
+          node --check tests/runtime-contract.mjs
+          node --check tests/map-smoke.mjs
+          node tests/runtime-contract.mjs
+          sha256sum -c /tmp/payload-before.sha256
+          node tests/map-smoke.mjs
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          marker='window.ALAN_MAP_DATA = '
+          source=Path('assets/map-data.part-000.js').read_text(encoding='utf-8')+Path('assets/map-data.part-001.js').read_text(encoding='utf-8')
+          payload=source[source.index(marker)+len(marker):].strip()
+          if payload.endswith(';'): payload=payload[:-1]
+          data=json.loads(payload)
+          assert data['version']=='7.3.1'
+          assert data['dataVersion']=='7.3.1-snow-stable-vector-z7.2'
+          assert data['regionalSnow']['displayStrategy']=='stable-vector-far-contour'
+          assert data['regionalSnow']['displaySourceZoom']==7
+          assert len(data['snowDisplayPermanent']['features'])>0
+          assert len(data['snowDisplaySeasonal']['features'])>0
+          print('stable snow vector validation: ok')
+          PY
+
+      - name: Remove temporary workflow, package and publish same branch
+        run: |
+          set -euxo pipefail
+          rm -f .github/workflows/apply-7.3.1-snow-vector.yml
+          mkdir -p /tmp/alan-map-7.3.1
+          find . -type f \
+            -not -path './.git/*' -not -path './node_modules/*' -not -path '*/__pycache__/*' \
+            -printf '%P\t%s\n' | sort > /tmp/alan-map-7.3.1/file-sizes-7.3.1.tsv
+          zip -qr /tmp/alan-map-7.3.1/alan-map-7.3.1.zip . \
+            -x '.git/*' 'node_modules/*' '*/__pycache__/*'
+          unzip -tq /tmp/alan-map-7.3.1/alan-map-7.3.1.zip
+          git config user.name 'Alan Map Builder'
+          git config user.email 'actions@users.noreply.github.com'
+          git add -A
+          git commit -m 'Fix Alan Map 7.3.1 stable far snow contours [skip ci]'
+          git push origin HEAD:7.3.1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: alan-map-7.3.1-stable-snow
+          path: /tmp/alan-map-7.3.1/
+          retention-days: 30
