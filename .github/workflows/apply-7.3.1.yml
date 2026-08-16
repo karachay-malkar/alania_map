@@ -10,10 +10,6 @@ on:
 permissions:
   contents: write
 
-concurrency:
-  group: alan-map-7-3-1-apply
-  cancel-in-progress: true
-
 jobs:
   apply:
     runs-on: ubuntu-24.04
@@ -26,172 +22,124 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Verify exact 7.3 payload baseline
+      - name: Apply complete 7.3.1 patch to exact 7.3 baseline
         run: |
           set -euxo pipefail
           test "$(stat -c %s data/alan-dem-7.3.pmtiles)" = "18247328"
           test "$(stat -c %s data/alan-vector-7.2.pmtiles)" = "16913027"
           test "$(stat -c %s data/alan-snow-permanent-7.2.5.pmtiles)" = "2399106"
           test "$(stat -c %s data/alan-snow-seasonal-7.2.5.pmtiles)" = "2384959"
-          sha256sum data/alan-vector-7.2.pmtiles data/alan-snow-permanent-7.2.5.pmtiles data/alan-snow-seasonal-7.2.5.pmtiles > /tmp/payload-before.sha256
-
-      - name: Apply 7.3.1 snow display logic
-        run: |
-          set -euxo pipefail
+          sha256sum data/alan-dem-7.3.pmtiles data/alan-vector-7.2.pmtiles data/alan-snow-permanent-7.2.5.pmtiles data/alan-snow-seasonal-7.2.5.pmtiles > /tmp/payload-before.sha256
           python - <<'PY'
           from pathlib import Path
           import json
 
-          path = Path('assets/map-ui.js')
-          text = path.read_text(encoding='utf-8')
-          old = """      const snowPermanentTemplate = data.regionalSnow?.available && data.regionalSnow?.permanent?.archivePath ? localArchiveUrl(data.regionalSnow.permanent.archivePath) : null;
+          def replace_once(path, old, new, label):
+              p=Path(path)
+              text=p.read_text(encoding='utf-8')
+              if old not in text:
+                  raise SystemExit(f'{label}: token not found in {path}')
+              p.write_text(text.replace(old,new,1),encoding='utf-8')
+
+          p=Path('assets/map-ui.js')
+          text=p.read_text(encoding='utf-8')
+          old="""      const snowPermanentTemplate = data.regionalSnow?.available && data.regionalSnow?.permanent?.archivePath ? localArchiveUrl(data.regionalSnow.permanent.archivePath) : null;
                 const snowSeasonalTemplate = data.regionalSnow?.available && data.regionalSnow?.seasonal?.archivePath ? localArchiveUrl(data.regionalSnow.seasonal.archivePath) : null;
                 const glyphsTemplate = new URL('data/fonts/', document.baseURI).href + '{fontstack}/{range}.pbf';
-                activeDemTemplate = demTemplate;
-                activeDemMode = 'local-pmtiles';
-                activeVectorMode = 'local-pmtiles';
-                const sources = {
-          """
-          old = old.replace('                ', '      ')
-          new = """      const snowPermanentTemplate = data.regionalSnow?.available && data.regionalSnow?.permanent?.archivePath ? localArchiveUrl(data.regionalSnow.permanent.archivePath) : null;
+          """.replace('                ','      ')
+          new="""      const snowPermanentTemplate = data.regionalSnow?.available && data.regionalSnow?.permanent?.archivePath ? localArchiveUrl(data.regionalSnow.permanent.archivePath) : null;
                 const snowSeasonalTemplate = data.regionalSnow?.available && data.regionalSnow?.seasonal?.archivePath ? localArchiveUrl(data.regionalSnow.seasonal.archivePath) : null;
                 const snowDisplayMaxzoom = Math.max(7, Number(data.regionalSnow?.displayMaxzoom ?? 10));
                 const snowPermanentOpacity = Number(data.regionalSnow?.displayOpacity?.permanent ?? 0.82);
                 const snowSeasonalOpacity = Number(data.regionalSnow?.displayOpacity?.seasonal ?? 0.34);
                 const glyphsTemplate = new URL('data/fonts/', document.baseURI).href + '{fontstack}/{range}.pbf';
-                activeDemTemplate = demTemplate;
-                activeDemMode = 'local-pmtiles';
-                activeVectorMode = 'local-pmtiles';
-                const sources = {
-          """
-          new = new.replace('                ', '      ')
-          if old not in text:
-              raise SystemExit('map-ui snow setup anchor not found')
-          text = text.replace(old, new, 1)
+          """.replace('                ','      ')
+          if old not in text: raise SystemExit('snow setup anchor missing')
+          text=text.replace(old,new,1)
 
-          old = """      if (snowPermanentTemplate) sources['snow-permanent'] = {type:'raster',url:snowPermanentTemplate,tileSize:Number(data.regionalSnow.permanent.tileSize || 256),minzoom:Number(data.regionalSnow.permanent.minzoom),maxzoom:Number(data.regionalSnow.permanent.maxzoom),bounds:data.regionalSnow.permanent.bounds,attribution:data.regionalSnow.attribution};
+          old="""      if (snowPermanentTemplate) sources['snow-permanent'] = {type:'raster',url:snowPermanentTemplate,tileSize:Number(data.regionalSnow.permanent.tileSize || 256),minzoom:Number(data.regionalSnow.permanent.minzoom),maxzoom:Number(data.regionalSnow.permanent.maxzoom),bounds:data.regionalSnow.permanent.bounds,attribution:data.regionalSnow.attribution};
                 if (snowSeasonalTemplate) sources['snow-seasonal'] = {type:'raster',url:snowSeasonalTemplate,tileSize:Number(data.regionalSnow.seasonal.tileSize || 256),minzoom:Number(data.regionalSnow.seasonal.minzoom),maxzoom:Number(data.regionalSnow.seasonal.maxzoom),bounds:data.regionalSnow.seasonal.bounds,attribution:data.regionalSnow.attribution};
-          """.replace('                ', '      ')
-          new = """      if (snowPermanentTemplate) sources['snow-permanent'] = {type:'raster',url:snowPermanentTemplate,tileSize:Number(data.regionalSnow.permanent.tileSize || 256),minzoom:Number(data.regionalSnow.permanent.minzoom),maxzoom:Math.min(Number(data.regionalSnow.permanent.maxzoom), snowDisplayMaxzoom),bounds:data.regionalSnow.permanent.bounds,attribution:data.regionalSnow.attribution};
+          """.replace('                ','      ')
+          new="""      if (snowPermanentTemplate) sources['snow-permanent'] = {type:'raster',url:snowPermanentTemplate,tileSize:Number(data.regionalSnow.permanent.tileSize || 256),minzoom:Number(data.regionalSnow.permanent.minzoom),maxzoom:Math.min(Number(data.regionalSnow.permanent.maxzoom), snowDisplayMaxzoom),bounds:data.regionalSnow.permanent.bounds,attribution:data.regionalSnow.attribution};
                 if (snowSeasonalTemplate) sources['snow-seasonal'] = {type:'raster',url:snowSeasonalTemplate,tileSize:Number(data.regionalSnow.seasonal.tileSize || 256),minzoom:Number(data.regionalSnow.seasonal.minzoom),maxzoom:Math.min(Number(data.regionalSnow.seasonal.maxzoom), snowDisplayMaxzoom),bounds:data.regionalSnow.seasonal.bounds,attribution:data.regionalSnow.attribution};
-          """.replace('                ', '      ')
-          if old not in text:
-              raise SystemExit('map-ui snow source anchor not found')
-          text = text.replace(old, new, 1)
+          """.replace('                ','      ')
+          if old not in text: raise SystemExit('snow source anchor missing')
+          text=text.replace(old,new,1)
 
-          old = """      if (snowSeasonalTemplate) baseLayers.splice(-1,0,{id:'satellite-snow-seasonal',type:'raster',source:'snow-seasonal',minzoom:Number(data.regionalSnow.seasonal.minzoom),maxzoom:Number(data.regionalSnow.seasonal.maxzoom),paint:{'raster-opacity':['interpolate',['linear'],['zoom'],7,0.26,9,0.36,12,0.52],'raster-fade-duration':100,'raster-resampling':'linear'}});
+          old="""      if (snowSeasonalTemplate) baseLayers.splice(-1,0,{id:'satellite-snow-seasonal',type:'raster',source:'snow-seasonal',minzoom:Number(data.regionalSnow.seasonal.minzoom),maxzoom:Number(data.regionalSnow.seasonal.maxzoom),paint:{'raster-opacity':['interpolate',['linear'],['zoom'],7,0.26,9,0.36,12,0.52],'raster-fade-duration':100,'raster-resampling':'linear'}});
                 if (snowPermanentTemplate) baseLayers.splice(-1,0,{id:'satellite-snow-permanent',type:'raster',source:'snow-permanent',minzoom:Number(data.regionalSnow.permanent.minzoom),maxzoom:Number(data.regionalSnow.permanent.maxzoom),paint:{'raster-opacity':['interpolate',['linear'],['zoom'],7,0.74,9,0.86,12,0.94],'raster-fade-duration':100,'raster-resampling':'linear'}});
-          """.replace('                ', '      ')
-          new = """      if (snowSeasonalTemplate) baseLayers.splice(-1,0,{id:'satellite-snow-seasonal',type:'raster',source:'snow-seasonal',minzoom:Number(data.regionalSnow.seasonal.minzoom),paint:{'raster-opacity':snowSeasonalOpacity,'raster-fade-duration':0,'raster-resampling':'linear'}});
+          """.replace('                ','      ')
+          new="""      if (snowSeasonalTemplate) baseLayers.splice(-1,0,{id:'satellite-snow-seasonal',type:'raster',source:'snow-seasonal',minzoom:Number(data.regionalSnow.seasonal.minzoom),paint:{'raster-opacity':snowSeasonalOpacity,'raster-fade-duration':0,'raster-resampling':'linear'}});
                 if (snowPermanentTemplate) baseLayers.splice(-1,0,{id:'satellite-snow-permanent',type:'raster',source:'snow-permanent',minzoom:Number(data.regionalSnow.permanent.minzoom),paint:{'raster-opacity':snowPermanentOpacity,'raster-fade-duration':0,'raster-resampling':'linear'}});
-          """.replace('                ', '      ')
-          if old not in text:
-              raise SystemExit('map-ui snow layer anchor not found')
-          text = text.replace(old, new, 1)
-          path.write_text(text, encoding='utf-8')
+          """.replace('                ','      ')
+          if old not in text: raise SystemExit('snow layer anchor missing')
+          text=text.replace(old,new,1)
+          p.write_text(text,encoding='utf-8')
 
-          part0 = Path('assets/map-data.part-000.js')
-          part1 = Path('assets/map-data.part-001.js')
-          marker = 'window.ALAN_MAP_DATA = '
-          source = part0.read_text(encoding='utf-8') + part1.read_text(encoding='utf-8')
-          idx = source.find(marker)
-          if idx < 0:
-              raise SystemExit('map data marker not found')
-          payload = source[idx + len(marker):].strip()
-          if payload.endswith(';'):
-              payload = payload[:-1]
-          data = json.loads(payload)
-          if data.get('version') != '7.3' or data.get('dataVersion') != '7.3-dem-generalized-z11.1':
-              raise SystemExit(f'unexpected 7.3 baseline: {data.get("version")} / {data.get("dataVersion")}')
+          part0=Path('assets/map-data.part-000.js')
+          part1=Path('assets/map-data.part-001.js')
+          marker='window.ALAN_MAP_DATA = '
+          source=part0.read_text(encoding='utf-8')+part1.read_text(encoding='utf-8')
+          payload=source[source.index(marker)+len(marker):].strip()
+          if payload.endswith(';'): payload=payload[:-1]
+          data=json.loads(payload)
+          assert data['version']=='7.3'
+          assert data['dataVersion']=='7.3-dem-generalized-z11.1'
+          snow=data['regionalSnow']
+          snow['displayStrategy']='stable-smoothed-overzoom'
+          snow['displayMaxzoom']=10
+          snow['displayOpacity']={'permanent':0.82,'seasonal':0.34}
+          snow['displayNotes']='Freeze snow display to the smoother z10 pyramid and overzoom it with linear resampling so the broader distant contour remains stable on close zooms.'
+          data['applicationVersion']='7.3.1'
+          data['version']='7.3.1'
+          data['stage']='7.3.1'
+          data['dataVersion']='7.3.1-snow-stable-overzoom.1'
+          payload=json.dumps(data,ensure_ascii=False,separators=(',',':'))
+          midpoint=len(payload)//2
+          left=payload.rfind('},"',0,midpoint)
+          right=payload.find('},"',midpoint)
+          candidates=[x+1 for x in (left,right) if x>=0]
+          cut=min(candidates,key=lambda x:abs(x-midpoint)) if candidates else midpoint
+          part0.write_text('\n'+marker+payload[:cut],encoding='utf-8')
+          part1.write_text(payload[cut:]+';\n',encoding='utf-8')
 
-          snow = data.get('regionalSnow', {})
-          snow['displayStrategy'] = 'stable-smoothed-overzoom'
-          snow['displayMaxzoom'] = 10
-          snow['displayOpacity'] = {'permanent': 0.82, 'seasonal': 0.34}
-          snow['displayNotes'] = 'Freeze snow display to the smoother z10 pyramid and overzoom it with linear resampling so the broader distant contour remains stable on close zooms.'
-          data['regionalSnow'] = snow
-          data['applicationVersion'] = '7.3.1'
-          data['version'] = '7.3.1'
-          data['stage'] = '7.3.1'
-          data['dataVersion'] = '7.3.1-snow-stable-overzoom.1'
+          replace_once('assets/bootstrap.js',"const RELEASE = '7.3';","const RELEASE = '7.3.1';",'bootstrap version')
+          replace_once('assets/map-page.js',"const VERSION = '7.3';","const VERSION = '7.3.1';",'page version')
+          replace_once('assets/map-ui.js',"const VERSION = '7.3';","const VERSION = '7.3.1';",'ui version')
+          replace_once('assets/map-ui.js',"const DEFAULT_STORAGE_KEY = 'alan-map-stage7.3-view';","const DEFAULT_STORAGE_KEY = 'alan-map-stage7.3.1-view';",'storage key')
+          p=Path('assets/map-ui.js'); text=p.read_text(encoding='utf-8')
+          if "'alan-map-stage7.3-view'," not in text:
+              text=text.replace("  const LEGACY_STORAGE_KEYS = [\n","  const LEGACY_STORAGE_KEYS = [\n    'alan-map-stage7.3-view',\n",1)
+          text=text.replace('Alan Map · 7.3','Alan Map · 7.3.1')
+          p.write_text(text,encoding='utf-8')
 
-          payload = json.dumps(data, ensure_ascii=False, separators=(',', ':'))
-          midpoint = len(payload) // 2
-          left = payload.rfind('},"', 0, midpoint)
-          right = payload.find('},"', midpoint)
-          candidates = [position + 1 for position in (left, right) if position >= 0]
-          cut = min(candidates, key=lambda position: abs(position - midpoint)) if candidates else midpoint
-          part0.write_text('\n' + marker + payload[:cut], encoding='utf-8')
-          part1.write_text(payload[cut:] + ';\n', encoding='utf-8')
+          p=Path('index.html'); text=p.read_text(encoding='utf-8')
+          text=text.replace('Alan Map 7.3','Alan Map 7.3.1').replace('?v=7.3','?v=7.3.1')
+          text=text.replace('<!-- Alan Map 7.3: generalized z7-z11 DEM; 7.2.5 vector/snow preserved -->','<!-- Alan Map 7.3.1: stable smoothed snow overzoom using frozen z10 display contour -->')
+          p.write_text(text,encoding='utf-8')
 
-          for rel, old, new in [
-              ('assets/bootstrap.js', "const RELEASE = '7.3';", "const RELEASE = '7.3.1';"),
-              ('assets/map-page.js', "const VERSION = '7.3';", "const VERSION = '7.3.1';"),
-              ('assets/map-ui.js', "const VERSION = '7.3';", "const VERSION = '7.3.1';"),
-          ]:
-              p = Path(rel)
-              value = p.read_text(encoding='utf-8')
-              if old not in value:
-                  raise SystemExit(f'{rel}: version token not found')
-              p.write_text(value.replace(old, new, 1), encoding='utf-8')
+          Path('README.md').write_text('# Alan Map 7.3.1\n\nВерсия 7.3.1 основана на полном состоянии 7.3 и меняет только способ отображения снежных слоёв.\n\nПостоянный и сезонный снег больше не усиливаются по opacity при приближении и не переключаются вплоть до самого детального снежного уровня. Для отображения используется стабильный сглаженный контур: snow PMTiles визуально замораживаются на z10, а далее overzoom-ятся с linear resampling. Это сохраняет более полный дальний силуэт снега и убирает резкое сужение снежных пятен на близком масштабе.\n\nDEM 7.3, vector 7.2 и сами snow-архивы 7.2.5 не пересобирались и не изменялись по байтам; изменены только runtime-настройки и метаданные релиза.\n',encoding='utf-8')
 
-          p = Path('assets/map-ui.js')
-          value = p.read_text(encoding='utf-8')
-          old = "const DEFAULT_STORAGE_KEY = 'alan-map-stage7.3-view';"
-          if old not in value:
-              raise SystemExit('storage key token not found')
-          value = value.replace(old, "const DEFAULT_STORAGE_KEY = 'alan-map-stage7.3.1-view';", 1)
-          legacy_anchor = "  const LEGACY_STORAGE_KEYS = [\n"
-          if "'alan-map-stage7.3-view'," not in value:
-              value = value.replace(legacy_anchor, legacy_anchor + "    'alan-map-stage7.3-view',\n", 1)
-          value = value.replace('Alan Map · 7.3', 'Alan Map · 7.3.1')
-          p.write_text(value, encoding='utf-8')
-
-          p = Path('index.html')
-          value = p.read_text(encoding='utf-8')
-          value = value.replace('Alan Map 7.3', 'Alan Map 7.3.1')
-          value = value.replace('?v=7.3', '?v=7.3.1')
-          value = value.replace(
-              '<!-- Alan Map 7.3: generalized z7-z11 DEM; 7.2.5 vector/snow preserved -->',
-              '<!-- Alan Map 7.3.1: stable smoothed snow overzoom using frozen z10 display contour -->'
-          )
-          p.write_text(value, encoding='utf-8')
-
-          Path('README.md').write_text(
-              '# Alan Map 7.3.1\n\n'
-              'Версия 7.3.1 основана на полном состоянии 7.3 и меняет только способ отображения снежных слоёв.\n\n'
-              'Постоянный и сезонный снег больше не усиливаются по opacity при приближении и не переключаются вплоть до самого детального снежного уровня. Для отображения используется стабильный сглаженный контур: snow PMTiles визуально замораживаются на z10, а далее overzoom-ятся с linear resampling. Это сохраняет более полный дальний силуэт снега и убирает резкое сужение снежных пятен на близком масштабе.\n\n'
-              'DEM 7.3, vector 7.2 и сами snow-архивы 7.2.5 не пересобирались и не изменялись по байтам; изменены только runtime-настройки и метаданные релиза.\n',
-              encoding='utf-8'
-          )
-
-          p = Path('tests/runtime-contract.mjs')
-          value = p.read_text(encoding='utf-8')
-          replacements = [
-              ("assert.equal(data.version, '7.3');", "assert.equal(data.version, '7.3.1');"),
-              ("assert.equal(data.applicationVersion, '7.3');", "assert.equal(data.applicationVersion, '7.3.1');"),
-              ("assert.equal(data.dataVersion, '7.3-dem-generalized-z11.1');", "assert.equal(data.dataVersion, '7.3.1-snow-stable-overzoom.1');"),
+          p=Path('tests/runtime-contract.mjs'); text=p.read_text(encoding='utf-8')
+          replacements=[
+              ("assert.match(uiSource, /const VERSION = '7\\.3'/);","assert.match(uiSource, /const VERSION = '7\\.3\\.1'/);"),
+              ("assert.match(indexSource, /map-presentation-r2\\.js\\?v=7\\.3/);","assert.match(indexSource, /map-presentation-r2\\.js\\?v=7\\.3\\.1/);"),
+              ("assert.equal(data.version, '7.3');","assert.equal(data.version, '7.3.1');"),
+              ("assert.equal(data.applicationVersion, '7.3');","assert.equal(data.applicationVersion, '7.3.1');"),
+              ("assert.equal(data.dataVersion, '7.3-dem-generalized-z11.1');","assert.equal(data.dataVersion, '7.3.1-snow-stable-overzoom.1');"),
           ]
-          for old, new in replacements:
-              if old not in value:
-                  raise SystemExit(f'runtime-contract token missing: {old}')
-              value = value.replace(old, new, 1)
-          anchor = "  assert.equal(data.regionalSnow.seasonal.archivePath, 'data/alan-snow-seasonal-7.2.5.pmtiles');\n"
-          insert = anchor + "  assert.equal(data.regionalSnow.displayStrategy, 'stable-smoothed-overzoom');\n  assert.equal(data.regionalSnow.displayMaxzoom, 10);\n  assert.deepEqual(data.regionalSnow.displayOpacity, {permanent:0.82, seasonal:0.34});\n"
-          if anchor not in value:
-              raise SystemExit('runtime snow anchor missing')
-          value = value.replace(anchor, insert, 1)
-          p.write_text(value, encoding='utf-8')
+          for old,new in replacements:
+              if old not in text: raise SystemExit(f'runtime token missing: {old}')
+              text=text.replace(old,new,1)
+          anchor="  assert.equal(data.regionalSnow.seasonal.archivePath, 'data/alan-snow-seasonal-7.2.5.pmtiles');\n"
+          if anchor not in text: raise SystemExit('snow test anchor missing')
+          text=text.replace(anchor,anchor+"  assert.equal(data.regionalSnow.displayStrategy, 'stable-smoothed-overzoom');\n  assert.equal(data.regionalSnow.displayMaxzoom, 10);\n  assert.deepEqual(data.regionalSnow.displayOpacity, {permanent:0.82, seasonal:0.34});\n",1)
+          p.write_text(text,encoding='utf-8')
 
-          p = Path('tests/map-smoke.mjs')
-          value = p.read_text(encoding='utf-8')
-          old = "assert.equal(performanceMetrics.version,'7.3');"
-          if old not in value:
-              raise SystemExit('map smoke version token missing')
-          p.write_text(value.replace(old, "assert.equal(performanceMetrics.version,'7.3.1');", 1), encoding='utf-8')
+          replace_once('tests/map-smoke.mjs',"assert.equal(performanceMetrics.version,'7.3');","assert.equal(performanceMetrics.version,'7.3.1');",'smoke version')
           PY
 
-      - name: Validate 7.3.1 runtime and unchanged binary payloads
+      - name: Validate and publish 7.3.1
         run: |
           set -euxo pipefail
           node --check assets/map-ui.js
@@ -206,21 +154,14 @@ jobs:
           from pathlib import Path
           marker='window.ALAN_MAP_DATA = '
           source=Path('assets/map-data.part-000.js').read_text(encoding='utf-8')+Path('assets/map-data.part-001.js').read_text(encoding='utf-8')
-          payload=source[source.index(marker)+len(marker):].strip()
-          if payload.endswith(';'): payload=payload[:-1]
+          payload=source[source.index(marker)+len(marker):].strip().removesuffix(';')
           data=json.loads(payload)
           assert data['version']=='7.3.1'
           assert data['regionalSnow']['displayStrategy']=='stable-smoothed-overzoom'
           assert data['regionalSnow']['displayMaxzoom']==10
           assert data['regionalSnow']['displayOpacity']=={'permanent':0.82,'seasonal':0.34}
-          assert data['regionalDem']['archivePath']=='data/alan-dem-7.3.pmtiles'
-          assert data['regionalVector']['archivePath']=='data/alan-vector-7.2.pmtiles'
-          print('7.3.1 snow display validation: ok')
+          print('Alan Map 7.3.1 validation: ok')
           PY
-
-      - name: Remove temporary workflow and commit complete 7.3.1
-        run: |
-          set -euxo pipefail
           rm -f .github/workflows/apply-7.3.1.yml
           git config user.name 'Alan Map Builder'
           git config user.email 'actions@users.noreply.github.com'
