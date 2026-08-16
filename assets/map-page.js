@@ -507,12 +507,14 @@
     const protocol = new window.pmtiles.Protocol();
     const archiveRecords = [];
     const mobileTransport = isMobileTransportProfile();
+    const stableSnowVector = data.regionalSnow?.displayStrategy === 'stable-vector-far-contour' &&
+      ((data.snowDisplayPermanent?.features?.length || 0) > 0 || (data.snowDisplaySeasonal?.features?.length || 0) > 0);
     const configurations = [
       {path:data.regionalDem.archivePath,sourceId:'terrain-dem',config:data.regionalDem,prefetch:true,maxConcurrent:mobileTransport?6:10,retryDelays:RANGE_RETRY_DELAYS_MS},
       {path:data.regionalVector.archivePath,sourceId:'openmaptiles',config:data.regionalVector,prefetch:true,maxConcurrent:mobileTransport?3:8,retryDelays:VECTOR_RANGE_RETRY_DELAYS_MS,allowFullFileFallback:true,fullFileFallbackMaxBytes:VECTOR_FULL_FILE_FALLBACK_MAX_BYTES},
       ...(data.regionalLandcover?.archivePath ? [{path:data.regionalLandcover.archivePath,sourceId:'copernicus-landcover',config:data.regionalLandcover,prefetch:false,maxConcurrent:mobileTransport?3:6,retryDelays:RANGE_RETRY_DELAYS_MS}] : []),
-      ...(data.regionalSnow?.available && data.regionalSnow?.permanent?.archivePath ? [{path:data.regionalSnow.permanent.archivePath,sourceId:'snow-permanent',config:data.regionalSnow.permanent,prefetch:false,maxConcurrent:mobileTransport?3:6,retryDelays:RANGE_RETRY_DELAYS_MS}] : []),
-      ...(data.regionalSnow?.available && data.regionalSnow?.seasonal?.archivePath ? [{path:data.regionalSnow.seasonal.archivePath,sourceId:'snow-seasonal',config:data.regionalSnow.seasonal,prefetch:false,maxConcurrent:mobileTransport?3:6,retryDelays:RANGE_RETRY_DELAYS_MS}] : [])
+      ...(!stableSnowVector && data.regionalSnow?.available && data.regionalSnow?.permanent?.archivePath ? [{path:data.regionalSnow.permanent.archivePath,sourceId:'snow-permanent',config:data.regionalSnow.permanent,prefetch:false,maxConcurrent:mobileTransport?3:6,retryDelays:RANGE_RETRY_DELAYS_MS}] : []),
+      ...(!stableSnowVector && data.regionalSnow?.available && data.regionalSnow?.seasonal?.archivePath ? [{path:data.regionalSnow.seasonal.archivePath,sourceId:'snow-seasonal',config:data.regionalSnow.seasonal,prefetch:false,maxConcurrent:mobileTransport?3:6,retryDelays:RANGE_RETRY_DELAYS_MS}] : [])
     ];
 
     for (const entry of configurations) {

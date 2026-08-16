@@ -22,7 +22,10 @@ assert.match(page, /regionalLandcover\?\.archivePath/);
 assert.match(page, /regionalSnow\?\.available/);
 assert.match(uiSource, /satellite-snow-permanent/);
 assert.match(uiSource, /satellite-snow-seasonal/);
-assert.match(uiSource, /if \(!snowPermanentTemplate\) natureLayers\.push/);
+assert.match(uiSource, /stable-snow-permanent/);
+assert.match(uiSource, /stable-snow-seasonal/);
+assert.match(page, /!stableSnowVector && data\.regionalSnow/);
+assert.match(uiSource, /if \(!stableSnowVector && !snowPermanentTemplate\) natureLayers\.push/);
 
 assert.ok(!page.includes('ShardedPmtilesSource'));
 assert.ok(!page.includes('ShardLruCache'));
@@ -278,13 +281,16 @@ assert.ok(!uiSource.includes("id:'settlement-beam-core'"));
 
 if (data.regionalSnow?.available) {
   assert.equal(data.regionalSnow.version, '7.2.5');
-  assert.equal(data.dataVersion, '7.3.1-snow-stable-overzoom.1');
+  assert.equal(data.dataVersion, '7.3.1-snow-stable-vector-z7.2');
   assert.equal(data.regionalSnow.method, 'worldcover-class-70-plus-multiyear-late-summer-ndsi');
   assert.deepEqual(data.regionalSnow.bounds, data.bounds);
   assert.equal(data.regionalSnow.permanent.archivePath, 'data/alan-snow-permanent-7.2.5.pmtiles');
   assert.equal(data.regionalSnow.seasonal.archivePath, 'data/alan-snow-seasonal-7.2.5.pmtiles');
-  assert.equal(data.regionalSnow.displayStrategy, 'stable-smoothed-overzoom');
-  assert.equal(data.regionalSnow.displayMaxzoom, 10);
+  assert.equal(data.regionalSnow.displayStrategy, 'stable-vector-far-contour');
+  assert.equal(data.regionalSnow.displayMaxzoom, 7);
+  assert.equal(data.regionalSnow.displaySourceZoom, 7);
+  assert.ok(data.snowDisplayPermanent.features.length > 0);
+  assert.ok(data.snowDisplaySeasonal.features.length > 0);
   assert.deepEqual(data.regionalSnow.displayOpacity, {permanent:0.82, seasonal:0.34});
   assert.ok(fs.existsSync(data.regionalSnow.permanent.archivePath));
   assert.ok(fs.existsSync(data.regionalSnow.seasonal.archivePath));

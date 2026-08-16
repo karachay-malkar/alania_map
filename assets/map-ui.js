@@ -331,6 +331,8 @@
       polygons: taggedFeatureCollection([
         ['focus', data.focus],
         ['frameMask', data.frameMask],
+        ['snowSeasonalStable', data.snowDisplaySeasonal],
+        ['snowPermanentStable', data.snowDisplayPermanent],
         ['glaciers', data.glaciers],
         ['elbrusSnow', data.elbrusSnow],
         ['peakSnow', data.peakSnow]
@@ -642,8 +644,10 @@
       const demTemplate = localArchiveUrl(data.regionalDem.archivePath);
       const vectorTemplate = localArchiveUrl(data.regionalVector.archivePath);
       const landcoverTemplate = data.regionalLandcover?.archivePath ? localArchiveUrl(data.regionalLandcover.archivePath) : null;
-      const snowPermanentTemplate = data.regionalSnow?.available && data.regionalSnow?.permanent?.archivePath ? localArchiveUrl(data.regionalSnow.permanent.archivePath) : null;
-      const snowSeasonalTemplate = data.regionalSnow?.available && data.regionalSnow?.seasonal?.archivePath ? localArchiveUrl(data.regionalSnow.seasonal.archivePath) : null;
+      const stableSnowVector = data.regionalSnow?.displayStrategy === 'stable-vector-far-contour' &&
+        ((data.snowDisplayPermanent?.features?.length || 0) > 0 || (data.snowDisplaySeasonal?.features?.length || 0) > 0);
+      const snowPermanentTemplate = !stableSnowVector && data.regionalSnow?.available && data.regionalSnow?.permanent?.archivePath ? localArchiveUrl(data.regionalSnow.permanent.archivePath) : null;
+      const snowSeasonalTemplate = !stableSnowVector && data.regionalSnow?.available && data.regionalSnow?.seasonal?.archivePath ? localArchiveUrl(data.regionalSnow.seasonal.archivePath) : null;
       const snowDisplayMaxzoom = Math.max(7, Number(data.regionalSnow?.displayMaxzoom ?? 10));
       const snowPermanentOpacity = Number(data.regionalSnow?.displayOpacity?.permanent ?? 0.82);
       const snowSeasonalOpacity = Number(data.regionalSnow?.displayOpacity?.seasonal ?? 0.34);
@@ -669,6 +673,8 @@
         {id:'ridge-lines',type:'line',source:'lines',filter:['all',sourceFilter('ridges'),['==',['get','visible'],1]],paint:{'line-color':'#675f55','line-width':['interpolate',['linear'],['zoom'],6,0.48,10,1.12],'line-opacity':['interpolate',['linear'],['zoom'],6,0.24,10,0.40],'line-dasharray':[1.2,2.1]}}
       ];
       if (landcoverTemplate) baseLayers.splice(2,0,{id:'copernicus-landcover',type:'raster',source:'copernicus-landcover',minzoom:Number(data.regionalLandcover.minzoom),maxzoom:Number(data.regionalLandcover.maxzoom),paint:{'raster-opacity':['interpolate',['linear'],['zoom'],7,0.54,10,0.62,13,0.68],'raster-fade-duration':100}});
+      if (stableSnowVector && data.snowDisplaySeasonal?.features?.length) baseLayers.splice(-1,0,{id:'stable-snow-seasonal',type:'fill',source:'polygons',filter:sourceFilter('snowSeasonalStable'),paint:{'fill-color':'#f5fafb','fill-opacity':snowSeasonalOpacity,'fill-antialias':true}});
+      if (stableSnowVector && data.snowDisplayPermanent?.features?.length) baseLayers.splice(-1,0,{id:'stable-snow-permanent',type:'fill',source:'polygons',filter:sourceFilter('snowPermanentStable'),paint:{'fill-color':'#fafdfd','fill-opacity':snowPermanentOpacity,'fill-antialias':true}});
       if (snowSeasonalTemplate) baseLayers.splice(-1,0,{id:'satellite-snow-seasonal',type:'raster',source:'snow-seasonal',minzoom:Number(data.regionalSnow.seasonal.minzoom),paint:{'raster-opacity':snowSeasonalOpacity,'raster-fade-duration':0,'raster-resampling':'linear'}});
       if (snowPermanentTemplate) baseLayers.splice(-1,0,{id:'satellite-snow-permanent',type:'raster',source:'snow-permanent',minzoom:Number(data.regionalSnow.permanent.minzoom),paint:{'raster-opacity':snowPermanentOpacity,'raster-fade-duration':0,'raster-resampling':'linear'}});
 
@@ -683,7 +689,7 @@
           {id:'forest-fill',type:'fill',source:'openmaptiles','source-layer':'landcover',minzoom:VISIBILITY_ZOOM.DISTANT,filter:['==',['get','class'],'wood'],paint:{'fill-color':'#647b5b','fill-opacity':['interpolate',['linear'],['zoom'],7.0,0.20,8,0.26,11,0.32]}},
           {id:'forest-pattern',type:'fill',source:'openmaptiles','source-layer':'landcover',minzoom:10.5,filter:['==',['get','class'],'wood'],layout:{'visibility':qualityProfile.forestPattern?'visible':'none'},paint:{'fill-pattern':'forest-canopy','fill-opacity':['interpolate',['linear'],['zoom'],10.5,0.28,12,0.52]}}
         );
-        if (!snowPermanentTemplate) natureLayers.push(
+        if (!stableSnowVector && !snowPermanentTemplate) natureLayers.push(
           {id:'osm-glacier-fill',type:'fill',source:'openmaptiles','source-layer':'landcover',minzoom:VISIBILITY_ZOOM.DISTANT,filter:['all',['==',['get','class'],'ice'],['==',['get','subclass'],'glacier']],paint:{'fill-color':'#f2f8f7','fill-opacity':['interpolate',['linear'],['zoom'],7,0.72,9,0.90,12,0.94],'fill-outline-color':'#8fb6c1'}},
           {id:'osm-snow-fill',type:'fill',source:'openmaptiles','source-layer':'landcover',minzoom:VISIBILITY_ZOOM.DISTANT,filter:['all',['==',['get','class'],'ice'],['==',['get','subclass'],'snow']],paint:{'fill-color':'#fbfdfc','fill-opacity':['interpolate',['linear'],['zoom'],7,0.58,9,0.78,12,0.86],'fill-outline-color':'#b8ced3'}}
         );
