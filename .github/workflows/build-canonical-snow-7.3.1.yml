@@ -47,6 +47,15 @@ jobs:
       - name: Build canonical z12 snow and patch runtime
         run: |
           set -euxo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('tools/build_canonical_snow_7_3_1.py')
+          s=p.read_text(encoding='utf-8')
+          old="REFERENCE_RULES = [(11,96,12.0),(10,88,18.0),(9,80,24.0),(8,72,28.0),(7,64,32.0)]"
+          new="REFERENCE_RULES = [(11,96,8.0),(10,88,12.0),(9,80,16.0),(8,72,18.0),(7,64,20.0)]"
+          assert old in s
+          p.write_text(s.replace(old,new,1),encoding='utf-8')
+          PY
           python tools/build_canonical_snow_7_3_1.py
           cat data/snow-canonical-report-7.3.1.json
 
