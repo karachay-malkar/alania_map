@@ -6,11 +6,12 @@
 })(typeof self !== 'undefined' ? self : this, function (root) {
   'use strict';
 
-  const VERSION = '7.3.1';
-  const DEFAULT_STORAGE_KEY = 'alan-map-stage7.3.1-view';
+  const VERSION = '7.3.2';
+  const DEFAULT_STORAGE_KEY = 'alan-map-stage7.3.2-view';
   const STATE_SCHEMA_VERSION = 1;
   const STATE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
   const LEGACY_STORAGE_KEYS = [
+    'alan-map-stage7.3.1-view',
     'alan-map-stage7.3-view',
     'alan-map-stage7.2-view',
     'alan-map-stage7.1-view',
@@ -503,6 +504,13 @@
     let resizeObserver = null;
     let correctingCamera = false;
     let regionalLabelsInitializationScheduled = false;
+    let deferredDataPromise = null;
+    let deferredDataReady = Boolean(Object.keys(data.regionalLabelImages || {}).length);
+    let deferredPointsPromise = null;
+    let deferredPointsReady = Boolean((data.objects?.features || []).length);
+    const deferredPointsLoadZoom = Math.max(VISIBILITY_ZOOM.DISTANT, OBJECT_PRESENTATION.currentSettlements.minZoom - 0.5);
+    let snowSourcePromise = null;
+    let snowSourceInstalled = false;
     let api = null;
     let stateMigrationNeeded = false;
     const sourceErrors = new Map();
@@ -655,7 +663,6 @@
       };
       if (natureEnabled) sources.openmaptiles = {type:'vector',url:vectorTemplate,minzoom:Number(data.regionalVector.minzoom),maxzoom:Number(data.regionalVector.maxzoom),bounds:data.regionalVector.bounds,attribution:data.regionalVector.attribution};
       if (landcoverTemplate) sources['copernicus-landcover'] = {type:'raster',url:landcoverTemplate,tileSize:Number(data.regionalLandcover.tileSize || 256),minzoom:Number(data.regionalLandcover.minzoom),maxzoom:Number(data.regionalLandcover.maxzoom),bounds:data.regionalLandcover.bounds,attribution:data.regionalLandcover.attribution};
-      if (snowTemplate) sources.snow = {type:'raster',url:snowTemplate,tileSize:Number(data.regionalSnow.tileSize || 256),minzoom:Number(data.regionalSnow.minzoom),maxzoom:Number(data.regionalSnow.maxzoom),bounds:data.regionalSnow.bounds,attribution:data.regionalSnow.attribution};
 
       const baseLayers = [
         {id:'background',type:'background',paint:{'background-color':'#25282a'}},
@@ -664,7 +671,6 @@
         {id:'ridge-lines',type:'line',source:'lines',filter:['all',sourceFilter('ridges'),['==',['get','visible'],1]],paint:{'line-color':'#675f55','line-width':['interpolate',['linear'],['zoom'],6,0.48,10,1.12],'line-opacity':['interpolate',['linear'],['zoom'],6,0.24,10,0.40],'line-dasharray':[1.2,2.1]}}
       ];
       if (landcoverTemplate) baseLayers.splice(2,0,{id:'copernicus-landcover',type:'raster',source:'copernicus-landcover',minzoom:Number(data.regionalLandcover.minzoom),maxzoom:Number(data.regionalLandcover.maxzoom),paint:{'raster-opacity':['interpolate',['linear'],['zoom'],7,0.54,10,0.62,13,0.68],'raster-fade-duration':100}});
-      if (snowTemplate) baseLayers.splice(-1,0,{id:'satellite-snow',type:'raster',source:'snow',minzoom:Number(data.regionalSnow.minzoom),paint:{'raster-opacity':0.92,'raster-fade-duration':0,'raster-resampling':'linear'}});
 
       const natureLayers = [];
       const roadLayers = [];
@@ -752,6 +758,88 @@
       };
     }
 
+    async function ensureDeferredData(reason = 'runtime') {
+      if (deferredDataReady) return data;
+      if (deferredDataPromise) return deferredDataPromise;
+      if (typeof options.loadDeferredData !== 'function') {
+        deferredDataReady = true;
+        return data;
+      }
+      deferredDataPromise = Promise.resolve(options.loadDeferredData(reason)).then((payload) => {
+        if (payload && typeof payload === 'object') Object.assign(data,payload);
+        deferredDataReady = Boolean(Object.keys(data.regionalLabelImages || {}).length);
+        return data;
+      }).catch((error) => {
+        deferredDataPromise = null;
+        setStatus(`Отложенные данные подписей не загрузились: ${String(error?.message || error)}`,true);
+        throw error;
+      });
+      return deferredDataPromise;
+    }
+
+    async function ensureDeferredPoints(reason = 'runtime') {
+      if (deferredPointsReady) return data;
+      if (deferredPointsPromise) return deferredPointsPromise;
+      if (typeof options.loadDeferredPoints !== 'function') {
+        deferredPointsReady = true;
+        return data;
+      }
+      deferredPointsPromise = Promise.resolve(options.loadDeferredPoints(reason)).then((payload) => {
+        if (payload && typeof payload === 'object') Object.assign(data,payload);
+        deferredPointsReady = Boolean((data.objects?.features || []).length || (data.peaks?.features || []).length || (data.passes?.features || []).length);
+        const pointsSource = map?.getSource?.('points');
+        if (pointsSource?.setData) pointsSource.setData(buildRuntimeSourceData(data).points);
+        return data;
+      }).catch((error) => {
+        deferredPointsPromise = null;
+        setStatus(`Точечные объекты карты не загрузились: ${String(error?.message || error)}`,true);
+        throw error;
+      });
+      return deferredPointsPromise;
+    }
+
+    async function ensureSnowSource(reason = 'runtime') {
+      if (!data.regionalSnow?.available || !data.regionalSnow?.archivePath || !map) return false;
+      if (snowSourceInstalled || map.getSource('snow')) {
+        snowSourceInstalled = true;
+        return true;
+      }
+      if (snowSourcePromise) return snowSourcePromise;
+      snowSourcePromise = Promise.resolve(
+        typeof options.prepareSnowSource === 'function' ? options.prepareSnowSource(reason) : true
+      ).then(() => {
+        if (destroyed || !map || map.getSource('snow')) {
+          snowSourceInstalled = Boolean(map?.getSource?.('snow'));
+          return snowSourceInstalled;
+        }
+        const snowTemplate = `pmtiles://${new URL(data.regionalSnow.archivePath, document.baseURI).href}`;
+        map.addSource('snow',{
+          type:'raster',
+          url:snowTemplate,
+          tileSize:Number(data.regionalSnow.tileSize || 256),
+          minzoom:Number(data.regionalSnow.minzoom),
+          maxzoom:Number(data.regionalSnow.maxzoom),
+          bounds:data.regionalSnow.bounds,
+          attribution:data.regionalSnow.attribution
+        });
+        map.addLayer({
+          id:'satellite-snow',
+          type:'raster',
+          source:'snow',
+          minzoom:Number(data.regionalSnow.minzoom),
+          paint:{'raster-opacity':0.92,'raster-fade-duration':0,'raster-resampling':'linear'}
+        },map.getLayer('ridge-lines') ? 'ridge-lines' : undefined);
+        snowSourceInstalled = true;
+        return true;
+      }).catch((error) => {
+        snowSourcePromise = null;
+        sourceErrors.set('snow',String(error?.message || error || 'Snow source initialization failed'));
+        updateNetworkStatus();
+        return false;
+      });
+      return snowSourcePromise;
+    }
+
     function forestPatternImage() {
       const size = 64;
       const canvas = document.createElement('canvas');
@@ -814,8 +902,13 @@
       const finishInitialization = () => {
         if (!regionalLabelsInitializationScheduled) return;
         regionalLabelsInitializationScheduled = false;
-        initializeRegionalLabels3D();
-        applyLayerState();
+        ensureDeferredData('regional-labels').then(() => {
+          if (destroyed) return;
+          initializeRegionalLabels3D();
+          applyLayerState();
+        }).catch(() => {
+          if (!destroyed) showRegionalLabelsFallback('3D-названия районов не загрузили отложенные текстуры.');
+        });
       };
       map.once('idle', finishInitialization);
       setTimeout(finishInitialization, 1200);
@@ -1142,11 +1235,15 @@
 
       map.on('styleimagemissing',(event) => {
         if (event.id==='forest-canopy' && !map.hasImage(event.id)) {map.addImage(event.id,forestPatternImage(),{pixelRatio:2});return;}
-        const uri = data.regionalLabelImages?.[event.id];
-        if (!uri || map.hasImage(event.id)) return;
-        const image = new Image();
-        image.onload = () => {if (!destroyed && map && !map.hasImage(event.id)) map.addImage(event.id,image,{pixelRatio:2});};
-        image.src = uri;
+        const addRegionalImage = () => {
+          const uri = data.regionalLabelImages?.[event.id];
+          if (!uri || map.hasImage(event.id)) return;
+          const image = new Image();
+          image.onload = () => {if (!destroyed && map && !map.hasImage(event.id)) map.addImage(event.id,image,{pixelRatio:2});};
+          image.src = uri;
+        };
+        if (data.regionalLabelImages?.[event.id]) {addRegionalImage();return;}
+        ensureDeferredData('style-image-missing').then(addRegionalImage).catch(() => {});
       });
 
       if (typeof ResizeObserver === 'function') {
@@ -1166,7 +1263,16 @@
         finalizeReady('load');
         applyReliefNow(reliefInput.value);
         applyRivers(riverInput.value);
+        if (map.getZoom() >= deferredPointsLoadZoom) ensureDeferredPoints('initial-visible-zoom');
+        if (map.getZoom() >= Number(data.regionalSnow?.minzoom ?? Infinity)) ensureSnowSource('initial-visible-zoom');
         updateNetworkStatus();
+      });
+      map.once('idle',() => { ensureSnowSource('first-idle'); });
+      map.on('zoom',() => {
+        if (map.getZoom() >= deferredPointsLoadZoom) ensureDeferredPoints('approaching-object-zoom');
+      });
+      map.on('zoomend',() => {
+        if (map.getZoom() >= Number(data.regionalSnow?.minzoom ?? Infinity)) ensureSnowSource('visible-zoom');
       });
 
       map.on('sourcedata',(event) => {
@@ -1188,14 +1294,14 @@
 
       document.addEventListener('alan-map:pmtiles-range-loaded',(event) => {
         const archivePath = String(event.detail?.archivePath || '');
-        const sourceId = archivePath.includes('dem') ? 'terrain-dem' : archivePath.includes('landcover') ? 'copernicus-landcover' : archivePath.includes('vector') ? 'openmaptiles' : '';
+        const sourceId = archivePath.includes('dem') ? 'terrain-dem' : archivePath.includes('landcover') ? 'copernicus-landcover' : archivePath.includes('vector') ? 'openmaptiles' : archivePath.includes('snow') ? 'snow' : '';
         if (sourceId && sourceErrors.delete(sourceId)) updateNetworkStatus();
       },{signal:uiAbort.signal});
 
       document.addEventListener('alan-map:pmtiles-range-failed',(event) => {
         const detail = event.detail || {};
         const archivePath = String(detail.archivePath || '');
-        const sourceId = String(detail.sourceId || (archivePath.includes('dem') ? 'terrain-dem' : archivePath.includes('landcover') ? 'copernicus-landcover' : archivePath.includes('vector') ? 'openmaptiles' : 'unknown'));
+        const sourceId = String(detail.sourceId || (archivePath.includes('dem') ? 'terrain-dem' : archivePath.includes('landcover') ? 'copernicus-landcover' : archivePath.includes('vector') ? 'openmaptiles' : archivePath.includes('snow') ? 'snow' : 'unknown'));
         const status = detail.httpStatus ? `HTTP ${detail.httpStatus}; ` : '';
         const start = Number(detail.offset);
         const length = Number(detail.length);
@@ -1270,7 +1376,10 @@
         demTechnicalBaseM:DEM_TECHNICAL_BASE_M,
         demSourceBounds:expandedDemBounds(data.regionalDem?.bounds)
       }),
-      getNetworkDiagnostics:() => ({loaded:[...sourceLoaded],errors:Object.fromEntries(sourceErrors),demMode:activeDemMode,vectorMode:activeVectorMode,demUrlTemplate:activeDemTemplate}),
+      getNetworkDiagnostics:() => ({loaded:[...sourceLoaded],errors:Object.fromEntries(sourceErrors),demMode:activeDemMode,vectorMode:activeVectorMode,demUrlTemplate:activeDemTemplate,deferredDataReady,deferredPointsReady,snowSourceInstalled}),
+      ensureDeferredData,
+      ensureDeferredPoints,
+      ensureSnowSource,
       getStyleDiagnostics:() => {
         const style = map?.getStyle?.() || {sources:{},layers:[]};
         const layers = Array.isArray(style.layers) ? style.layers : [];

@@ -1,0 +1,93 @@
+{
+  "version": "7.3.2",
+  "scope": "critical-path-only-no-map-geometry-rebuild",
+  "firstFrameJavaScript": {
+    "7.3.1": {
+      "requests": 11,
+      "rawBytes": 2422883,
+      "gzipEstimateBytes": 583393
+    },
+    "7.3.2": {
+      "requests": 9,
+      "rawBytes": 1365014,
+      "gzipEstimateBytes": 363527
+    },
+    "rawReductionBytes": 1057869,
+    "rawReductionPercent": 43.66,
+    "gzipEstimateReductionBytes": 219866,
+    "gzipEstimateReductionPercent": 37.69
+  },
+  "runtimeData": {
+    "coreRawBytes": 115029,
+    "coreGzipEstimateBytes": 35182,
+    "regionalLabelsDeferredRawBytes": 199302,
+    "regionalLabelsDeferredGzipEstimateBytes": 148221,
+    "pointObjectsDeferredRawBytes": 481072,
+    "pointObjectsDeferredGzipEstimateBytes": 44746,
+    "pointObjectLoadThresholdZoom": 9.5
+  },
+  "transport": {
+    "mobileVectorFullFileFallback": false,
+    "slowConnectionVectorFullFileFallback": false,
+    "desktopGoodConnectionVectorFullFileFallback": true,
+    "prefetchStartsAfterFirstIdle": true,
+    "snowSourceDeferred": true
+  },
+  "pmtiles": [
+    {
+      "path": "data/alan-dem-7.3.pmtiles",
+      "bytes": 16699494,
+      "sha256": "215c605fa132d9d2b757822c7888f182710590b914e786da1cd03f730f1a6e8f",
+      "identicalTo7.3.1": true,
+      "minZoom": 7,
+      "maxZoom": 10,
+      "tileType": 2
+    },
+    {
+      "path": "data/alan-snow-7.3.1.pmtiles",
+      "bytes": 4503146,
+      "sha256": "5ce8e8244fa44d7e35e9e3b1c832ff46876c972c15d01c463a8060b6e5bad0c9",
+      "identicalTo7.3.1": true,
+      "minZoom": 8,
+      "maxZoom": 13,
+      "tileType": 2
+    },
+    {
+      "path": "data/alan-snow-permanent-7.2.5.pmtiles",
+      "bytes": 2399106,
+      "sha256": "080b93083d4bd96253ab370acc8621ec9a1369594aa0ad7a2d2510c2046f488f",
+      "identicalTo7.3.1": true,
+      "minZoom": 7,
+      "maxZoom": 13,
+      "tileType": 2
+    },
+    {
+      "path": "data/alan-snow-seasonal-7.2.5.pmtiles",
+      "bytes": 2384959,
+      "sha256": "153f2ea1dafc352851a50dd8efd590ecce3d67b6c7e00cf49ea1596d9f9dd9d8",
+      "identicalTo7.3.1": true,
+      "minZoom": 7,
+      "maxZoom": 13,
+      "tileType": 2
+    },
+    {
+      "path": "data/alan-vector-7.2.pmtiles",
+      "bytes": 16913027,
+      "sha256": "1d8d9417aeeba39147e7db2a6680d2032b7876633d1031f3a6fe93dde96d17fb",
+      "identicalTo7.3.1": true,
+      "minZoom": 7,
+      "maxZoom": 13,
+      "tileType": 1
+    }
+  ],
+  "staticValidation": {
+    "runtimeContract": "pass",
+    "presentationWorldSpace": "pass",
+    "snowProvenance": "pass",
+    "allStandaloneJavaScriptSyntax": "pass",
+    "allJsonParsing": "pass",
+    "allPythonAstParsing": "pass",
+    "httpRange206": "pass",
+    "browserSmoke": "not-run-environment-blocks-local-navigation"
+  }
+}

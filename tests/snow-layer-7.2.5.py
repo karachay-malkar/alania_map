@@ -11,13 +11,18 @@ source = ''.join((ROOT/f'assets/map-data.part-{i:03d}.js').read_text(encoding='u
 payload = source[source.index(MARKER)+len(MARKER):].strip().removesuffix(';')
 data = json.loads(payload)
 report = json.loads((ROOT/'data/snow-report-7.2.5.json').read_text(encoding='utf-8'))
+assert data['version'] == '7.3.2'
 assert data['bounds'] == EXPECTED_BOUNDS
 assert data['mapFrame']['features'][0]['geometry']['coordinates'][0] == EXPECTED_RING
 snow = data['regionalSnow']
-assert snow['available'] is True and snow['version'] == '7.2.5'
+assert snow['available'] is True and snow['version'] == '7.3.1'
 assert snow['bounds'] == EXPECTED_BOUNDS
 assert snow['method'] == 'worldcover-class-70-plus-multiyear-late-summer-ndsi'
 assert snow['ndsiThreshold'] == 0.4
+assert snow['minzoom'] == 8
+assert snow['maxzoom'] == 12
+assert snow['archiveMinzoom'] == 8
+assert snow['archiveMaxzoom'] == 13
 assert report['sources']['worldcover']['class'] == 70
 assert report['sources']['worldcover']['class_name'] == 'Snow and Ice'
 assert report['sources']['sentinel2']['collections_by_year'] == {
@@ -34,10 +39,11 @@ coverage = report['coverage']
 assert coverage['permanent_pixels'] > 0
 assert coverage['permanent_area_km2'] > 0
 assert coverage['elbrus_permanent_pixels_within_8km'] > 0
-for key in ('permanent','seasonal'):
-    path = ROOT/snow[key]['archivePath']
+for path_key in ('permanent','seasonal'):
+    path = ROOT/snow['sourceArchives'][path_key]
     assert path.exists() and path.stat().st_size > 1000
     assert path.stat().st_size < 100_000_000
-assert (ROOT/'data/alan-dem-7.2.pmtiles').exists()
+assert (ROOT/'data/alan-snow-7.3.1.pmtiles').exists()
+assert (ROOT/'data/alan-dem-7.3.pmtiles').exists()
 assert (ROOT/'data/alan-vector-7.2.pmtiles').exists()
-print('snow-layer-7.2.5: ok', coverage)
+print('snow-layer-7.2.5 provenance: ok', coverage)

@@ -27,6 +27,10 @@ try {
   await page.waitForFunction(()=>Boolean(window.ALAN_MAP_INSTANCE?.map?.isSourceLoaded?.('openmaptiles')),undefined,{timeout:30000});
   await page.waitForFunction(()=>Boolean(window.ALAN_MAP_GRANITE_FRAME?.ready?.()),undefined,{timeout:30000});
   assert.equal(await page.locator('[data-fantasy-toggle], .fantasy-toggle').count(),0);
+  const bootstrapDiagnostics=await page.evaluate(() => window.ALAN_MAP_BOOTSTRAP_DIAGNOSTICS?.());
+  assert.equal(bootstrapDiagnostics.version,'7.3.2');
+  assert.equal(bootstrapDiagnostics.strategy,'parallel-fetch-ordered-execution');
+  assert.equal(bootstrapDiagnostics.runtimeEval,false);
 
   const diagnostics = await page.evaluate(() => {
     const api = window.ALAN_MAP_INSTANCE;
@@ -146,6 +150,18 @@ try {
   assert.equal(regional.sharedSizeReferenceId,'region_chegem');
   assert.equal(regional.preparedLabels,16);
   assert.ok(regional.sharedLabelMetersPerPixel > 0);
+  const deferredDiagnostics=await page.evaluate(() => window.ALAN_MAP_INSTANCE.getNetworkDiagnostics());
+  assert.equal(deferredDiagnostics.deferredDataReady,true);
+  assert.equal(deferredDiagnostics.deferredPointsReady,false);
+  await page.evaluate(() => window.ALAN_MAP_INSTANCE.map.jumpTo({zoom:9.6}));
+  await page.waitForFunction(() => window.ALAN_MAP_INSTANCE?.getNetworkDiagnostics?.().deferredPointsReady === true,undefined,{timeout:30000});
+  const deferredPointDiagnostics=await page.evaluate(() => ({
+    diagnostics:window.ALAN_MAP_INSTANCE.getNetworkDiagnostics(),
+    pointCount:window.ALAN_MAP_POINT_DATA?.objects?.features?.length || 0
+  }));
+  assert.equal(deferredPointDiagnostics.diagnostics.deferredPointsReady,true);
+  assert.equal(deferredPointDiagnostics.pointCount,779);
+  await page.evaluate(() => window.ALAN_MAP_INSTANCE.map.jumpTo({zoom:7}));
 
   const presentation = await page.evaluate(() => window.ALAN_MAP_INSTANCE.getPresentationDiagnostics());
   assert.equal(presentation.regionalLabelAltitudeM,10000);
@@ -211,7 +227,7 @@ try {
     return metrics && metrics.totalNetworkRequests > 0 && metrics.renderFrames > 0;
   },undefined,{timeout:30000});
   const performanceMetrics = await page.evaluate(() => window.ALAN_MAP_PERFORMANCE_DIAGNOSTICS());
-  assert.equal(performanceMetrics.version,'7.3.1');
+  assert.equal(performanceMetrics.version,'7.3.2');
   assert.ok(performanceMetrics.totalNetworkBytes > 0);
   assert.ok(performanceMetrics.totalNetworkRequests > 0);
   assert.ok(performanceMetrics.renderFrames > 0);
@@ -222,7 +238,7 @@ try {
   let forcedVectorFailures=0;
   await mobile.route('**/data/alan-vector-7.2.pmtiles',async(route) => {
     const range=route.request().headers()['range'];
-    if (range && forcedVectorFailures < 4) {
+    if (range && forcedVectorFailures < 3) {
       forcedVectorFailures += 1;
       await route.fulfill({status:503,body:'temporary vector range failure'});
       return;
@@ -234,12 +250,15 @@ try {
   await mobile.waitForFunction(()=>Boolean(window.ALAN_MAP_INSTANCE?.map?.isSourceLoaded?.('openmaptiles')),undefined,{timeout:60000});
   const fallbackDiagnostics=await mobile.evaluate(() => window.ALAN_MAP_PMTILES_RANGE_DIAGNOSTICS?.());
   const fallbackVector=fallbackDiagnostics.archives.find(item=>item.sourceId==='openmaptiles');
-  assert.ok(forcedVectorFailures >= 4);
+  assert.ok(forcedVectorFailures >= 3);
   assert.equal(fallbackDiagnostics.mobileProfile,true);
-  assert.equal(fallbackVector.fullFileFallbackActive,true);
-  assert.equal(fallbackVector.mode,'full-file-fallback');
+  assert.equal(fallbackDiagnostics.vectorFullFileFallbackAllowed,false);
+  assert.equal(fallbackVector.fullFileFallbackAllowed,false);
+  assert.equal(fallbackVector.fullFileFallbackActive,false);
+  assert.equal(fallbackVector.mode,'http-range');
   assert.equal(fallbackVector.concurrency.limit,3);
-  assert.ok(fallbackVector.fullFileFallbackBytes >= 16_000_000);
+  assert.equal(fallbackVector.fullFileFallbackBytes,0);
+  assert.ok(fallbackVector.networkBytes < 16_000_000);
   await mobile.close();
 
   assert.ok(errors.length === 0, errors.join('\n'));

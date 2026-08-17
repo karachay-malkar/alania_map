@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '7.3.1';
+  const VERSION = '7.3.2';
   const RANGE_CACHE_BYTES = (() => {
     const memory = Number(navigator.deviceMemory || 0);
     if (memory > 0 && memory <= 2) return 12 * 1024 * 1024;
@@ -35,7 +35,12 @@
     prefetchRuns:0,
     prefetchedTiles:0,
     prefetchErrors:0,
-    prefetchEnabled:false
+    prefetchEnabled:false,
+    deferredDataRequestedMs:null,
+    deferredDataReadyMs:null,
+    deferredPointsRequestedMs:null,
+    deferredPointsReadyMs:null,
+    snowSourceRegisteredMs:null
   };
 
   class RangeLruCache {
@@ -382,6 +387,14 @@
     return coarsePointer || touchDevice || narrowViewport;
   }
 
+  function canUseVectorFullFileFallback() {
+    if (isMobileTransportProfile()) return false;
+    const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    if (connection?.saveData) return false;
+    const effectiveType = String(connection?.effectiveType || '').toLowerCase();
+    return !['slow-2g','2g','3g'].includes(effectiveType);
+  }
+
   function canPrefetch() {
     const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
     if (connection?.saveData) return false;
@@ -506,26 +519,108 @@
     const rangeCache = new RangeLruCache(RANGE_CACHE_ENTRIES,RANGE_CACHE_BYTES);
     const protocol = new window.pmtiles.Protocol();
     const archiveRecords = [];
+    const archiveByPath = new Map();
     const mobileTransport = isMobileTransportProfile();
-    const configurations = [
-      {path:data.regionalDem.archivePath,sourceId:'terrain-dem',config:data.regionalDem,prefetch:true,maxConcurrent:mobileTransport?6:10,retryDelays:RANGE_RETRY_DELAYS_MS},
-      {path:data.regionalVector.archivePath,sourceId:'openmaptiles',config:data.regionalVector,prefetch:true,maxConcurrent:mobileTransport?3:8,retryDelays:VECTOR_RANGE_RETRY_DELAYS_MS,allowFullFileFallback:true,fullFileFallbackMaxBytes:VECTOR_FULL_FILE_FALLBACK_MAX_BYTES},
-      ...(data.regionalLandcover?.archivePath ? [{path:data.regionalLandcover.archivePath,sourceId:'copernicus-landcover',config:data.regionalLandcover,prefetch:false,maxConcurrent:mobileTransport?3:6,retryDelays:RANGE_RETRY_DELAYS_MS}] : []),
-      ...(data.regionalSnow?.available && data.regionalSnow?.archivePath ? [{path:data.regionalSnow.archivePath,sourceId:'snow',config:data.regionalSnow,prefetch:false,maxConcurrent:mobileTransport?3:6,retryDelays:RANGE_RETRY_DELAYS_MS}] : [])
-    ];
-
-    for (const entry of configurations) {
+    const vectorFullFileFallbackAllowed = canUseVectorFullFileFallback();
+    const registerArchive = (entry) => {
+      if (!entry?.path) return null;
+      if (archiveByPath.has(entry.path)) return archiveByPath.get(entry.path);
       const source = new InstrumentedRangeSource(entry.path,rangeCache,entry);
       const archive = new window.pmtiles.PMTiles(source);
       protocol.add(archive);
-      archiveRecords.push({...entry,source,archive});
-    }
+      const record = {...entry,source,archive};
+      archiveByPath.set(entry.path,record);
+      archiveRecords.push(record);
+      return record;
+    };
+    const configurations = [
+      {path:data.regionalDem.archivePath,sourceId:'terrain-dem',config:data.regionalDem,prefetch:true,maxConcurrent:mobileTransport?6:10,retryDelays:RANGE_RETRY_DELAYS_MS},
+      {path:data.regionalVector.archivePath,sourceId:'openmaptiles',config:data.regionalVector,prefetch:true,maxConcurrent:mobileTransport?3:8,retryDelays:VECTOR_RANGE_RETRY_DELAYS_MS,allowFullFileFallback:vectorFullFileFallbackAllowed,fullFileFallbackMaxBytes:VECTOR_FULL_FILE_FALLBACK_MAX_BYTES},
+      ...(data.regionalLandcover?.archivePath ? [{path:data.regionalLandcover.archivePath,sourceId:'copernicus-landcover',config:data.regionalLandcover,prefetch:false,maxConcurrent:mobileTransport?3:6,retryDelays:RANGE_RETRY_DELAYS_MS}] : [])
+    ];
+
+    configurations.forEach(registerArchive);
+
+    const prepareSnowSource = () => {
+      if (!data.regionalSnow?.available || !data.regionalSnow?.archivePath) return null;
+      const record = registerArchive({
+        path:data.regionalSnow.archivePath,
+        sourceId:'snow',
+        config:data.regionalSnow,
+        prefetch:false,
+        maxConcurrent:mobileTransport?3:6,
+        retryDelays:RANGE_RETRY_DELAYS_MS
+      });
+      if (record && performanceState.snowSourceRegisteredMs === null) performanceState.snowSourceRegisteredMs = performance.now() - startedAt;
+      return record;
+    };
+
+    let deferredDataPromise = null;
+    const loadDeferredData = () => {
+      if (window.ALAN_MAP_DEFERRED_DATA?.version === VERSION) return Promise.resolve(window.ALAN_MAP_DEFERRED_DATA);
+      if (deferredDataPromise) return deferredDataPromise;
+      if (performanceState.deferredDataRequestedMs === null) performanceState.deferredDataRequestedMs = performance.now() - startedAt;
+      const configuredPath = String(data.runtimeLoading?.deferredDataScript || 'assets/map-data-deferred.js');
+      const url = new URL(configuredPath,document.baseURI);
+      url.searchParams.set('v',VERSION);
+      deferredDataPromise = new Promise((resolve,reject) => {
+        const script = document.createElement('script');
+        script.async = true;
+        script.src = url.href;
+        script.onload = () => {
+          const payload = window.ALAN_MAP_DEFERRED_DATA;
+          if (!payload || payload.version !== VERSION) {
+            reject(new Error('Alan Map: отложенные данные имеют неверную версию.'));
+            return;
+          }
+          performanceState.deferredDataReadyMs = performance.now() - startedAt;
+          resolve(payload);
+        };
+        script.onerror = () => reject(new Error('Alan Map: не загружены отложенные данные.'));
+        document.head.appendChild(script);
+      }).catch((error) => {
+        deferredDataPromise = null;
+        throw error;
+      });
+      return deferredDataPromise;
+    };
+
+    let deferredPointsPromise = null;
+    const loadDeferredPoints = () => {
+      if (window.ALAN_MAP_POINT_DATA?.version === VERSION) return Promise.resolve(window.ALAN_MAP_POINT_DATA);
+      if (deferredPointsPromise) return deferredPointsPromise;
+      if (performanceState.deferredPointsRequestedMs === null) performanceState.deferredPointsRequestedMs = performance.now() - startedAt;
+      const configuredPath = String(data.runtimeLoading?.deferredPointsScript || 'assets/map-data-points.js');
+      const url = new URL(configuredPath,document.baseURI);
+      url.searchParams.set('v',VERSION);
+      deferredPointsPromise = new Promise((resolve,reject) => {
+        const script = document.createElement('script');
+        script.async = true;
+        script.src = url.href;
+        script.onload = () => {
+          const payload = window.ALAN_MAP_POINT_DATA;
+          if (!payload || payload.version !== VERSION) {
+            reject(new Error('Alan Map: точечные данные имеют неверную версию.'));
+            return;
+          }
+          performanceState.deferredPointsReadyMs = performance.now() - startedAt;
+          resolve(payload);
+        };
+        script.onerror = () => reject(new Error('Alan Map: не загружены точечные данные.'));
+        document.head.appendChild(script);
+      }).catch((error) => {
+        deferredPointsPromise = null;
+        throw error;
+      });
+      return deferredPointsPromise;
+    };
 
     window.maplibregl.addProtocol('pmtiles',protocol.tile);
     window.ALAN_MAP_PMTILES_PROTOCOL = protocol;
     window.ALAN_MAP_PMTILES_RANGE_DIAGNOSTICS = () => ({
       mode:'adaptive-http-range',
       mobileProfile:mobileTransport,
+      vectorFullFileFallbackAllowed,
       cache:rangeCache.diagnostics(),
       archives:archiveRecords.map((record) => record.source.diagnostics())
     });
@@ -539,14 +634,21 @@
       data,
       maplibregl:window.maplibregl,
       regionalLabels3D:window.RegionalLabels3D,
-      storageKey:`alan-map-stage${VERSION}-view`
+      storageKey:`alan-map-stage${VERSION}-view`,
+      loadDeferredData,
+      loadDeferredPoints,
+      prepareSnowSource
     });
     window.ALAN_MAP_INSTANCE = mapInstance;
 
     const map = mapInstance?.map;
     if (map) {
       installRenderMetrics(map);
-      performanceState.prefetchEnabled = installPrefetch(map,archiveRecords,data);
+      map.once('idle',() => {
+        scheduleIdle(() => {
+          performanceState.prefetchEnabled = installPrefetch(map,archiveRecords,data);
+        });
+      });
     }
 
     window.ALAN_MAP_PERFORMANCE_DIAGNOSTICS = () => {
@@ -565,6 +667,11 @@
         prefetchedTiles:performanceState.prefetchedTiles,
         prefetchErrors:performanceState.prefetchErrors,
         prefetchEnabled:performanceState.prefetchEnabled,
+        deferredDataRequestedMs:performanceState.deferredDataRequestedMs,
+        deferredDataReadyMs:performanceState.deferredDataReadyMs,
+        deferredPointsRequestedMs:performanceState.deferredPointsRequestedMs,
+        deferredPointsReadyMs:performanceState.deferredPointsReadyMs,
+        snowSourceRegisteredMs:performanceState.snowSourceRegisteredMs,
         transport
       };
     };
