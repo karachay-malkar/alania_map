@@ -9,6 +9,14 @@ on:
       - 'tools/release_7_3_3.py'
       - 'tests/dem-lod-7.3.3.mjs'
       - '.github/workflows/rebuild-dem-7.3.3.yml'
+  pull_request:
+    branches: [7.3.2]
+    paths:
+      - 'assets/bootstrap.js'
+      - 'assets/dem-lod-7.3.3.js'
+      - 'tools/release_7_3_3.py'
+      - 'tests/dem-lod-7.3.3.mjs'
+      - '.github/workflows/rebuild-dem-7.3.3.yml'
   workflow_dispatch:
 
 permissions:
@@ -25,6 +33,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: 7.3.3
           fetch-depth: 1
 
       - uses: actions/setup-go@v5
