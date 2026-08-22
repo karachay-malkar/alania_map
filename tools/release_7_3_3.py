@@ -229,9 +229,23 @@ def validate_runtime_references() -> None:
         text = path.read_text(encoding="utf-8")
         if OLD_DEM in text:
             raise RuntimeError(f"{path}: stale DEM runtime reference remains")
-    for path in [ROOT / "index.html", ROOT / "assets/bootstrap.js", ROOT / "assets/map-ui.js", ROOT / "assets/map-page.js"]:
+
+    strict_version_paths = [
+        ROOT / "index.html",
+        ROOT / "assets/bootstrap.js",
+        ROOT / "assets/map-page.js",
+    ]
+    for path in strict_version_paths:
         if OLD_VERSION in path.read_text(encoding="utf-8"):
             raise RuntimeError(f"{path}: stale release version remains")
+
+    ui_path = ROOT / "assets/map-ui.js"
+    ui_text = ui_path.read_text(encoding="utf-8")
+    legacy_key = "alan-map-stage7.3.2-view"
+    if legacy_key not in ui_text:
+        raise RuntimeError("map-ui.js: 7.3.2 legacy storage migration key missing")
+    if OLD_VERSION in ui_text.replace(legacy_key, ""):
+        raise RuntimeError("map-ui.js: stale 7.3.2 runtime reference remains outside legacy storage migration")
 
 
 def main() -> None:
