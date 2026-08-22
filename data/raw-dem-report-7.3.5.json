@@ -1,0 +1,25 @@
+{
+  "version": "7.3.5",
+  "archive": "data/alan-dem-7.3.5.pmtiles",
+  "header": {
+    "minZoom": 7,
+    "maxZoom": 12,
+    "tileType": 2
+  },
+  "tile": {
+    "z": 7,
+    "x": 79,
+    "y": 46,
+    "width": 256,
+    "height": 256,
+    "px": 22,
+    "py": 220
+  },
+  "sample": {
+    "r": 2,
+    "g": 87,
+    "b": 136,
+    "alpha": 255,
+    "elevation": 5348
+  }
+}
