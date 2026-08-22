@@ -1,0 +1,36 @@
+name: QA terrain continuity
+
+on:
+  pull_request:
+    branches: [7.3.3]
+    paths:
+      - 'tests/live-terrain-zoom-audit.mjs'
+      - '.github/workflows/terrain-continuity-audit.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  terrain:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: qa-7.3.3-live-perf
+          fetch-depth: 1
+      - name: Install Chromium
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Audit live terrain across zoom
+        env:
+          LIVE_URL: https://karachay-malkar.github.io/alania_map/
+        run: |
+          node tests/live-terrain-zoom-audit.mjs | tee /tmp/terrain-continuity.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: terrain-continuity-7.3.3
+          path: /tmp/terrain-continuity.txt
+          retention-days: 7
