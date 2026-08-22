@@ -1,0 +1,36 @@
+{
+  "version": "7.3.5",
+  "stableRef": "7.2.5",
+  "maplibreIdentical": true,
+  "pmtilesIdentical": true,
+  "maplibreCurrentSha256": "bd5ebca920cef204a0343d9c736877167a58652b97804de4c867a42c8268f6c1",
+  "maplibreStableSha256": "bd5ebca920cef204a0343d9c736877167a58652b97804de4c867a42c8268f6c1",
+  "pmtilesCurrentSha256": "76c6d68f0db347da8988874452f919d146d091f999d64e8b0db03b4f29c2058f",
+  "pmtilesStableSha256": "76c6d68f0db347da8988874452f919d146d091f999d64e8b0db03b4f29c2058f",
+  "stableRegionalDem": {
+    "available": true,
+    "archivePath": "data/alan-dem-7.2.pmtiles",
+    "tileSize": 256,
+    "minzoom": 7,
+    "maxzoom": 12,
+    "bounds": [
+      40.51784,
+      42.734095,
+      44.184003,
+      44.534975
+    ],
+    "encoding": "mapbox",
+    "physicallyClipped": true,
+    "sourceSnapshot": "Copernicus DEM GLO-30 public COGs",
+    "attribution": "Copernicus DEM GLO-30",
+    "source": "Copernicus DEM GLO-30",
+    "physicalClipGeometry": "mapFrame",
+    "outsideTilesRemoved": true,
+    "outsidePixelsTransparent": true,
+    "heightQuantizationM": 1,
+    "lodModel": "single-pyramid-z7-z12",
+    "streamingMode": "http-range",
+    "tileContainer": "PMTiles",
+    "tileImageFormat": "PNG lossless mixed RGB/RGBA"
+  }
+}
