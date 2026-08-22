@@ -9,6 +9,7 @@
     'map-data-core.js',
     'map-core.js',
     'map-ui.js',
+    'dem-lod-7.3.2.js',
     'map-presentation-r2.js',
     'map-granite-frame.js',
     'map-page.js'
