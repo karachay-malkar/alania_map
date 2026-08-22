@@ -1,0 +1,139 @@
+name: Compare browser terrain 7.2.5 vs 7.3.5
+
+on:
+  push:
+    branches: [7.3.5]
+    paths:
+      - '.github/workflows/diag-baseline-browser-7.3.5.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 7.3.5
+          fetch-depth: 1
+
+      - name: Publish run handle
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > data/baseline-browser-validation-7.3.5.json <<EOF
+          {"version":"7.3.5","status":"running","runId":${{ github.run_id }}}
+          EOF
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/baseline-browser-validation-7.3.5.json
+          git commit -m "Start browser baseline comparison [skip ci]"
+          git pull --rebase origin 7.3.5
+          git push origin HEAD:7.3.5
+
+      - name: Materialize stable 7.2.5 tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin 7.2.5 --depth=1
+          mkdir -p /tmp/alan-stable
+          git archive FETCH_HEAD | tar -x -C /tmp/alan-stable
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Chromium
+        shell: bash
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Compare terrain runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > /tmp/compare.mjs <<'NODE'
+          import { chromium } from 'playwright';
+          import { spawn } from 'node:child_process';
+          import fs from 'node:fs';
+
+          const roots = [
+            {name:'7.2.5', root:'/tmp/alan-stable', port:4181},
+            {name:'7.3.5', root:process.cwd(), port:4182}
+          ];
+          const servers=[];
+          let browser;
+          async function sample(page,name){
+            await page.waitForFunction(()=>Boolean(window.ALAN_MAP_INSTANCE?.map?.getSource?.('terrain-dem')),undefined,{timeout:60000});
+            await page.waitForFunction(()=>window.ALAN_MAP_INSTANCE?.map?.getTerrain?.()?.source==='terrain-dem',undefined,{timeout:60000});
+            await page.evaluate(()=>window.ALAN_MAP_INSTANCE.map.jumpTo({center:[42.4392,43.3499],zoom:7,pitch:58,bearing:0}));
+            const result=await page.evaluate(async(name)=>{
+              const map=window.ALAN_MAP_INSTANCE.map;
+              const started=performance.now();
+              let last=null;
+              while(performance.now()-started<15000){
+                const c=map.getCenter();
+                last={
+                  name,
+                  center:[c.lng,c.lat],
+                  zoom:map.getZoom(),
+                  pitch:map.getPitch(),
+                  terrain:map.getTerrain(),
+                  sourceLoaded:map.isSourceLoaded('terrain-dem'),
+                  elevation:map.queryTerrainElevation({lng:42.4392,lat:43.3499},{exaggerated:false}),
+                  centerElevation:typeof map.getCenterElevation==='function'?map.getCenterElevation():null,
+                  transport:window.ALAN_MAP_PMTILES_RANGE_DIAGNOSTICS?.()
+                };
+                if(last.sourceLoaded && ((Number.isFinite(last.elevation)&&Math.abs(last.elevation)>25)||(Number.isFinite(last.centerElevation)&&Math.abs(last.centerElevation)>25))) break;
+                map.triggerRepaint();
+                await new Promise(r=>setTimeout(r,250));
+              }
+              return last;
+            },name);
+            return result;
+          }
+          try{
+            for(const item of roots){
+              const server=spawn('python3',['tools/range_http_server.py',String(item.port),'--bind','127.0.0.1'],{cwd:item.root,stdio:'ignore'});
+              servers.push(server);
+            }
+            await new Promise(r=>setTimeout(r,1500));
+            browser=await chromium.launch({headless:true});
+            const results=[];
+            for(const item of roots){
+              const page=await browser.newPage({viewport:{width:1280,height:900}});
+              const pageErrors=[]; page.on('pageerror',e=>pageErrors.push(String(e)));
+              await page.goto(`http://127.0.0.1:${item.port}/`,{waitUntil:'domcontentloaded',timeout:30000});
+              const result=await sample(page,item.name);
+              result.pageErrors=pageErrors;
+              results.push(result);
+              console.log('BASELINE '+JSON.stringify(result));
+              await page.close();
+            }
+            const report={version:'7.3.5',results};
+            fs.writeFileSync('data/baseline-browser-report-7.3.5.json',JSON.stringify(report,null,2)+'\n');
+          } finally {
+            if(browser) await browser.close();
+            for(const s of servers) s.kill('SIGTERM');
+          }
+          NODE
+          NODE_PATH="$PWD/node_modules" node /tmp/compare.mjs
+
+      - name: Publish comparison
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          STATUS='${{ job.status }}'
+          cat > data/baseline-browser-validation-7.3.5.json <<EOF
+          {"version":"7.3.5","status":"$STATUS","runId":${{ github.run_id }}}
+          EOF
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/baseline-browser-validation-7.3.5.json
+          test ! -f data/baseline-browser-report-7.3.5.json || git add data/baseline-browser-report-7.3.5.json
+          git commit -m "Publish browser baseline comparison [skip ci]" || true
+          git pull --rebase origin 7.3.5
+          git push origin HEAD:7.3.5
