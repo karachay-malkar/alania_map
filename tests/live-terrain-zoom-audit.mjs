@@ -1,3 +1,4 @@
+// QA-only: probes live terrain continuity across zoom boundaries.
 import { chromium } from 'playwright';
 
 const URL = process.env.LIVE_URL || 'https://karachay-malkar.github.io/alania_map/';
