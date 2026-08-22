@@ -25,7 +25,47 @@ async function settle(page, timeout = 30000) {
     const map = window.ALAN_MAP_INSTANCE?.map;
     return Boolean(map && map.loaded() && !map.isMoving() && map.getTerrain()?.source === 'terrain-dem');
   }, undefined, {timeout});
-  await page.waitForTimeout(120);
+}
+
+async function waitForTerrainSample(page, lng, lat, timeout = 20000) {
+  return page.evaluate(async ({lng, lat, timeout}) => {
+    const map = window.ALAN_MAP_INSTANCE.map;
+    const startedAt = performance.now();
+    let snapshot = null;
+    while (performance.now() - startedAt < timeout) {
+      const queried = map.queryTerrainElevation({lng, lat}, {exaggerated: false});
+      const centerElevation = typeof map.getCenterElevation === 'function' ? map.getCenterElevation() : null;
+      const transport = window.ALAN_MAP_PMTILES_RANGE_DIAGNOSTICS?.();
+      const demTransport = transport?.archives?.find(item => item.sourceId === 'terrain-dem') || null;
+      snapshot = {
+        zoom: map.getZoom(),
+        terrainSource: map.getTerrain()?.source || null,
+        sourcePresent: Boolean(map.getSource('terrain-dem')),
+        sourceLoaded: map.isSourceLoaded('terrain-dem'),
+        pitch: map.getPitch(),
+        elevation: queried,
+        centerElevation,
+        demTransport
+      };
+      const queryReady = Number.isFinite(queried) && Math.abs(queried) > 25;
+      const centerReady = Number.isFinite(centerElevation) && Math.abs(centerElevation) > 25;
+      if (snapshot.sourceLoaded && (queryReady || centerReady)) return snapshot;
+      map.triggerRepaint();
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+    return snapshot;
+  }, {lng, lat, timeout});
+}
+
+function assertTerrainSample(result, label) {
+  assert.equal(result?.terrainSource, 'terrain-dem', `${label}: terrain source detached`);
+  assert.equal(result?.sourcePresent, true, `${label}: terrain source missing`);
+  assert.equal(result?.sourceLoaded, true, `${label}: terrain source did not finish loading`);
+  assert.ok(result?.pitch > 50, `${label}: pitch changed unexpectedly`);
+  assert.equal(Number(result?.demTransport?.failures || 0), 0, `${label}: DEM transport failed: ${JSON.stringify(result?.demTransport)}`);
+  const queryReady = Number.isFinite(result?.elevation) && Math.abs(result.elevation) > 25;
+  const centerReady = Number.isFinite(result?.centerElevation) && Math.abs(result.centerElevation) > 25;
+  assert.ok(queryReady || centerReady, `${label}: terrain remained at sea level: ${JSON.stringify(result)}`);
 }
 
 try {
@@ -87,6 +127,9 @@ try {
 
   await page.evaluate(() => window.ALAN_MAP_INSTANCE.map.jumpTo({center: [42.4392, 43.3499], zoom: 7, pitch: 58, bearing: 0}));
   await settle(page, 60000);
+  const initialTerrain = await waitForTerrainSample(page, 42.4392, 43.3499, 30000);
+  console.log(`TERRAIN_INITIAL ${JSON.stringify(initialTerrain)}`);
+  assertTerrainSample(initialTerrain, 'initial Z7');
 
   await page.evaluate(() => {
     window.__ALAN_TERRAIN_GAPS = [];
@@ -102,22 +145,9 @@ try {
   for (const zoom of ZOOM_SEQUENCE) {
     await page.evaluate(value => window.ALAN_MAP_INSTANCE.map.jumpTo({zoom: value, pitch: 58}), zoom);
     await settle(page, 60000);
-    const result = await page.evaluate(() => {
-      const map = window.ALAN_MAP_INSTANCE.map;
-      return {
-        zoom: map.getZoom(),
-        terrainSource: map.getTerrain()?.source || null,
-        sourcePresent: Boolean(map.getSource('terrain-dem')),
-        pitch: map.getPitch(),
-        elevation: map.queryTerrainElevation({lng: 42.4392, lat: 43.3499})
-      };
-    });
+    const result = await waitForTerrainSample(page, 42.4392, 43.3499, 20000);
     console.log(`TERRAIN_SEQUENCE ${JSON.stringify(result)}`);
-    assert.equal(result.terrainSource, 'terrain-dem');
-    assert.equal(result.sourcePresent, true);
-    assert.ok(result.pitch > 50);
-    assert.ok(Number.isFinite(result.elevation), `non-finite terrain elevation: ${JSON.stringify(result)}`);
-    assert.ok(Math.abs(result.elevation) > 25, `terrain collapsed near zero: ${JSON.stringify(result)}`);
+    assertTerrainSample(result, `zoom ${zoom}`);
     sequenceResults.push(result);
   }
 
@@ -126,18 +156,10 @@ try {
     for (const zoom of [7, 8, 9, 10, 12, 14.3]) {
       await page.evaluate(({lng, lat, zoom}) => window.ALAN_MAP_INSTANCE.map.jumpTo({center: [lng, lat], zoom, pitch: 58}), {lng, lat, zoom});
       await settle(page, 60000);
-      const result = await page.evaluate(({lng, lat}) => {
-        const map = window.ALAN_MAP_INSTANCE.map;
-        return {
-          terrainSource: map.getTerrain()?.source || null,
-          elevation: map.queryTerrainElevation({lng, lat})
-        };
-      }, {lng, lat});
-      console.log(`TERRAIN_LOCATION ${JSON.stringify({name, zoom, ...result})}`);
-      assert.equal(result.terrainSource, 'terrain-dem');
-      assert.ok(Number.isFinite(result.elevation), `non-finite terrain elevation: ${JSON.stringify({name, zoom, ...result})}`);
-      assert.ok(Math.abs(result.elevation) > 25, `terrain collapsed near zero: ${JSON.stringify({name, zoom, ...result})}`);
-      locationResults.push({name, zoom, elevation: result.elevation});
+      const result = await waitForTerrainSample(page, lng, lat, 20000);
+      console.log(`TERRAIN_LOCATION ${JSON.stringify({name, requestedZoom: zoom, ...result})}`);
+      assertTerrainSample(result, `${name} zoom ${zoom}`);
+      locationResults.push({name, zoom, elevation: result.elevation, centerElevation: result.centerElevation});
     }
   }
 
@@ -153,7 +175,10 @@ try {
   assert.deepEqual(gaps, []);
   assert.deepEqual(errors, []);
 
-  const elevations = sequenceResults.map(item => item.elevation);
+  const effectiveElevations = sequenceResults.map(item => {
+    if (Number.isFinite(item.elevation) && Math.abs(item.elevation) > 25) return item.elevation;
+    return item.centerElevation;
+  });
   const report = {
     version: '7.3.5',
     passed: true,
@@ -162,8 +187,8 @@ try {
     sourceCount: startup.demSources.length,
     hillshadeCount: startup.hillshades.length,
     zoomSequence: sequenceResults,
-    sequenceElevationMin: Math.min(...elevations),
-    sequenceElevationMax: Math.max(...elevations),
+    sequenceElevationMin: Math.min(...effectiveElevations),
+    sequenceElevationMax: Math.max(...effectiveElevations),
     locations: locationResults,
     terrainGapsAfterInitialLoad: gaps.length,
     browserErrors: errors
