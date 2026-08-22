@@ -1,15 +1,15 @@
 (() => {
   'use strict';
 
-  const RELEASE = '7.3.3';
+  const RELEASE = '7.3.5';
   const baseUrl = new URL('.', document.currentScript.src);
   const scripts = [
     'maplibre.js',
     'pmtiles.js',
     'map-data-core.js',
+    'terrain-reset-config-7.3.5.js',
     'map-core.js',
     'map-ui.js',
-    'dem-lod-7.3.3.js',
     'map-presentation-r2.js',
     'map-granite-frame.js',
     'map-page.js'
@@ -44,6 +44,7 @@
     version: RELEASE,
     strategy: 'parallel-fetch-ordered-execution',
     runtimeEval: false,
+    terrainRuntime: 'maplibre-native-single-source',
     scripts: [...scripts]
   });
 })();
