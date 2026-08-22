@@ -1,6 +1,6 @@
 {
   "version": "7.3.5",
-  "status": "running",
+  "status": "failure",
   "runId": 32579016210,
   "testedCommit": "0c4c55638ea1d8836d007586cf41d7ba5d91f6a2",
   "artifact": "alan-map-7.3.5",
