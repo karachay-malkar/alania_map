@@ -6,6 +6,7 @@ on:
     paths:
       - 'tests/live-performance-audit.mjs'
       - 'tests/live-bottleneck-isolation.mjs'
+      - 'tests/live-terrain-zoom-audit.mjs'
       - '.github/workflows/live-performance-audit.yml'
   workflow_dispatch:
 
@@ -45,6 +46,11 @@ jobs:
           LIVE_URL: https://karachay-malkar.github.io/alania_map/
         run: |
           node tests/live-bottleneck-isolation.mjs | tee /tmp/live-bottleneck-isolation.txt
+      - name: Audit terrain continuity across zoom
+        env:
+          LIVE_URL: https://karachay-malkar.github.io/alania_map/
+        run: |
+          node tests/live-terrain-zoom-audit.mjs | tee /tmp/live-terrain-zoom-audit.txt
       - name: Upload QA output
         uses: actions/upload-artifact@v4
         with:
@@ -52,6 +58,7 @@ jobs:
           path: |
             /tmp/live-performance-audit.txt
             /tmp/live-bottleneck-isolation.txt
+            /tmp/live-terrain-zoom-audit.txt
             /tmp/live-headers.txt
             /tmp/alan-map-http.log
           retention-days: 7
