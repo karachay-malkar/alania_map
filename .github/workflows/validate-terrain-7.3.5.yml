@@ -19,6 +19,26 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Publish validation run handle
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > data/validation-receipt-7.3.5.json <<EOF
+          {
+            "version": "7.3.5",
+            "status": "running",
+            "runId": ${{ github.run_id }},
+            "testedCommit": "${{ github.sha }}",
+            "artifact": "alan-map-7.3.5",
+            "terrainArchitecture": "maplibre-native-single-source"
+          }
+          EOF
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/validation-receipt-7.3.5.json
+          git commit -m "Start 7.3.5 validation [skip ci]"
+          git push origin HEAD:7.3.5
+
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
@@ -51,13 +71,32 @@ jobs:
       - name: Validate continuous native terrain
         run: node tests/terrain-reset-7.3.5.mjs
 
+      - name: Publish successful runtime result
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp build/terrain-reset-runtime-7.3.5.json data/terrain-reset-runtime-7.3.5.json
+          cat > data/validation-receipt-7.3.5.json <<EOF
+          {
+            "version": "7.3.5",
+            "status": "success",
+            "runId": ${{ github.run_id }},
+            "testedCommit": "${{ github.sha }}",
+            "artifact": "alan-map-7.3.5",
+            "terrainArchitecture": "maplibre-native-single-source"
+          }
+          EOF
+          git add data/terrain-reset-runtime-7.3.5.json data/validation-receipt-7.3.5.json
+          git commit -m "Publish 7.3.5 runtime result [skip ci]"
+          git push origin HEAD:7.3.5
+
       - name: Package complete project
-        if: success()
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p /tmp/alan-map-7.3.5
-          cp build/terrain-reset-runtime-7.3.5.json /tmp/alan-map-7.3.5/
+          cp data/terrain-reset-runtime-7.3.5.json /tmp/alan-map-7.3.5/
+          cp data/validation-receipt-7.3.5.json /tmp/alan-map-7.3.5/
           find . -type f \
             ! -path './.git/*' \
             ! -path './node_modules/*' \
@@ -74,7 +113,6 @@ jobs:
           sha256sum /tmp/alan-map-7.3.5/alan-map-7.3.5.zip > /tmp/alan-map-7.3.5/archive-sha256.txt
 
       - name: Upload release archive
-        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: alan-map-7.3.5
@@ -82,29 +120,22 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Publish validation status
-        if: always()
+      - name: Publish failure status
+        if: failure()
         shell: bash
         run: |
           set -euo pipefail
-          if [ -f build/terrain-reset-runtime-7.3.5.json ]; then
-            cp build/terrain-reset-runtime-7.3.5.json data/terrain-reset-runtime-7.3.5.json
-          fi
           cat > data/validation-receipt-7.3.5.json <<EOF
           {
             "version": "7.3.5",
-            "status": "${{ job.status }}",
+            "status": "failure",
             "runId": ${{ github.run_id }},
             "testedCommit": "${{ github.sha }}",
             "artifact": "alan-map-7.3.5",
             "terrainArchitecture": "maplibre-native-single-source"
           }
           EOF
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add data/validation-receipt-7.3.5.json
-          if [ -f data/terrain-reset-runtime-7.3.5.json ]; then
-            git add data/terrain-reset-runtime-7.3.5.json
-          fi
-          git commit -m "Publish 7.3.5 validation status [skip ci]"
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Publish 7.3.5 validation failure [skip ci]"
           git push origin HEAD:7.3.5
