@@ -81,6 +81,7 @@ jobs:
           import hashlib, json, math, pathlib, subprocess
           source='data/alan-dem-7.3.pmtiles'
           output='data/alan-dem-7.3.3.pmtiles'
+          png=b'\x89PNG\r\n\x1a\n'
           probes=[
               ('center',42.350921,43.634535),
               ('mingi_tau',42.4392,43.3499),
@@ -101,17 +102,17 @@ jobs:
                   x,y=tile(lon,lat,z)
                   src_rc,src,src_err=read_tile(source,z,x,y)
                   out_rc,out,out_err=read_tile(output,z,x,y)
-                  if src_rc != 0 or out_rc != 0 or not src or not out:
-                      raise SystemExit(f'missing retained tile {name} z{z}/{x}/{y}: src={src_err} out={out_err}')
+                  if src_rc != 0 or out_rc != 0 or not src.startswith(png) or not out.startswith(png):
+                      raise SystemExit(f'missing retained PNG DEM tile {name} z{z}/{x}/{y}: src={src_err} out={out_err}')
                   if src != out:
                       raise SystemExit(f'retained tile changed: {name} z{z}/{x}/{y}')
                   current[str(z)]={'x':x,'y':y,'bytes':len(out),'sha256':hashlib.sha256(out).hexdigest()}
               z=8
               x,y=tile(lon,lat,z)
               rc,data,err=read_tile(output,z,x,y)
-              if rc == 0 and data:
-                  raise SystemExit(f'z8 unexpectedly exists: {name} {z}/{x}/{y} bytes={len(data)}')
-              current['8']={'x':x,'y':y,'nativeTile':False,'returncode':rc}
+              if data.startswith(png):
+                  raise SystemExit(f'z8 unexpectedly contains native PNG DEM tile: {name} {z}/{x}/{y} bytes={len(data)}')
+              current['8']={'x':x,'y':y,'nativeTile':False,'returncode':rc,'cliMessage':data.decode(errors='replace').strip()}
               report['probes'][name]=current
           pathlib.Path('build/dem-probe-report.json').write_text(json.dumps(report,indent=2)+'\n')
           print(json.dumps(report,indent=2))
