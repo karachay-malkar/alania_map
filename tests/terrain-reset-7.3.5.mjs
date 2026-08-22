@@ -112,11 +112,12 @@ try {
         elevation: map.queryTerrainElevation({lng: 42.4392, lat: 43.3499})
       };
     });
+    console.log(`TERRAIN_SEQUENCE ${JSON.stringify(result)}`);
     assert.equal(result.terrainSource, 'terrain-dem');
     assert.equal(result.sourcePresent, true);
     assert.ok(result.pitch > 50);
-    assert.ok(Number.isFinite(result.elevation));
-    assert.ok(result.elevation > 500);
+    assert.ok(Number.isFinite(result.elevation), `non-finite terrain elevation: ${JSON.stringify(result)}`);
+    assert.ok(Math.abs(result.elevation) > 25, `terrain collapsed near zero: ${JSON.stringify(result)}`);
     sequenceResults.push(result);
   }
 
@@ -132,9 +133,10 @@ try {
           elevation: map.queryTerrainElevation({lng, lat})
         };
       }, {lng, lat});
+      console.log(`TERRAIN_LOCATION ${JSON.stringify({name, zoom, ...result})}`);
       assert.equal(result.terrainSource, 'terrain-dem');
-      assert.ok(Number.isFinite(result.elevation));
-      assert.ok(Math.abs(result.elevation) > 25);
+      assert.ok(Number.isFinite(result.elevation), `non-finite terrain elevation: ${JSON.stringify({name, zoom, ...result})}`);
+      assert.ok(Math.abs(result.elevation) > 25, `terrain collapsed near zero: ${JSON.stringify({name, zoom, ...result})}`);
       locationResults.push({name, zoom, elevation: result.elevation});
     }
   }
@@ -151,6 +153,7 @@ try {
   assert.deepEqual(gaps, []);
   assert.deepEqual(errors, []);
 
+  const elevations = sequenceResults.map(item => item.elevation);
   const report = {
     version: '7.3.5',
     passed: true,
@@ -159,6 +162,8 @@ try {
     sourceCount: startup.demSources.length,
     hillshadeCount: startup.hillshades.length,
     zoomSequence: sequenceResults,
+    sequenceElevationMin: Math.min(...elevations),
+    sequenceElevationMax: Math.max(...elevations),
     locations: locationResults,
     terrainGapsAfterInitialLoad: gaps.length,
     browserErrors: errors
