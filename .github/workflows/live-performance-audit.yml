@@ -1,0 +1,50 @@
+name: QA live map performance audit
+
+on:
+  pull_request:
+    branches: [7.3.3]
+    paths:
+      - 'tests/live-performance-audit.mjs'
+      - '.github/workflows/live-performance-audit.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: qa-7.3.3-live-perf
+          fetch-depth: 1
+      - name: Probe public site
+        run: |
+          set -euxo pipefail
+          curl -sSIL --max-time 30 https://karachay-malkar.github.io/alania_map/ | tee /tmp/live-headers.txt || true
+      - name: Install Playwright
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Start local 7.3.3 server
+        run: |
+          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/alan-map-http.log 2>&1 &
+          echo $! > /tmp/alan-map-http.pid
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:4173/ >/dev/null && break; sleep 1; done
+      - name: Run cold and warm browser audit
+        env:
+          LIVE_URL: https://karachay-malkar.github.io/alania_map/
+          LOCAL_URL: http://127.0.0.1:4173/
+        run: |
+          node tests/live-performance-audit.mjs | tee /tmp/live-performance-audit.txt
+      - name: Upload QA output
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-performance-audit-7.3.3
+          path: |
+            /tmp/live-performance-audit.txt
+            /tmp/live-headers.txt
+            /tmp/alan-map-http.log
+          retention-days: 7
