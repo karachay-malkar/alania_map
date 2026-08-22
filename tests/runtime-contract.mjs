@@ -11,11 +11,11 @@ const dataSource = fs.readFileSync('assets/map-data.part-000.js','utf8') + fs.re
 const runtimeDataSource = fs.readFileSync('assets/map-data-core.js','utf8');
 const deferredDataSource = fs.readFileSync('assets/map-data-deferred.js','utf8');
 const deferredPointsSource = fs.readFileSync('assets/map-data-points.js','utf8');
-const runtimeLoadingReport = JSON.parse(fs.readFileSync('data/runtime-loading-report-7.3.2.json','utf8'));
+const runtimeLoadingReport = JSON.parse(fs.readFileSync('data/runtime-loading-report-7.3.3.json','utf8'));
 const indexSource = fs.readFileSync('index.html','utf8');
 const nameReview = JSON.parse(fs.readFileSync('data/settlement-name-review-7.2.4.json','utf8'));
 
-assert.match(uiSource, /const VERSION = '7\.3\.2'/);
+assert.match(uiSource, /const VERSION = '7\.3\.3'/);
 assert.ok(!bootstrap.includes('fantasy-relief.js'));
 assert.ok(!bootstrap.includes('fantasy-style.js'));
 assert.ok(!fs.existsSync('assets/fantasy-relief.js'));
@@ -52,7 +52,7 @@ assert.match(page, /installPrefetch/);
 assert.match(page, /RANGE_RETRY_DELAYS_MS/);
 assert.match(page, /navigator\.maxTouchPoints/);
 assert.match(page, /prefetchEnabled/);
-assert.match(indexSource, /bootstrap\.js\?v=7\.3\.2/);
+assert.match(indexSource, /bootstrap\.js\?v=7\.3\.3/);
 assert.ok(!indexSource.includes('map-presentation-r2.js?v='));
 assert.ok(!indexSource.includes('map-presentation.js?v='));
 assert.match(bootstrap,/map-presentation-r2\.js/);
@@ -176,10 +176,10 @@ const parseWrappedPayload = (source, wrapper) => {
 const runtimeData = parseWrappedPayload(runtimeDataSource,'window.ALAN_MAP_DATA = ');
 const deferredData = parseWrappedPayload(deferredDataSource,'window.ALAN_MAP_DEFERRED_DATA = ');
 const deferredPoints = parseWrappedPayload(deferredPointsSource,'window.ALAN_MAP_POINT_DATA = ');
-assert.equal(runtimeData.version,'7.3.2');
-assert.equal(runtimeData.applicationVersion,'7.3.2');
-assert.equal(runtimeData.stage,'7.3.2');
-assert.equal(runtimeData.runtimeLoading?.version,'7.3.2');
+assert.equal(runtimeData.version,'7.3.3');
+assert.equal(runtimeData.applicationVersion,'7.3.3');
+assert.equal(runtimeData.stage,'7.3.3');
+assert.equal(runtimeData.runtimeLoading?.version,'7.3.3');
 assert.equal(runtimeData.runtimeLoading?.maplibreBundle,'assets/maplibre.js');
 assert.equal(runtimeData.runtimeLoading?.coreDataScript,'assets/map-data-core.js');
 assert.equal(runtimeData.runtimeLoading?.deferredDataScript,'assets/map-data-deferred.js');
@@ -188,9 +188,9 @@ assert.deepEqual(runtimeData.runtimeLoading?.deferredKeys,['regionalLabelImages'
 assert.deepEqual(runtimeData.runtimeLoading?.deferredPointKeys,['objects','modernObjects','passes','peaks','highPeaks']);
 assert.equal(runtimeData.runtimeLoading?.snowSourceDeferredUntilFirstIdle,true);
 assert.equal(Object.keys(runtimeData.regionalLabelImages || {}).length,0);
-assert.equal(deferredData.version,'7.3.2');
+assert.equal(deferredData.version,'7.3.3');
 assert.equal(Object.keys(deferredData.regionalLabelImages || {}).length,16);
-assert.equal(runtimeLoadingReport.version,'7.3.2');
+assert.equal(runtimeLoadingReport.version,'7.3.3');
 assert.ok(runtimeLoadingReport.initialDataRawReductionPercent > 85);
 assert.ok(runtimeLoadingReport.initialDataGzipReductionPercent > 80);
 assert.equal(runtimeLoadingReport.objectsFeatureCount,779);
@@ -201,7 +201,7 @@ assert.equal((runtimeData.modernObjects?.features || []).length,0);
 assert.equal((runtimeData.passes?.features || []).length,0);
 assert.equal((runtimeData.peaks?.features || []).length,0);
 assert.equal((runtimeData.highPeaks?.features || []).length,0);
-assert.equal(deferredPoints.version,'7.3.2');
+assert.equal(deferredPoints.version,'7.3.3');
 const deferredActiveSettlements=(deferredPoints.objects?.features || []).filter(feature =>
   feature.properties?.object_type === 'settlement' && feature.properties?.object_subtype !== 'historic_settlement'
 );
@@ -210,21 +210,21 @@ assert.ok(deferredActiveSettlements.every(feature => !('source_catalog' in (feat
 assert.ok(deferredActiveSettlements.every(feature => 'description_ru' in (feature.properties || {})));
 assert.match(uiSource,/pointsSource\?\.setData/);
 assert.match(uiSource,/deferredPointsLoadZoom/);
-assert.equal(data.version, '7.3.2');
-assert.equal(data.applicationVersion, '7.3.2');
-assert.equal(data.stage, '7.3.2');
+assert.equal(data.version, '7.3.3');
+assert.equal(data.applicationVersion, '7.3.3');
+assert.equal(data.stage, '7.3.3');
 assert.equal(data.regionalDem.source, 'Copernicus DEM GLO-30');
 assert.equal(data.regionalDem.encoding, 'mapbox');
 
 assert.equal(data.regionalDem.streamingMode, 'http-range');
-assert.equal(data.regionalDem.lodModel, 'hierarchical-z10-to-z8-z7-shared-512-overzoom');
+assert.equal(data.regionalDem.lodModel, 'physical-z7-z9-z10-three-level-512-overzoom');
 assert.equal(data.regionalDem.heightQuantizationM, 1);
-assert.equal(data.regionalDem.archivePath, 'data/alan-dem-7.3.pmtiles');
+assert.equal(data.regionalDem.archivePath, 'data/alan-dem-7.3.3.pmtiles');
 assert.equal(data.regionalDem.maxzoom, 10);
 assert.equal(data.regionalDem.tileSize, 512);
 assert.equal(data.regionalDem.highestNativeZoom, 10);
 assert.equal(data.regionalDem.overzoomFrom, 10);
-assert.equal(data.regionalDem.geometryGeneralization, 'hierarchical-area-lowpass-z10-to-z8-z7-shared');
+assert.equal(data.regionalDem.geometryGeneralization, 'hierarchical-area-lowpass-z10-to-z9-z7-shared-no-native-z8');
 assert.deepEqual(data.regionalDem.effectiveGroundMPerInformationPixelAtCenter, {'7':442.574,'8':442.574,'9':221.287,'10':110.644});
 assert.equal(ui.__test.demEdgeCollarM,4500);
 assert.equal(ui.__test.demEdgeSafeMaxM,1000);

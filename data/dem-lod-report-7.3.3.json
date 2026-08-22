@@ -1,0 +1,116 @@
+{
+  "version": "7.3.3",
+  "baselineDemBytes7_3_2": 16699494,
+  "demBytes7_3_3": 15574005,
+  "reductionBytes": 1125489,
+  "reductionPercent": 6.74,
+  "sha256": "09679e907cb13e2bcbe2bc27e75f527fa22d906bfe3dd5d31faae88f97ab3b81",
+  "tileSize": 512,
+  "heightQuantizationM": 1,
+  "physicalNativeZooms": [
+    7,
+    9,
+    10
+  ],
+  "nativeZ8": false,
+  "z7ToZ8": "physical z7 overzoom; native z8 absent",
+  "z9": "native medium LOD",
+  "z10ToZ14_3": "native z10 then overzoom",
+  "effectiveGroundMPerInformationPixelAtCenter": {
+    "7": 442.574,
+    "8": 442.574,
+    "9": 221.287,
+    "10": 110.644
+  },
+  "retainedTileProbes": {
+    "physicalNativeZooms": [
+      7,
+      9,
+      10
+    ],
+    "nativeZ8": false,
+    "probes": {
+      "center": {
+        "7": {
+          "x": 79,
+          "y": 46,
+          "bytes": 158217,
+          "sha256": "c2221db64b307407a26aa6ebd942badfa304b439a1154b0ab3cdfcbe6584aafe"
+        },
+        "9": {
+          "x": 316,
+          "y": 186,
+          "bytes": 291842,
+          "sha256": "092d4eb2f25c356e5ef121530f74dd7978bc9f5d4cb93f538c7fa7de956aa557"
+        },
+        "10": {
+          "x": 632,
+          "y": 373,
+          "bytes": 268275,
+          "sha256": "7e35bd8df6276df9230f1ecdc13a103708bfd4106ec689c34bd472145e643d77"
+        },
+        "8": {
+          "x": 158,
+          "y": 93,
+          "nativeTile": false,
+          "returncode": 0,
+          "cliMessage": "Tile not found in archive."
+        }
+      },
+      "mingi_tau": {
+        "7": {
+          "x": 79,
+          "y": 46,
+          "bytes": 158217,
+          "sha256": "c2221db64b307407a26aa6ebd942badfa304b439a1154b0ab3cdfcbe6584aafe"
+        },
+        "9": {
+          "x": 316,
+          "y": 187,
+          "bytes": 385855,
+          "sha256": "75e087bbeca5b92bab23f00066527959d3b6873ebdc1293816af4fdc69879dd7"
+        },
+        "10": {
+          "x": 632,
+          "y": 374,
+          "bytes": 292681,
+          "sha256": "35edaca6bf6878250a9a14c9684bd6e73d48a976cf94f2b4e3172ae56c96da28"
+        },
+        "8": {
+          "x": 158,
+          "y": 93,
+          "nativeTile": false,
+          "returncode": 0,
+          "cliMessage": "Tile not found in archive."
+        }
+      },
+      "balkaria": {
+        "7": {
+          "x": 79,
+          "y": 46,
+          "bytes": 158217,
+          "sha256": "c2221db64b307407a26aa6ebd942badfa304b439a1154b0ab3cdfcbe6584aafe"
+        },
+        "9": {
+          "x": 317,
+          "y": 187,
+          "bytes": 364847,
+          "sha256": "93b495f528924219504ce86b052b02736bbc903488dce57b50fe3ecaa7a82120"
+        },
+        "10": {
+          "x": 634,
+          "y": 375,
+          "bytes": 330141,
+          "sha256": "fac0029391c6da1b27b78d835a3501a737bffdf8ee3f38493a1f8426819eb790"
+        },
+        "8": {
+          "x": 158,
+          "y": 93,
+          "nativeTile": false,
+          "returncode": 0,
+          "cliMessage": "Tile not found in archive."
+        }
+      }
+    }
+  }
+}
