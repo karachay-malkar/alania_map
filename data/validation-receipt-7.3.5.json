@@ -1,8 +1,8 @@
 {
   "version": "7.3.5",
-  "status": "failure",
-  "runId": 32583369316,
-  "testedCommit": "56644b25ac0b62b08a71f08e345d2fdd690fb0c9",
+  "status": "running",
+  "runId": 32583624534,
+  "testedCommit": "1220e309ae2ef758558237bfd0a5ad5df693a21a",
   "artifact": "alan-map-7.3.5",
   "terrainArchitecture": "maplibre-native-single-source"
 }
