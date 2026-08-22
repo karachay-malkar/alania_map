@@ -1,0 +1,328 @@
+name: Build Alan Map 7.3.4 unified 256px terrain
+
+on:
+  push:
+    branches: [7.3.4]
+    paths:
+      - 'assets/dem-lod-7.3.4.js'
+      - 'tools/build_dem_unified_7_3_4.py'
+      - 'tools/release_7_3_4.py'
+      - 'tests/dem-lod-7.3.4.mjs'
+      - 'tests/terrain-continuity-7.3.4.mjs'
+      - 'tests/performance-7.3.4.mjs'
+      - '.github/workflows/rebuild-dem-7.3.4.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: alan-map-7-3-4-unified-terrain
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - name: Checkout 7.3.4 work branch
+        uses: actions/checkout@v4
+        with:
+          ref: 7.3.4
+          fetch-depth: 1
+
+      - name: Checkout exact 7.3.3 performance baseline
+        uses: actions/checkout@v4
+        with:
+          repository: karachay-malkar/alania_map
+          ref: 7.3.3
+          path: baseline-7.3.3
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.x'
+
+      - name: Install DEM, PMTiles and validation tools
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install -y gdal-bin sqlite3 zip
+          python -m pip install --upgrade pip
+          python -m pip install rasterio pillow numpy shapely scipy pmtiles
+          go install github.com/protomaps/go-pmtiles@v1.30.1
+          GO_BIN="$(go env GOPATH)/bin"
+          ln -sf "$GO_BIN/go-pmtiles" "$GO_BIN/pmtiles"
+          echo "$GO_BIN" >> "$GITHUB_PATH"
+          "$GO_BIN/pmtiles" version
+
+      - name: Validate 7.3.3 base and prepare unchanged frame
+        run: |
+          set -euxo pipefail
+          python tools/release_7_3_4.py prepare | tee build/release-7.3.4-prepare.json
+          python - <<'PY'
+          import json
+          expected_bounds=[40.51784,42.734095,44.184003,44.534975]
+          expected_ring=[[40.51784,43.41265],[43.731622,42.734095],[44.184003,43.85642],[40.970221,44.534975],[40.51784,43.41265]]
+          bounds=json.load(open('build/rectangular-bounds.json'))['bounds']
+          ring=json.load(open('build/map-frame.geojson'))['features'][0]['geometry']['coordinates'][0]
+          if bounds != expected_bounds or ring != expected_ring:
+              raise SystemExit(f'7.3.4 geography drifted: bounds={bounds} ring={ring}')
+          PY
+          find data -maxdepth 1 -type f -name '*.pmtiles' ! -name 'alan-dem-7.3.3.pmtiles' -print0 \
+            | sort -z | xargs -0 sha256sum > build/non-dem-pmtiles-before.sha256
+
+      - name: Download Copernicus DEM GLO-30 numeric source COGs
+        run: |
+          set -euxo pipefail
+          mkdir -p build/copernicus-dem
+          python - <<'PY'
+          import json, math, pathlib, urllib.request
+          west,south,east,north=json.load(open('build/rectangular-bounds.json'))['bounds']
+          out=pathlib.Path('build/copernicus-dem')
+          for lat in range(math.floor(south),math.ceil(north)):
+              for lon in range(math.floor(west),math.ceil(east)):
+                  ns='N' if lat >= 0 else 'S'
+                  ew='E' if lon >= 0 else 'W'
+                  tile=f'Copernicus_DSM_COG_10_{ns}{abs(lat):02d}_00_{ew}{abs(lon):03d}_00_DEM'
+                  url=f'https://copernicus-dem-30m.s3.eu-central-1.amazonaws.com/{tile}/{tile}.tif'
+                  target=out/f'{tile}.tif'
+                  request=urllib.request.Request(url,headers={'User-Agent':'AlanMap/7.3.4'})
+                  print('download',url)
+                  with urllib.request.urlopen(request,timeout=240) as response,target.open('wb') as handle:
+                      while True:
+                          chunk=response.read(1024*1024)
+                          if not chunk:
+                              break
+                          handle.write(chunk)
+          PY
+
+      - name: Warp Copernicus DEM through the unchanged map frame
+        run: |
+          set -euxo pipefail
+          read WEST SOUTH EAST NORTH < <(python - <<'PY'
+          import json
+          print(*json.load(open('build/rectangular-bounds.json'))['bounds'])
+          PY
+          )
+          gdalbuildvrt build/copernicus-dem.vrt build/copernicus-dem/*.tif
+          gdalwarp -overwrite \
+            -t_srs EPSG:4326 \
+            -te "$WEST" "$SOUTH" "$EAST" "$NORTH" \
+            -cutline build/map-frame.geojson -crop_to_cutline \
+            -dstnodata -10000 -r bilinear \
+            -of GTiff -co TILED=YES -co COMPRESS=DEFLATE -co BIGTIFF=IF_SAFER \
+            build/copernicus-dem.vrt build/copernicus-dem-7.3.4-cutline.tif
+          gdalinfo -json build/copernicus-dem-7.3.4-cutline.tif > build/copernicus-dem-7.3.4-cutline.info.json
+
+      - name: Build one numeric 256px Z7 Z8 Z9 Z10 DEM pyramid
+        run: |
+          set -euxo pipefail
+          python tools/build_dem_unified_7_3_4.py \
+            --build-from-dem build/copernicus-dem-7.3.4-cutline.tif \
+            --output build/alan-dem-7.3.4-clean.mbtiles \
+            --frame build/map-frame.geojson \
+            | tee build/dem-build-report-7.3.4.json
+          python tools/build_dem_unified_7_3_4.py \
+            build/alan-dem-7.3.4-clean.mbtiles \
+            --frame build/map-frame.geojson --validate \
+            | tee build/dem-validation-7.3.4.json
+          pmtiles convert build/alan-dem-7.3.4-clean.mbtiles build/alan-dem-7.3.4-clean.pmtiles
+          pmtiles verify build/alan-dem-7.3.4-clean.pmtiles
+
+      - name: Preserve the existing hidden DEM edge collar at 256px
+        run: |
+          set -euxo pipefail
+          python tools/patch_dem_edge_collar.py \
+            build/alan-dem-7.3.4-clean.pmtiles \
+            build/alan-dem-7.3.4.pmtiles \
+            --data-part build/map-data-7.3.4-dem-config.js \
+            --collar-m 4500 \
+            --safe-max-elevation-m 1000 \
+            --cap-softness-m 120 \
+            --inner-taper-m 900 \
+            --outer-skirt-m 3200 \
+            --technical-base-m -10000 \
+            --relief-exaggeration 2.55 \
+            --frame-top-m 4000 \
+            --report build/dem-edge-collar-report-7.3.4.json
+          python - <<'PY'
+          import json, pathlib
+          path=pathlib.Path('build/dem-edge-collar-report-7.3.4.json')
+          report=json.loads(path.read_text())
+          report['version']='7.3.4-r1'
+          report['tile_size']=256
+          path.write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n')
+          PY
+          pmtiles verify build/alan-dem-7.3.4.pmtiles
+
+      - name: Prove physical LOD archive contract
+        run: |
+          set -euxo pipefail
+          python - <<'PY'
+          import io, json
+          from PIL import Image
+          from pmtiles.reader import MmapSource, Reader, all_tiles
+          path='build/alan-dem-7.3.4.pmtiles'
+          with open(path,'rb') as handle:
+              source=MmapSource(handle)
+              reader=Reader(source)
+              metadata=dict(reader.metadata())
+              records=list(all_tiles(source))
+          zooms=sorted({int(z) for (z,x,y),payload in records})
+          if zooms != [7,8,9,10]:
+              raise SystemExit(f'Unexpected physical native zooms: {zooms}')
+          if metadata.get('alan_tile_size') != '256':
+              raise SystemExit(f"Unexpected tile-size metadata: {metadata.get('alan_tile_size')}")
+          if metadata.get('alan_z8_lineage') != 'numeric-bilinear-upsample-of-z7-no-new-source-detail':
+              raise SystemExit(f"Z8 lineage missing: {metadata.get('alan_z8_lineage')}")
+          counts={str(z):0 for z in zooms}
+          for (z,x,y),payload in records:
+              image=Image.open(io.BytesIO(payload))
+              if image.size != (256,256):
+                  raise SystemExit(f'Non-256 DEM tile: z{z}/{x}/{y} {image.size}')
+              counts[str(z)]+=1
+          report={
+              'version':'7.3.4',
+              'physicalNativeZooms':zooms,
+              'tileSize':256,
+              'z8Lineage':metadata['alan_z8_lineage'],
+              'highestNativeZoom':max(zooms),
+              'noNativeTilesAfterZ10':max(zooms)==10,
+              'tileCounts':counts,
+              'tileCount':len(records),
+          }
+          open('build/dem-archive-proof-7.3.4.json','w').write(json.dumps(report,indent=2)+'\n')
+          print(json.dumps(report,indent=2))
+          PY
+
+      - name: Integrate only 7.3.4 terrain/runtime changes
+        run: |
+          set -euxo pipefail
+          python tools/release_7_3_4.py finalize \
+            --dem build/alan-dem-7.3.4.pmtiles \
+            --build-report build/dem-build-report-7.3.4.json \
+            --validation-report build/dem-validation-7.3.4.json \
+            --collar-report build/dem-edge-collar-report-7.3.4.json \
+            | tee build/release-7.3.4.json
+          python tools/release_7_3_4.py validate
+          node --check assets/bootstrap.js
+          node --check assets/dem-lod-7.3.4.js
+          node --check assets/map-page.js
+          node --check assets/map-ui.js
+          node --check tests/dem-lod-7.3.4.mjs
+          node --check tests/terrain-continuity-7.3.4.mjs
+          node --check tests/performance-7.3.4.mjs
+          python -m py_compile tools/build_dem_unified_7_3_4.py tools/release_7_3_4.py
+
+      - name: Verify all non-DEM map archives are byte-identical
+        run: |
+          set -euxo pipefail
+          find data -maxdepth 1 -type f -name '*.pmtiles' \
+            ! -name 'alan-dem-7.3.3.pmtiles' ! -name 'alan-dem-7.3.4.pmtiles' -print0 \
+            | sort -z | xargs -0 sha256sum > build/non-dem-pmtiles-after.sha256
+          diff -u build/non-dem-pmtiles-before.sha256 build/non-dem-pmtiles-after.sha256
+
+      - name: Validate runtime contract
+        run: |
+          set -euxo pipefail
+          node tests/runtime-contract.mjs
+
+      - name: Browser smoke, single-source and terrain continuity tests
+        run: |
+          set -euxo pipefail
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+          node tests/map-smoke.mjs
+          node tests/dem-lod-7.3.4.mjs
+          node tests/terrain-continuity-7.3.4.mjs
+
+      - name: Compare 7.3.3 and 7.3.4 performance in one Chromium profile
+        env:
+          ALAN_MAP_BASELINE_ROOT: baseline-7.3.3
+          ALAN_MAP_CURRENT_ROOT: .
+          ALAN_MAP_BENCHMARK_OUTPUT: data/performance-benchmark-7.3.4.json
+        run: |
+          set -euxo pipefail
+          node tests/performance-7.3.4.mjs
+          cat data/performance-benchmark-7.3.4.json
+
+      - name: Verify production runtime has no removed terrain architecture
+        run: |
+          set -euxo pipefail
+          ! grep -R --line-number -E 'terrain-dem-medium|terrain-dem-high|terrain-hillshade-medium|terrain-hillshade-high|SOURCE_LOW|SOURCE_MEDIUM|SOURCE_HIGH|desiredWithHysteresis|pendingSource|activeSource|SWITCH_HYSTERESIS' \
+            assets/bootstrap.js assets/dem-lod-7.3.4.js assets/map-page.js assets/map-ui.js index.html
+          ! grep -R --line-number --fixed-string "terrain: {source:'terrain-dem'" assets/map-ui.js
+          ! grep -R --line-number --fixed-string 'data/alan-dem-7.3.3.pmtiles' \
+            assets/bootstrap.js assets/dem-lod-7.3.4.js assets/map-page.js assets/map-ui.js index.html
+          test -f data/alan-dem-7.3.4.pmtiles
+          test -f data/dem-lod-report-7.3.4.json
+          test -f data/performance-benchmark-7.3.4.json
+
+      - name: Remove obsolete 7.3.3 production terrain artifacts
+        run: |
+          set -euxo pipefail
+          git rm -- data/alan-dem-7.3.3.pmtiles assets/dem-lod-7.3.3.js tests/dem-lod-7.3.3.mjs
+          rm -rf baseline-7.3.3 node_modules package-lock.json
+
+      - name: Commit complete 7.3.4 release
+        run: |
+          set -euxo pipefail
+          git config user.name 'Alan Map Builder'
+          git config user.email 'actions@users.noreply.github.com'
+          git add -- \
+            index.html \
+            README.md \
+            assets/bootstrap.js \
+            assets/dem-lod-7.3.4.js \
+            assets/map-page.js \
+            assets/map-ui.js \
+            assets/map-data.part-000.js \
+            assets/map-data.part-001.js \
+            assets/map-data-core.js \
+            assets/map-data-deferred.js \
+            assets/map-data-points.js \
+            data/alan-dem-7.3.4.pmtiles \
+            data/copernicus-build-manifest.json \
+            data/dem-lod-report-7.3.4.json \
+            data/runtime-loading-report-7.3.4.json \
+            data/performance-benchmark-7.3.4.json \
+            tests/runtime-contract.mjs \
+            tests/map-smoke.mjs \
+            tests/dem-lod-7.3.4.mjs \
+            tests/terrain-continuity-7.3.4.mjs \
+            tests/performance-7.3.4.mjs \
+            tools/build_dem_unified_7_3_4.py \
+            tools/release_7_3_4.py \
+            .github/workflows/rebuild-dem-7.3.4.yml
+          git commit -m 'Release unified single-source terrain 7.3.4 [skip ci]'
+          git push origin HEAD:7.3.4
+
+      - name: Package complete project and exact file sizes
+        run: |
+          set -euxo pipefail
+          mkdir -p /tmp/alan-map-7-3-4
+          find . -type f \
+            -not -path './.git/*' \
+            -not -path './build/*' \
+            -not -path './node_modules/*' \
+            -not -path '*/__pycache__/*' \
+            -printf '%P\t%s\n' | sort > /tmp/alan-map-7-3-4/file-sizes-7.3.4.tsv
+          cp data/dem-lod-report-7.3.4.json /tmp/alan-map-7-3-4/dem-lod-report-7.3.4.json
+          cp data/performance-benchmark-7.3.4.json /tmp/alan-map-7-3-4/performance-benchmark-7.3.4.json
+          cp build/dem-archive-proof-7.3.4.json /tmp/alan-map-7-3-4/dem-archive-proof-7.3.4.json
+          zip -qr /tmp/alan-map-7-3-4/alan-map-7.3.4.zip . \
+            -x '.git/*' 'build/*' 'node_modules/*' '*/__pycache__/*'
+          unzip -tq /tmp/alan-map-7-3-4/alan-map-7.3.4.zip
+          ls -lh /tmp/alan-map-7-3-4/alan-map-7.3.4.zip
+          wc -l /tmp/alan-map-7-3-4/file-sizes-7.3.4.tsv
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: alan-map-7.3.4
+          path: /tmp/alan-map-7-3-4/
+          retention-days: 30
