@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '7.3.2';
+  const VERSION = '7.3.3';
   const RANGE_CACHE_BYTES = (() => {
     const memory = Number(navigator.deviceMemory || 0);
     if (memory > 0 && memory <= 2) return 12 * 1024 * 1024;
@@ -540,6 +540,23 @@
     ];
 
     configurations.forEach(registerArchive);
+
+    window.ALAN_MAP_PREFETCH_PM_TILE = async ({archivePath,z,x,y,reason='runtime'}) => {
+      const path = String(archivePath || '');
+      const record = archiveByPath.get(path);
+      if (!record?.archive) throw new Error(`Alan Map: PMTiles archive is not registered for prefetch: ${path}`);
+      const zoom = Number(z);
+      const tileX = Number(x);
+      const tileY = Number(y);
+      if (![zoom,tileX,tileY].every(Number.isInteger)) throw new Error('Alan Map: invalid PMTiles prefetch coordinate.');
+      const before = performance.now();
+      const value = await record.archive.getZxy(zoom,tileX,tileY);
+      document.dispatchEvent(new CustomEvent('alan-map:pmtiles-prefetched',{detail:{
+        archivePath:path,sourceId:record.sourceId,z:zoom,x:tileX,y:tileY,reason,
+        durationMs:performance.now()-before
+      }}));
+      return value;
+    };
 
     const prepareSnowSource = () => {
       if (!data.regionalSnow?.available || !data.regionalSnow?.archivePath) return null;
