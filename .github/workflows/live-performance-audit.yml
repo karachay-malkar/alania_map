@@ -5,6 +5,7 @@ on:
     branches: [7.3.3]
     paths:
       - 'tests/live-performance-audit.mjs'
+      - 'tests/live-bottleneck-isolation.mjs'
       - '.github/workflows/live-performance-audit.yml'
   workflow_dispatch:
 
@@ -39,12 +40,18 @@ jobs:
           LOCAL_URL: http://127.0.0.1:4173/
         run: |
           node tests/live-performance-audit.mjs | tee /tmp/live-performance-audit.txt
+      - name: Isolate main-thread bottleneck
+        env:
+          LIVE_URL: https://karachay-malkar.github.io/alania_map/
+        run: |
+          node tests/live-bottleneck-isolation.mjs | tee /tmp/live-bottleneck-isolation.txt
       - name: Upload QA output
         uses: actions/upload-artifact@v4
         with:
           name: live-performance-audit-7.3.3
           path: |
             /tmp/live-performance-audit.txt
+            /tmp/live-bottleneck-isolation.txt
             /tmp/live-headers.txt
             /tmp/alan-map-http.log
           retention-days: 7
