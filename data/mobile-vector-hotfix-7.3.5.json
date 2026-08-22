@@ -1,0 +1,8 @@
+{
+  "version": "7.3.5",
+  "status": "applied",
+  "runId": 32583210315,
+  "branch": "7.3.5",
+  "change": "restore-vector-full-file-fallback-on-mobile",
+  "vectorArchive": "data/alan-vector-7.2.pmtiles"
+}

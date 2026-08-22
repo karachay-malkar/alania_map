@@ -388,7 +388,6 @@
   }
 
   function canUseVectorFullFileFallback() {
-    if (isMobileTransportProfile()) return false;
     const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
     if (connection?.saveData) return false;
     const effectiveType = String(connection?.effectiveType || '').toLowerCase();
