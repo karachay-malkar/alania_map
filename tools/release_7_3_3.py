@@ -15,21 +15,6 @@ SOURCE_PARTS = [ROOT / "assets/map-data.part-000.js", ROOT / "assets/map-data.pa
 MARKER = "window.ALAN_MAP_DATA = "
 
 
-def replace_once(path: Path, old: str, new: str) -> None:
-    text = path.read_text(encoding="utf-8")
-    count = text.count(old)
-    if count != 1:
-        raise RuntimeError(f"{path}: expected exactly one {old!r}, found {count}")
-    path.write_text(text.replace(old, new, 1), encoding="utf-8")
-
-
-def replace_all(path: Path, old: str, new: str) -> None:
-    text = path.read_text(encoding="utf-8")
-    if old not in text:
-        raise RuntimeError(f"{path}: {old!r} not found")
-    path.write_text(text.replace(old, new), encoding="utf-8")
-
-
 def parse_wrapped(path: Path, marker: str) -> dict:
     source = path.read_text(encoding="utf-8").strip()
     if not source.startswith(marker) or not source.endswith(";"):
@@ -207,6 +192,7 @@ def patch_tests() -> None:
     text = text.replace("runtime-loading-report-7.3.2.json", "runtime-loading-report-7.3.3.json")
     text = text.replace("'7.3.2'", "'7.3.3'")
     text = text.replace('"7.3.2"', '"7.3.3"')
+    text = text.replace(r"7\.3\.2", r"7\.3\.3")
     text = text.replace("data/alan-dem-7.3.pmtiles", NEW_DEM)
     text = text.replace(
         "hierarchical-z10-to-z8-z7-shared-512-overzoom",
@@ -221,6 +207,7 @@ def patch_tests() -> None:
     smoke = ROOT / "tests/map-smoke.mjs"
     text = smoke.read_text(encoding="utf-8")
     text = text.replace("7.3.2", "7.3.3")
+    text = text.replace(r"7\.3\.2", r"7\.3\.3")
     text = text.replace("data/alan-dem-7.3.pmtiles", NEW_DEM)
     smoke.write_text(text, encoding="utf-8")
 
