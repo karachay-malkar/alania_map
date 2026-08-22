@@ -1,0 +1,90 @@
+name: Compare stable runtime 7.2.5 vs 7.3.5
+
+on:
+  push:
+    branches: [7.3.5]
+    paths:
+      - '.github/workflows/diag-runtime-compare-7.3.5.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 7.3.5
+          fetch-depth: 1
+      - name: Publish run handle
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > data/runtime-compare-validation-7.3.5.json <<EOF
+          {"version":"7.3.5","status":"running","runId":${{ github.run_id }}}
+          EOF
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/runtime-compare-validation-7.3.5.json
+          git commit -m "Start 7.3.5 stable runtime comparison [skip ci]"
+          git pull --rebase origin 7.3.5
+          git push origin HEAD:7.3.5
+      - name: Compare stable assets and DEM metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin 7.2.5 --depth=1
+          git show FETCH_HEAD:assets/maplibre.part-000.js > /tmp/maplibre-0.js
+          git show FETCH_HEAD:assets/maplibre.part-001.js > /tmp/maplibre-1.js
+          cat /tmp/maplibre-0.js /tmp/maplibre-1.js > /tmp/maplibre-7.2.5.js
+          MAPLIBRE_IDENTICAL=false
+          cmp -s /tmp/maplibre-7.2.5.js assets/maplibre.js && MAPLIBRE_IDENTICAL=true
+          PMTILES_IDENTICAL=false
+          git show FETCH_HEAD:assets/pmtiles.js > /tmp/pmtiles-7.2.5.js
+          cmp -s /tmp/pmtiles-7.2.5.js assets/pmtiles.js && PMTILES_IDENTICAL=true
+          git show FETCH_HEAD:assets/map-data.part-000.js > /tmp/map-data-0.js
+          git show FETCH_HEAD:assets/map-data.part-001.js > /tmp/map-data-1.js
+          cat /tmp/map-data-0.js /tmp/map-data-1.js > /tmp/map-data-7.2.5.js
+          node - <<'NODE'
+          const fs=require('fs'),vm=require('vm');
+          const context={window:{}};
+          vm.createContext(context);
+          vm.runInContext(fs.readFileSync('/tmp/map-data-7.2.5.js','utf8'),context);
+          const dem=context.window.ALAN_MAP_DATA?.regionalDem;
+          if(!dem) throw new Error('7.2.5 regionalDem not found');
+          fs.writeFileSync('/tmp/old-dem.json',JSON.stringify(dem,null,2));
+          NODE
+          python3 - <<PY
+          import json, hashlib
+          old=json.load(open('/tmp/old-dem.json'))
+          report={
+            'version':'7.3.5',
+            'stableRef':'7.2.5',
+            'maplibreIdentical': '${MAPLIBRE_IDENTICAL}' == 'true',
+            'pmtilesIdentical': '${PMTILES_IDENTICAL}' == 'true',
+            'maplibreCurrentSha256': hashlib.sha256(open('assets/maplibre.js','rb').read()).hexdigest(),
+            'maplibreStableSha256': hashlib.sha256(open('/tmp/maplibre-7.2.5.js','rb').read()).hexdigest(),
+            'pmtilesCurrentSha256': hashlib.sha256(open('assets/pmtiles.js','rb').read()).hexdigest(),
+            'pmtilesStableSha256': hashlib.sha256(open('/tmp/pmtiles-7.2.5.js','rb').read()).hexdigest(),
+            'stableRegionalDem': old,
+          }
+          open('data/runtime-compare-report-7.3.5.json','w').write(json.dumps(report,ensure_ascii=False,indent=2)+'\n')
+          print(json.dumps(report,ensure_ascii=False,indent=2))
+          PY
+      - name: Publish comparison
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          STATUS='${{ job.status }}'
+          cat > data/runtime-compare-validation-7.3.5.json <<EOF
+          {"version":"7.3.5","status":"$STATUS","runId":${{ github.run_id }}}
+          EOF
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/runtime-compare-validation-7.3.5.json
+          test ! -f data/runtime-compare-report-7.3.5.json || git add data/runtime-compare-report-7.3.5.json
+          git commit -m "Publish 7.3.5 stable runtime comparison [skip ci]" || true
+          git pull --rebase origin 7.3.5
+          git push origin HEAD:7.3.5
