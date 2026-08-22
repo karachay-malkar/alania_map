@@ -1,0 +1,47 @@
+name: Diagnose raw DEM 7.3.5
+
+on:
+  push:
+    branches: [7.3.5]
+    paths:
+      - '.github/workflows/diag-raw-dem-7.3.5.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 7.3.5
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Decode Terrain-RGB at Mingi-Tau
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save pngjs@7.0.0
+          cat > /tmp/dem.cjs <<'NODE'
+          const fs=require('fs'),vm=require('vm');
+          const {PNG}=require('pngjs');
+          const context={console,TextDecoder,TextEncoder,Uint8Array,Uint16Array,Int32Array,ArrayBuffer,DataView,Blob,Response,DecompressionStream};
+          vm.createContext(context); vm.runInContext(fs.readFileSync('assets/pmtiles.js','utf8'),context);
+          class Source{constructor(path){this.path=path;this.fd=fs.openSync(path,'r')}getKey(){return this.path}async getBytes(offset,length){const b=Buffer.alloc(length);const n=fs.readSync(this.fd,b,0,length,offset);if(n!==length)throw new Error(`short read ${n}/${length}`);return{data:b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength)}}}
+          const lon=42.4392,lat=43.3499,z=7,n=2**z,xf=(lon+180)/360*n,yf=(1-Math.asinh(Math.tan(lat*Math.PI/180))/Math.PI)/2*n,x=Math.floor(xf),y=Math.floor(yf);
+          (async()=>{const a=new context.pmtiles.PMTiles(new Source('data/alan-dem-7.3.5.pmtiles'));const h=await a.getHeader(),t=await a.getZxy(z,x,y);if(!t)throw new Error('tile missing');const p=PNG.sync.read(Buffer.from(t.data));const px=Math.floor((xf-x)*p.width),py=Math.floor((yf-y)*p.height),i=(py*p.width+px)*4,r=p.data[i],g=p.data[i+1],b=p.data[i+2],alpha=p.data[i+3],elevation=-10000+(r*65536+g*256+b)*0.1;const report={version:'7.3.5',archive:'data/alan-dem-7.3.5.pmtiles',header:{minZoom:h.minZoom,maxZoom:h.maxZoom,tileType:h.tileType},tile:{z,x,y,width:p.width,height:p.height,px,py},sample:{r,g,b,alpha,elevation}};console.log(JSON.stringify(report));fs.writeFileSync('data/raw-dem-report-7.3.5.json',JSON.stringify(report,null,2)+'\n');if(p.width!==256||p.height!==256)throw new Error('DEM tile is not 256x256');if(alpha===0)throw new Error('DEM is transparent at Mingi-Tau');if(elevation<1000)throw new Error('DEM elevation is invalid: '+elevation)})().catch(e=>{console.error(e);process.exit(1)});
+          NODE
+          node /tmp/dem.cjs
+      - name: Commit report
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/raw-dem-report-7.3.5.json
+          git commit -m "Publish raw DEM diagnosis 7.3.5 [skip ci]"
+          git pull --rebase origin 7.3.5
+          git push origin HEAD:7.3.5
