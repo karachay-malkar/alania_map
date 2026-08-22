@@ -1,8 +1,8 @@
-// QA-only: probes live terrain continuity across zoom boundaries.
+// QA-only: probes live terrain continuity across critical zoom boundaries.
 import { chromium } from 'playwright';
 
 const URL = process.env.LIVE_URL || 'https://karachay-malkar.github.io/alania_map/';
-const zoomsUp = [7,7.5,8,8.5,8.84,8.86,8.99,9,9.2,9.84,9.86,9.99,10,10.2,11,12,13,14,14.3];
+const zoomsUp = [8.99,9.01,9.99,10.01,12,14.3];
 const zoomsDown = [...zoomsUp].reverse();
 
 const browser = await chromium.launch({headless:true,args:['--use-angle=swiftshader','--enable-webgl','--ignore-gpu-blocklist']});
@@ -17,7 +17,7 @@ async function probe(zoom,direction) {
     const map = window.ALAN_MAP_INSTANCE.map;
     map.jumpTo({zoom,pitch:58,bearing:180});
   },{zoom});
-  await page.waitForTimeout(1400);
+  await page.waitForTimeout(800);
   return page.evaluate(({zoom,direction}) => {
     const map = window.ALAN_MAP_INSTANCE.map;
     const center = map.getCenter();
@@ -38,8 +38,7 @@ async function probe(zoom,direction) {
         try { return map.queryTerrainElevation({lng:center.lng+dx,lat:center.lat+dy},{exaggerated:false}); } catch (_) { return null; }
       });
     }
-    const finiteElevationCount = sampleElevations.filter(Number.isFinite).length;
-    const elevationSpread = finiteElevationCount >= 2 ? Math.max(...sampleElevations.filter(Number.isFinite)) - Math.min(...sampleElevations.filter(Number.isFinite)) : null;
+    const finite = sampleElevations.filter(Number.isFinite);
     return {
       direction,
       requestedZoom:zoom,
@@ -52,8 +51,8 @@ async function probe(zoom,direction) {
       tilesLoaded:typeof map.areTilesLoaded === 'function' ? map.areTilesLoaded() : null,
       centerElevation,
       sampleElevations,
-      finiteElevationCount,
-      elevationSpread
+      finiteElevationCount:finite.length,
+      elevationSpread:finite.length >= 2 ? Math.max(...finite) - Math.min(...finite) : null
     };
   },{zoom,direction});
 }
