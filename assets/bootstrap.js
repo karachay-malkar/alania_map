@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const RELEASE = '7.3.2';
+  const RELEASE = '7.3.3';
   const baseUrl = new URL('.', document.currentScript.src);
   const scripts = [
     'maplibre.js',
@@ -9,7 +9,7 @@
     'map-data-core.js',
     'map-core.js',
     'map-ui.js',
-    'dem-lod-7.3.2.js',
+    'dem-lod-7.3.3.js',
     'map-presentation-r2.js',
     'map-granite-frame.js',
     'map-page.js'
@@ -32,7 +32,6 @@
   };
 
   // Dynamic classic scripts with async=false are fetched in parallel but executed in insertion order.
-  // This removes the old fetch -> concatenate -> eval waterfall while preserving dependency order.
   for (const name of scripts) {
     const script = document.createElement('script');
     script.async = false;

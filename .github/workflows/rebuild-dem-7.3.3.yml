@@ -1,0 +1,225 @@
+name: Build Alan Map 7.3.3 physical three-level DEM
+
+on:
+  push:
+    branches: [7.3.3]
+    paths:
+      - 'assets/bootstrap.js'
+      - 'assets/dem-lod-7.3.3.js'
+      - 'tools/release_7_3_3.py'
+      - 'tests/dem-lod-7.3.3.mjs'
+      - '.github/workflows/rebuild-dem-7.3.3.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: alan-map-7-3-3-physical-dem
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.x'
+
+      - name: Install PMTiles and validation tools
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install -y zip
+          go install github.com/protomaps/go-pmtiles@v1.30.1
+          GO_BIN="$(go env GOPATH)/bin"
+          ln -sf "$GO_BIN/go-pmtiles" "$GO_BIN/pmtiles"
+          echo "$GO_BIN" >> "$GITHUB_PATH"
+          "$GO_BIN/pmtiles" version
+
+      - name: Validate exact 7.3.2 DEM baseline
+        run: |
+          set -euxo pipefail
+          test -f data/alan-dem-7.3.pmtiles
+          test "$(stat -c %s data/alan-dem-7.3.pmtiles)" -eq 16699494
+          echo "215c605fa132d9d2b757822c7888f182710590b914e786da1cd03f730f1a6e8f  data/alan-dem-7.3.pmtiles" | sha256sum -c -
+          pmtiles verify data/alan-dem-7.3.pmtiles
+          pmtiles show data/alan-dem-7.3.pmtiles --header-json > /tmp/dem-7.3.2-header.json
+
+      - name: Extract only physical Z7 Z9 Z10
+        run: |
+          set -euxo pipefail
+          mkdir -p build
+          pmtiles extract data/alan-dem-7.3.pmtiles build/dem-z7.pmtiles --minzoom=7 --maxzoom=7 --overfetch=0
+          pmtiles extract data/alan-dem-7.3.pmtiles build/dem-z9.pmtiles --minzoom=9 --maxzoom=9 --overfetch=0
+          pmtiles extract data/alan-dem-7.3.pmtiles build/dem-z10.pmtiles --minzoom=10 --maxzoom=10 --overfetch=0
+          pmtiles verify build/dem-z7.pmtiles
+          pmtiles verify build/dem-z9.pmtiles
+          pmtiles verify build/dem-z10.pmtiles
+          pmtiles merge build/dem-z7.pmtiles build/dem-z9.pmtiles build/dem-z10.pmtiles data/alan-dem-7.3.3.pmtiles
+          pmtiles verify data/alan-dem-7.3.3.pmtiles
+          pmtiles show data/alan-dem-7.3.3.pmtiles --header-json > build/dem-7.3.3-header.json
+
+      - name: Prove Z8 absent and retained DEM tiles unchanged
+        run: |
+          set -euxo pipefail
+          python - <<'PY'
+          import hashlib, json, math, pathlib, subprocess
+          source='data/alan-dem-7.3.pmtiles'
+          output='data/alan-dem-7.3.3.pmtiles'
+          probes=[
+              ('center',42.350921,43.634535),
+              ('mingi_tau',42.4392,43.3499),
+              ('balkaria',43.08,43.22),
+          ]
+          report={'physicalNativeZooms':[7,9,10],'nativeZ8':False,'probes':{}}
+          def tile(lon,lat,z):
+              n=2**z
+              x=int((lon+180)/360*n)
+              y=int((1-math.asinh(math.tan(math.radians(lat)))/math.pi)/2*n)
+              return x,y
+          def read_tile(archive,z,x,y):
+              proc=subprocess.run(['pmtiles','tile',archive,str(z),str(x),str(y)],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+              return proc.returncode,proc.stdout,proc.stderr.decode(errors='replace')
+          for name,lon,lat in probes:
+              current={}
+              for z in (7,9,10):
+                  x,y=tile(lon,lat,z)
+                  src_rc,src,src_err=read_tile(source,z,x,y)
+                  out_rc,out,out_err=read_tile(output,z,x,y)
+                  if src_rc != 0 or out_rc != 0 or not src or not out:
+                      raise SystemExit(f'missing retained tile {name} z{z}/{x}/{y}: src={src_err} out={out_err}')
+                  if src != out:
+                      raise SystemExit(f'retained tile changed: {name} z{z}/{x}/{y}')
+                  current[str(z)]={'x':x,'y':y,'bytes':len(out),'sha256':hashlib.sha256(out).hexdigest()}
+              z=8
+              x,y=tile(lon,lat,z)
+              rc,data,err=read_tile(output,z,x,y)
+              if rc == 0 and data:
+                  raise SystemExit(f'z8 unexpectedly exists: {name} {z}/{x}/{y} bytes={len(data)}')
+              current['8']={'x':x,'y':y,'nativeTile':False,'returncode':rc}
+              report['probes'][name]=current
+          pathlib.Path('build/dem-probe-report.json').write_text(json.dumps(report,indent=2)+'\n')
+          print(json.dumps(report,indent=2))
+          PY
+
+      - name: Measure DEM reduction
+        run: |
+          set -euxo pipefail
+          python - <<'PY'
+          import hashlib, json, pathlib
+          before=16_699_494
+          path=pathlib.Path('data/alan-dem-7.3.3.pmtiles')
+          after=path.stat().st_size
+          if after >= before:
+              raise SystemExit(f'DEM did not shrink: {after} >= {before}')
+          report={
+              'version':'7.3.3',
+              'baselineDemBytes7_3_2':before,
+              'demBytes7_3_3':after,
+              'reductionBytes':before-after,
+              'reductionPercent':round((1-after/before)*100,2),
+              'sha256':hashlib.sha256(path.read_bytes()).hexdigest(),
+              'tileSize':512,
+              'heightQuantizationM':1,
+              'physicalNativeZooms':[7,9,10],
+              'nativeZ8':False,
+              'z7ToZ8':'physical z7 overzoom; native z8 absent',
+              'z9':'native medium LOD',
+              'z10ToZ14_3':'native z10 then overzoom',
+              'effectiveGroundMPerInformationPixelAtCenter':{'7':442.574,'8':442.574,'9':221.287,'10':110.644},
+              'retainedTileProbes':json.load(open('build/dem-probe-report.json')),
+          }
+          pathlib.Path('data/dem-lod-report-7.3.3.json').write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n')
+          print(json.dumps(report,ensure_ascii=False,indent=2))
+          PY
+
+      - name: Finalize 7.3.3 runtime metadata
+        run: |
+          set -euxo pipefail
+          python tools/release_7_3_3.py | tee build/release-7.3.3.json
+          node --check assets/dem-lod-7.3.3.js
+          node --check assets/map-page.js
+          node --check assets/map-ui.js
+          python -m py_compile tools/release_7_3_3.py
+          test ! -e data/alan-dem-7.3.3.pmtiles.tmp
+
+      - name: Validate runtime contract
+        run: |
+          set -euxo pipefail
+          node tests/runtime-contract.mjs
+
+      - name: Browser smoke and DEM LOD tests
+        run: |
+          set -euxo pipefail
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+          node tests/map-smoke.mjs
+          node tests/dem-lod-7.3.3.mjs
+
+      - name: Verify no runtime references to obsolete DEM
+        run: |
+          set -euxo pipefail
+          ! grep -R --line-number --fixed-string 'data/alan-dem-7.3.pmtiles' \
+            index.html assets/bootstrap.js assets/map-page.js assets/map-ui.js assets/map-data-core.js \
+            assets/map-data.part-000.js assets/map-data.part-001.js tests/runtime-contract.mjs tests/map-smoke.mjs
+          test -f data/alan-dem-7.3.3.pmtiles
+          test -f data/dem-lod-report-7.3.3.json
+
+      - name: Commit complete 7.3.3 release
+        run: |
+          set -euxo pipefail
+          git config user.name 'Alan Map Builder'
+          git config user.email 'actions@users.noreply.github.com'
+          git rm -- data/alan-dem-7.3.pmtiles
+          git add -- \
+            index.html \
+            README.md \
+            assets/bootstrap.js \
+            assets/dem-lod-7.3.3.js \
+            assets/map-page.js \
+            assets/map-ui.js \
+            assets/map-data.part-000.js \
+            assets/map-data.part-001.js \
+            assets/map-data-core.js \
+            assets/map-data-deferred.js \
+            assets/map-data-points.js \
+            data/alan-dem-7.3.3.pmtiles \
+            data/copernicus-build-manifest.json \
+            data/dem-lod-report-7.3.3.json \
+            data/runtime-loading-report-7.3.3.json \
+            tests/runtime-contract.mjs \
+            tests/map-smoke.mjs \
+            tests/dem-lod-7.3.3.mjs \
+            tools/release_7_3_3.py \
+            .github/workflows/rebuild-dem-7.3.3.yml
+          git commit -m 'Release physical three-level DEM 7.3.3 [skip ci]'
+          git push origin HEAD:7.3.3
+
+      - name: Package complete project and sizes
+        run: |
+          set -euxo pipefail
+          mkdir -p /tmp/alan-map-7-3-3
+          find . -type f \
+            -not -path './.git/*' \
+            -not -path './build/*' \
+            -not -path './node_modules/*' \
+            -not -path '*/__pycache__/*' \
+            -printf '%P\t%s\n' | sort > /tmp/alan-map-7-3-3/file-sizes-7.3.3.tsv
+          cp data/dem-lod-report-7.3.3.json /tmp/alan-map-7-3-3/dem-lod-report-7.3.3.json
+          zip -qr /tmp/alan-map-7-3-3/alan-map-7.3.3.zip . \
+            -x '.git/*' 'build/*' 'node_modules/*' '*/__pycache__/*'
+          unzip -tq /tmp/alan-map-7-3-3/alan-map-7.3.3.zip
+          ls -lh /tmp/alan-map-7-3-3/alan-map-7.3.3.zip
+          wc -l /tmp/alan-map-7-3-3/file-sizes-7.3.3.tsv
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: alan-map-7.3.3
+          path: /tmp/alan-map-7-3-3/
+          retention-days: 30
