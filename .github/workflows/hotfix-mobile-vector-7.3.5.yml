@@ -1,0 +1,58 @@
+name: Hotfix 7.3.5 mobile vector transport
+
+on:
+  push:
+    branches: [7.3.5]
+    paths:
+      - '.github/workflows/hotfix-mobile-vector-7.3.5.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 7.3.5
+        uses: actions/checkout@v4
+        with:
+          ref: 7.3.5
+          fetch-depth: 0
+
+      - name: Restore resilient vector fallback on mobile
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('assets/map-page.js')
+          text = p.read_text()
+          old = """  function canUseVectorFullFileFallback() {\n    if (isMobileTransportProfile()) return false;\n    const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;\n    if (connection?.saveData) return false;\n    const effectiveType = String(connection?.effectiveType || '').toLowerCase();\n    return !['slow-2g','2g','3g'].includes(effectiveType);\n  }"""
+          new = """  function canUseVectorFullFileFallback() {\n    const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;\n    if (connection?.saveData) return false;\n    const effectiveType = String(connection?.effectiveType || '').toLowerCase();\n    return !['slow-2g','2g','3g'].includes(effectiveType);\n  }"""
+          if old not in text:
+              raise SystemExit('expected 7.3.5 mobile fallback block not found')
+          text = text.replace(old, new, 1)
+          p.write_text(text)
+          PY
+          node --check assets/map-page.js
+          ! grep -A6 -F 'function canUseVectorFullFileFallback()' assets/map-page.js | grep -F 'isMobileTransportProfile()) return false'
+
+      - name: Record fix and commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > data/mobile-vector-hotfix-7.3.5.json <<EOF
+          {
+            "version": "7.3.5",
+            "status": "applied",
+            "runId": ${{ github.run_id }},
+            "branch": "7.3.5",
+            "change": "restore-vector-full-file-fallback-on-mobile",
+            "vectorArchive": "data/alan-vector-7.2.pmtiles"
+          }
+          EOF
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/map-page.js data/mobile-vector-hotfix-7.3.5.json
+          git commit -m "Fix 7.3.5 mobile vector transport [skip ci]"
+          git push origin HEAD:7.3.5
