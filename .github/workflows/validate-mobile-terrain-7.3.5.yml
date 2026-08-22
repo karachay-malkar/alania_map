@@ -1,0 +1,177 @@
+name: Validate 7.3.5 mobile map and terrain
+
+on:
+  push:
+    branches: [7.3.5]
+    paths:
+      - '.github/workflows/validate-mobile-terrain-7.3.5.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 7.3.5
+        uses: actions/checkout@v4
+        with:
+          ref: 7.3.5
+          fetch-depth: 0
+
+      - name: Verify mobile vector fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check assets/map-page.js
+          grep -A6 -F 'function canUseVectorFullFileFallback()' assets/map-page.js
+          ! grep -A6 -F 'function canUseVectorFullFileFallback()' assets/map-page.js | grep -F 'isMobileTransportProfile()) return false'
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Inspect raw DEM tile
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save pngjs@7.0.0
+          cat > /tmp/check-dem.cjs <<'NODE'
+          const fs = require('fs');
+          const vm = require('vm');
+          const {PNG} = require('pngjs');
+          const code = fs.readFileSync('assets/pmtiles.js','utf8');
+          const context = {console, TextDecoder, TextEncoder, Uint8Array, Uint16Array, Int32Array, ArrayBuffer, DataView, Blob, Response, DecompressionStream};
+          vm.createContext(context);
+          vm.runInContext(code, context);
+          const lib = context.pmtiles;
+          if (!lib?.PMTiles) throw new Error('PMTiles bundle did not load');
+          class NodeFileSource {
+            constructor(path){ this.path=path; this.fd=fs.openSync(path,'r'); }
+            getKey(){ return this.path; }
+            async getBytes(offset,length){
+              const b=Buffer.alloc(length);
+              const n=fs.readSync(this.fd,b,0,length,offset);
+              if(n!==length) throw new Error(`short read ${n}/${length}`);
+              return {data:b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength)};
+            }
+          }
+          const lon=42.4392, lat=43.3499, z=7, n=2**z;
+          const xf=(lon+180)/360*n;
+          const yf=(1-Math.asinh(Math.tan(lat*Math.PI/180))/Math.PI)/2*n;
+          const x=Math.floor(xf), y=Math.floor(yf);
+          (async()=>{
+            const archive=new lib.PMTiles(new NodeFileSource('data/alan-dem-7.3.5.pmtiles'));
+            const header=await archive.getHeader();
+            const tile=await archive.getZxy(z,x,y);
+            if(!tile?.data?.byteLength) throw new Error(`missing DEM tile ${z}/${x}/${y}`);
+            const png=PNG.sync.read(Buffer.from(tile.data));
+            const px=Math.max(0,Math.min(png.width-1,Math.floor((xf-x)*png.width)));
+            const py=Math.max(0,Math.min(png.height-1,Math.floor((yf-y)*png.height)));
+            let max=-Infinity, min=Infinity, alphaNonZero=0, sample=null;
+            for(let dy=-2;dy<=2;dy++) for(let dx=-2;dx<=2;dx++){
+              const sx=Math.max(0,Math.min(png.width-1,px+dx));
+              const sy=Math.max(0,Math.min(png.height-1,py+dy));
+              const i=(sy*png.width+sx)*4;
+              const r=png.data[i], g=png.data[i+1], b=png.data[i+2], a=png.data[i+3];
+              const elev=-10000+(r*65536+g*256+b)*0.1;
+              if(a>0){ alphaNonZero++; min=Math.min(min,elev); max=Math.max(max,elev); }
+              if(dx===0&&dy===0) sample={r,g,b,a,elev};
+            }
+            const report={header:{minZoom:header.minZoom,maxZoom:header.maxZoom,tileType:header.tileType},tile:{z,x,y,width:png.width,height:png.height,px,py},sample,neighborhood:{alphaNonZero,min,max}};
+            console.log('RAW_DEM '+JSON.stringify(report));
+            if(png.width!==256||png.height!==256) throw new Error(`unexpected DEM tile size ${png.width}x${png.height}`);
+            if(!sample||sample.a===0) throw new Error('DEM sample is transparent at Mingi-Tau');
+            if(!(sample.elev>1000)) throw new Error(`DEM elevation is invalid at Mingi-Tau: ${sample.elev}`);
+            fs.writeFileSync('/tmp/raw-dem-report.json',JSON.stringify(report,null,2)+'\n');
+          })().catch(e=>{console.error(e);process.exit(1)});
+          NODE
+          node /tmp/check-dem.cjs
+
+      - name: Install Chromium
+        shell: bash
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Mobile browser regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > /tmp/mobile-check.mjs <<'NODE'
+          import { chromium } from 'playwright';
+          import { spawn } from 'node:child_process';
+          import fs from 'node:fs';
+          const server=spawn('python3',['tools/range_http_server.py','4174','--bind','127.0.0.1'],{stdio:'ignore'});
+          await new Promise(r=>setTimeout(r,1200));
+          let browser;
+          try{
+            browser=await chromium.launch({headless:true});
+            const page=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true,deviceScaleFactor:2});
+            const pageErrors=[];
+            page.on('pageerror',e=>pageErrors.push(String(e)));
+            await page.goto('http://127.0.0.1:4174/',{waitUntil:'domcontentloaded',timeout:30000});
+            await page.waitForFunction(()=>Boolean(window.ALAN_MAP_INSTANCE?.map?.getSource?.('openmaptiles')),undefined,{timeout:60000});
+            await page.waitForFunction(()=>Boolean(window.ALAN_MAP_INSTANCE?.map?.getSource?.('terrain-dem')),undefined,{timeout:60000});
+            await page.waitForFunction(()=>window.ALAN_MAP_PMTILES_RANGE_DIAGNOSTICS?.().vectorFullFileFallbackAllowed===true,undefined,{timeout:10000});
+            const mapResult=await page.evaluate(async()=>{
+              const map=window.ALAN_MAP_INSTANCE.map;
+              map.jumpTo({center:[42.4392,43.3499],zoom:7,pitch:58,bearing:0});
+              const start=performance.now();
+              let elevation=0;
+              while(performance.now()-start<30000){
+                elevation=map.queryTerrainElevation({lng:42.4392,lat:43.3499}) ?? 0;
+                if(Math.abs(elevation)>25) break;
+                map.triggerRepaint();
+                await new Promise(r=>setTimeout(r,250));
+              }
+              return {
+                terrain:map.getTerrain(),
+                elevation,
+                openmaptilesLoaded:map.isSourceLoaded('openmaptiles'),
+                terrainLoaded:map.isSourceLoaded('terrain-dem'),
+                transport:window.ALAN_MAP_PMTILES_RANGE_DIAGNOSTICS?.(),
+                status:document.querySelector('[data-role="status"]')?.textContent||''
+              };
+            });
+            console.log('MOBILE_MAP '+JSON.stringify(mapResult));
+            if(mapResult.terrain?.source!=='terrain-dem') throw new Error('terrain source detached');
+            if(mapResult.transport?.vectorFullFileFallbackAllowed!==true) throw new Error('mobile vector fallback is disabled');
+            const vector=mapResult.transport?.archives?.find(x=>x.sourceId==='openmaptiles');
+            const dem=mapResult.transport?.archives?.find(x=>x.sourceId==='terrain-dem');
+            if(!vector||vector.failures>0) throw new Error('openmaptiles transport failed: '+JSON.stringify(vector));
+            if(!dem||dem.failures>0) throw new Error('terrain transport failed: '+JSON.stringify(dem));
+            if(!(Math.abs(mapResult.elevation)>25)) throw new Error('browser terrain elevation remained near zero: '+mapResult.elevation);
+            if(pageErrors.length) throw new Error('page errors: '+pageErrors.join(' | '));
+            fs.writeFileSync('/tmp/mobile-map-report.json',JSON.stringify(mapResult,null,2)+'\n');
+          } finally {
+            if(browser) await browser.close();
+            server.kill('SIGTERM');
+          }
+          NODE
+          node /tmp/mobile-check.mjs
+
+      - name: Publish validation receipt
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          STATUS='${{ job.status }}'
+          cp /tmp/raw-dem-report.json data/raw-dem-report-7.3.5.json 2>/dev/null || true
+          cp /tmp/mobile-map-report.json data/mobile-map-report-7.3.5.json 2>/dev/null || true
+          cat > data/mobile-terrain-validation-7.3.5.json <<EOF
+          {
+            "version": "7.3.5",
+            "status": "$STATUS",
+            "runId": ${{ github.run_id }},
+            "branch": "7.3.5"
+          }
+          EOF
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/raw-dem-report-7.3.5.json data/mobile-map-report-7.3.5.json data/mobile-terrain-validation-7.3.5.json 2>/dev/null || true
+          if ! git diff --cached --quiet; then
+            git commit -m "Publish 7.3.5 mobile terrain validation [skip ci]"
+            git push origin HEAD:7.3.5
+          fi
