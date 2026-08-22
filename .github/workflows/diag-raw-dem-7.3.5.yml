@@ -54,7 +54,7 @@ jobs:
           const lon=42.4392,lat=43.3499,z=7,n=2**z,xf=(lon+180)/360*n,yf=(1-Math.asinh(Math.tan(lat*Math.PI/180))/Math.PI)/2*n,x=Math.floor(xf),y=Math.floor(yf);
           (async()=>{const a=new context.pmtiles.PMTiles(new Source('data/alan-dem-7.3.5.pmtiles'));const h=await a.getHeader(),t=await a.getZxy(z,x,y);if(!t)throw new Error('tile missing');const p=PNG.sync.read(Buffer.from(t.data));const px=Math.floor((xf-x)*p.width),py=Math.floor((yf-y)*p.height),i=(py*p.width+px)*4,r=p.data[i],g=p.data[i+1],b=p.data[i+2],alpha=p.data[i+3],elevation=-10000+(r*65536+g*256+b)*0.1;const report={version:'7.3.5',archive:'data/alan-dem-7.3.5.pmtiles',header:{minZoom:h.minZoom,maxZoom:h.maxZoom,tileType:h.tileType},tile:{z,x,y,width:p.width,height:p.height,px,py},sample:{r,g,b,alpha,elevation}};console.log('RAW_DEM '+JSON.stringify(report));fs.writeFileSync('data/raw-dem-report-7.3.5.json',JSON.stringify(report,null,2)+'\n');if(p.width!==256||p.height!==256)throw new Error('DEM tile is not 256x256');if(alpha===0)throw new Error('DEM is transparent at Mingi-Tau');if(elevation<1000)throw new Error('DEM elevation is invalid: '+elevation)})().catch(e=>{console.error(e);process.exit(1)});
           NODE
-          node /tmp/dem.cjs
+          NODE_PATH="$PWD/node_modules" node /tmp/dem.cjs
 
       - name: Publish result
         if: always()
